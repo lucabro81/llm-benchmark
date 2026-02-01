@@ -9,31 +9,36 @@
 ## Implementation Roadmap
 
 ### Phase 1: Project Setup
-- [ ] Create project structure (directories)
+- [x] Create project structure (directories)
 - [x] Setup Python virtual environment (already done - alias: `llmbench`)
 - [x] Install dependencies (requirements.txt) (already done)
 - [x] Verify system requirements (TypeScript, nvidia-smi, Ollama) (already done)
 - [x] Create .gitignore file (already done)
+- [x] Create README.md with usage documentation
 
 ### Phase 2: Core Components
 
-#### 2.1 Ollama Client (`src/ollama_client.py`)
-- [ ] Create `ChatResult` dataclass
-- [ ] Implement `chat()` function
-- [ ] Add error handling (ModelNotFoundError, TimeoutError, OllamaConnectionError)
-- [ ] Parse response metadata (tokens, duration)
-- [ ] Add timeout support
-- [ ] Unit tests (basic validation)
+#### 2.1 Ollama Client (`src/ollama_client.py`) - COMPLETED
+- [x] Create `ChatResult` dataclass
+- [x] Implement `chat()` function
+- [x] Add error handling (ModelNotFoundError, TimeoutError, OllamaConnectionError)
+- [x] Parse response metadata (tokens, duration)
+- [x] Add timeout support
+- [x] Implement `get_ollama_base_url()` configuration
+- [x] Unit tests - 13 tests passing
 
-#### 2.2 GPU Monitor (`src/gpu_monitor.py`)
-- [ ] Create `GPUMetrics` dataclass
-- [ ] Implement `monitor_gpu_during_inference()` function
-- [ ] Parse nvidia-smi CSV output
-- [ ] Implement 500ms polling loop
-- [ ] Calculate avg/peak metrics
-- [ ] Add nvidia-smi availability check
-- [ ] Add thread-safety for async operations
-- [ ] Test with dummy callback
+#### 2.2 GPU Monitor (`src/gpu_monitor.py`) - COMPLETED
+- [x] Create `GPUMetrics` dataclass
+- [x] Implement `monitor_gpu_during_inference()` function
+- [x] Parse nvidia-smi CSV output
+- [x] Implement 500ms polling loop with threading
+- [x] Calculate avg/peak metrics
+- [x] Add nvidia-smi availability check
+- [x] Implement `check_nvidia_smi_available()` function
+- [x] Implement `parse_nvidia_smi_output()` function
+- [x] Add thread-safety with Event synchronization
+- [x] Handle callback exceptions gracefully
+- [x] Unit tests - 20 tests passing (1 integration skipped)
 
 #### 2.3 Validator (`src/validator.py`)
 - [ ] Create `TypeScriptResult` dataclass

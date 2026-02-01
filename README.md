@@ -23,8 +23,10 @@ This tool benchmarks LLMs on real-world development tasks by:
 ### System
 - Python 3.12+
 - Node.js 24.x with TypeScript 5.x
-- NVIDIA GPU with drivers (nvidia-smi)
-- Ollama with GPU support
+- **NVIDIA GPU with drivers (nvidia-smi)** - Required for GPU monitoring
+  - Tests will mock GPU on systems without NVIDIA hardware
+  - Integration tests are skipped automatically on non-GPU systems
+- Ollama with GPU support (recommended) or CPU mode
 
 ### Python Dependencies
 See [requirements.txt](requirements.txt)
@@ -167,7 +169,19 @@ open htmlcov/index.html
 
 # Run only unit tests (skip integration)
 pytest -m "not integration"
+
+# Run integration tests (requires NVIDIA GPU)
+# Note: Integration tests are skipped by default as they require:
+# - Physical NVIDIA GPU with drivers installed
+# - nvidia-smi available in PATH
+pytest -m integration -v
 ```
+
+**Note on Integration Tests:**
+- Integration tests are marked with `@pytest.mark.integration` and `@pytest.mark.skip`
+- They test real hardware (nvidia-smi, actual Ollama) instead of mocks
+- Skipped by default on machines without NVIDIA GPU
+- Run them manually only on GPU-enabled systems
 
 ### Code Quality
 ```bash
