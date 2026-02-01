@@ -1,0 +1,24 @@
+certifi==2026.1.4
+charset-normalizer==3.4.4
+click==8.3.1
+idna==3.11
+Jinja2==3.1.6
+markdown-it-py==4.0.0
+MarkupSafe==3.0.3
+mdurl==0.1.2
+numpy==2.4.2
+pandas==3.0.0
+Pygments==2.19.2
+python-dateutil==2.9.0.post0
+regex==2026.1.15
+requests==2.32.5
+rich==14.3.1
+six==1.17.0
+tiktoken==0.12.0
+urllib3==2.6.3
+
+# LLM Benchmark dependencies
+ollama>=0.4.0              # Python SDK for Ollama API
+python-dotenv>=1.0.0       # Environment variable management
+pytest>=8.0.0              # Testing framework
+pytest-mock>=3.12.0        # Mocking for tests

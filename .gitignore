@@ -1,0 +1,34 @@
+# Python
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# Results & Output
+results/
+*.json
+*.csv
+!fixtures/**/*.json
+
+# Temp files
+*.tmp
+*.log
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# System
+.env
+.envrc
+
+# Node (se hai test locali)
+node_modules/
