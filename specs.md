@@ -41,38 +41,46 @@
 - [x] Unit tests - 20 tests passing (1 integration skipped)
 
 #### 2.3 Validator (`src/validator.py`) - COMPLETED
-- [x] Create `ASTResult` dataclass
-- [x] Implement `validate_ast_structure()` function
+- [x] Create `CompilationResult` dataclass (for vue-tsc validation)
+- [x] Create `ASTResult` dataclass (for pattern matching)
+- [x] Implement `validate_compilation()` function (run vue-tsc in target project)
+- [x] Implement `validate_ast_structure()` function (pattern matching)
 - [x] Add AST parser using @vue/compiler-sfc (official Vue parser - no false positives!)
-- [x] Calculate AST score (0-10) with proportional scoring (3.3 + 3.3 + 3.4)
+- [x] Calculate pattern score based on validation_spec.json weights
 - [x] Test with valid/invalid Vue files
 - [x] Create Node.js AST parser script (`scripts/parse_vue_ast.js`)
 - [x] Install Node.js dependencies (@vue/compiler-sfc, typescript, vue-tsc)
-- [x] Unit tests - 17 tests passing
-- [x] Clarify responsibilities: This tool validates pattern conformance, NOT TypeScript compilation
-- [x] Remove TypeScript compilation validation (target Vue project's responsibility)
+- [x] Unit tests - 17 tests passing (AST validation)
+- [x] Architecture: Dual validation (compilation + pattern matching)
 
 #### 2.4 Refactoring Test (`src/refactoring_test.py`)
-- [ ] Create `TestResult` dataclass
+- [ ] Create `TestResult` dataclass (with compilation + pattern scores)
 - [ ] Implement `RefactoringTest` class
-- [ ] Add fixture loading (input.vue, expected.vue, prompt.md, ast_checks.json)
-- [ ] Implement prompt template rendering
+- [ ] Add fixture loading (prompt.md, validation_spec.json, target_project/)
+- [ ] Implement prompt template rendering ({{original_code}} from target file)
 - [ ] Integrate Ollama client
 - [ ] Integrate GPU monitor
-- [ ] Run validators on output
-- [ ] Calculate composite score
+- [ ] Write LLM output to target_project file
+- [ ] Run vue-tsc compilation validation in target_project
+- [ ] Run AST pattern validation on LLM output
+- [ ] Calculate weighted composite score from validation_spec.json
+- [ ] Restore original file after test (cleanup)
 - [ ] Add comprehensive error handling
-- [ ] Test end-to-end with dummy fixture
+- [ ] Test end-to-end with fixture
 
 ### Phase 3: Fixtures
 
 #### 3.1 Simple Component Fixture
 - [ ] Create `fixtures/refactoring/simple-component/` directory
-- [ ] Write `input.vue` (untyped component)
-- [ ] Write `expected.vue` (typed component)
-- [ ] Write `prompt.md` (Jinja2-style template)
-- [ ] Write `ast_checks.json` (expected structures)
-- [ ] Validate expected.vue compiles with tsc
+- [ ] Create `target_project/` subdirectory (complete Vue 3 project)
+- [ ] Write `target_project/package.json` (Vue 3 + TypeScript deps)
+- [ ] Write `target_project/tsconfig.json` (Vue 3 TS config)
+- [ ] Write `target_project/vite.config.ts` (minimal Vite config)
+- [ ] Write `target_project/src/components/HelloWorld.vue` (untyped initial state)
+- [ ] Write `prompt.md` (Jinja2-style template with {{original_code}})
+- [ ] Write `validation_spec.json` (required patterns + scoring weights)
+- [ ] Run `npm install` in target_project
+- [ ] Validate target_project compiles with `npm run type-check`
 - [ ] Test fixture manually with Ollama
 
 ### Phase 4: Runner Script
@@ -141,10 +149,16 @@ llm-benchmark/
 ├── fixtures/
 │   └── refactoring/
 │       └── simple-component/
-│           ├── input.vue
-│           ├── expected.vue
+│           ├── target_project/          # Complete Vue 3 project
+│           │   ├── package.json
+│           │   ├── tsconfig.json
+│           │   ├── vite.config.ts
+│           │   ├── node_modules/        # gitignored
+│           │   └── src/
+│           │       └── components/
+│           │           └── HelloWorld.vue
 │           ├── prompt.md
-│           └── ast_checks.json
+│           └── validation_spec.json
 │
 ├── results/                       # gitignored
 │   └── .gitkeep
@@ -201,15 +215,25 @@ class GPUMetrics:
     samples: int
 ```
 
+### CompilationResult
+```python
+@dataclass
+class CompilationResult:
+    success: bool
+    errors: List[str]
+    warnings: List[str]
+```
+
 ### ASTResult
 ```python
 @dataclass
 class ASTResult:
     has_interfaces: bool
     has_type_annotations: bool
+    has_imports: bool
     has_script_lang: bool
     missing: List[str]
-    score: float  # 0-10
+    score: float  # 0.0-1.0 (normalized)
 ```
 
 ### TestResult
@@ -219,7 +243,10 @@ class TestResult:
     model: str
     fixture: str
     timestamp: str
-    ast_score: float
+    compiles: bool
+    compilation_errors: List[str]
+    pattern_score: float         # 0-10 from AST validation
+    final_score: float           # 0-10 weighted composite
     tokens_per_sec: float
     duration_sec: float
     gpu_avg_utilization: float
@@ -227,7 +254,6 @@ class TestResult:
     gpu_avg_memory_gb: float
     gpu_peak_memory_gb: float
     output_code: str
-    errors: List[str]
     run_number: int
 ```
 
@@ -256,9 +282,12 @@ class TestResult:
 ## Success Criteria
 
 - [x] All unit tests pass
+- [ ] Fixture target_project compiles with vue-tsc
 - [ ] Integration test completes 3 runs without errors
 - [ ] GPU utilization averages >80%
-- [ ] AST validation scores expected.vue as 10/10
+- [ ] Compilation validation works (detects TypeScript errors)
+- [ ] Pattern validation scores perfect output as 10/10
+- [ ] Weighted scoring correctly combines compilation + pattern scores
 - [ ] Results JSON is well-formed
 - [ ] Performance ~150-250 tok/s for 7B Q8 model
 
@@ -267,21 +296,31 @@ class TestResult:
 ## Known Issues / TODOs
 
 ### Limitations (MVP Scope)
-- Pattern conformance validation only (not TypeScript semantic validation)
+- Single test scenario (TypeScript refactoring only)
+- Single file per fixture (no multi-file refactoring)
+- Basic pattern matching (presence check, not usage correctness)
 - No CLI arguments (hardcoded config)
-- Single test type only
 - No statistical aggregation
 - No report generation
 - No multi-model comparison tools
+- Manual fixture setup (no automated project scaffolding)
 
 ### Future Enhancements (Post-MVP)
+- Multiple test scenarios:
+  - Vue 2 → Vue 3 migration
+  - Nuxt 3 projects with server composables
+  - Design system integration
+  - Multi-file refactoring
 - Implement CLI with click/argparse
 - Add markdown/CSV report generation
-- Support multiple test types (context window, consistency)
-- Add Vitest functional testing (run generated code in real Vue project)
-- Add semantic TypeScript validation in target Vue project environment
+- Add Vitest functional testing (run in browser)
+- Advanced pattern tracking:
+  - Composable usage correctness
+  - Component composition patterns
+  - Reactivity API usage
 - Architecture detection (MoE vs Dense)
 - Statistical analysis across runs
+- Automated fixture scaffolding
 
 ---
 

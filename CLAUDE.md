@@ -38,30 +38,31 @@ Red flags to report:
 
 ## Objective
 
-Create a tool to benchmark LLMs locally using Ollama. The tool should be able to run a single test type, validate the result and provide metrics.
+Create a tool to benchmark LLMs locally using Ollama in controlled Vue.js project environments. The tool provides test scenarios (Vue 2→3 migration, Nuxt projects, design system integration, etc.), executes LLM tasks, validates compilation and pattern conformance, and collects comprehensive metrics.
 
 ---
 
 ## Scope MVP
 
 ### What's IN
-- **Single test type**: Refactoring accuracy
-- **Single validator**: AST structure conformance check
+- **Single test scenario**: TypeScript refactoring in Vue 3 project
+- **Self-contained fixtures**: Each fixture includes a complete Vue project with dependencies
+- **Dual validation**: TypeScript compilation (vue-tsc) + AST pattern conformance
 - **GPU monitoring**: Real-time nvidia-smi integration
-- **Basic metrics**: AST conformance score, tokens/sec, GPU utilization, duration
-- **Single fixture**: Vue component refactoring (props typing)
+- **Comprehensive metrics**: Compilation success, pattern conformance score, tokens/sec, GPU utilization, duration
+- **In-place execution**: LLM modifies files directly in fixture's target project
 - **Raw JSON output**: Structured results for future aggregation
 - **Simple runner**: Python script with hardcoded parameters
 
 ### What's OUT (Future Phases)
-- Multiple test types (context window, consistency, etc.)
+- Multiple test scenarios (Vue 2→3 migration, Nuxt projects, design system integration)
 - CLI with argparse/click
 - Report generation (Markdown/CSV)
 - Data aggregation and statistics
-- Multiple fixtures per test type
-- Vitest functional testing (AST check only for MVP)
+- Multiple fixtures per scenario
+- Vitest functional testing (run code in browser)
 - Architecture-aware comparisons (MoE vs Dense)
-- Scenario-based scoring
+- Advanced pattern matching (composable usage tracking, component composition)
 
 ---
 
@@ -85,11 +86,15 @@ Create a tool to benchmark LLMs locally using Ollama. The tool should be able to
 │
 ├── fixtures/
 │   └── refactoring/
-│       └── simple-component/      # First test fixture
-│           ├── input.vue          # Untyped component
-│           ├── expected.vue       # Typed component (reference)
-│           ├── prompt.md          # Jinja2 template for LLM prompt
-│           └── ast_checks.json    # Expected AST structures
+│       └── simple-component/           # First test fixture
+│           ├── target_project/         # Complete Vue 3 project
+│           │   ├── package.json        # Vue + TypeScript + deps
+│           │   ├── tsconfig.json       # Vue 3 TS config
+│           │   └── src/
+│           │       └── components/
+│           │           └── HelloWorld.vue  # File to be modified by LLM
+│           ├── prompt.md               # Template with {{original_code}}
+│           └── validation_spec.json    # Expected patterns + scoring weights
 │
 ├── results/                       # gitignored, created at runtime
 │   └── .gitkeep
@@ -174,15 +179,32 @@ def monitor_gpu_during_inference(callback: Callable) -> GPUMetrics:
 
 ### 3. `src/validator.py`
 
-**Purpose**: Validate LLM output conformance to expected code patterns
+**Purpose**: Dual validation - compilation + pattern conformance
 
-**Responsibility Clarification**:
-- This tool validates **CONFORMANCE to expected patterns**, not TypeScript compilation
-- TypeScript compilation correctness is the responsibility of the **target Vue project**
-- This tool measures how well the LLM followed the coding standards/patterns requested
+**Validation Architecture**:
+```
+LLM Output (written to target_project/src/...)
+    ↓
+[1] TypeScript Compilation (vue-tsc in target project context)
+    ↓
+[2] AST Pattern Matching (@vue/compiler-sfc + Babel)
+    ↓
+Composite Score
+```
 
 **Key Functions**:
 ```python
+def validate_compilation(target_project: Path) -> CompilationResult:
+    """
+    Run vue-tsc in target project to verify code compiles.
+
+    Returns:
+        CompilationResult dataclass with:
+        - success: bool
+        - errors: List[str]
+        - warnings: List[str]
+    """
+
 def validate_ast_structure(code: str, expected_structures: dict) -> ASTResult:
     """
     Check if code contains expected AST structures using official Vue parser
@@ -205,22 +227,42 @@ def validate_ast_structure(code: str, expected_structures: dict) -> ASTResult:
     """
 ```
 
-**AST Validation Implementation**:
-- Uses **@vue/compiler-sfc** (official Vue SFC parser) + TypeScript AST
+**Compilation Validation**:
+- Executes `vue-tsc --noEmit` in target_project directory
+- Full context: all dependencies, tsconfig, project structure
+- Returns success/failure + TypeScript error messages
+- No file copying - LLM output already written to target file
+
+**AST Pattern Validation**:
+- Uses **@vue/compiler-sfc** (official Vue SFC parser) + Babel TypeScript AST
 - Calls Node.js helper script (`scripts/parse_vue_ast.js`) via subprocess
-- Parser extracts TypeScript AST from `<script>` block
-- Checks for actual AST nodes (not regex):
-  - **interfaces**: `TSInterfaceDeclaration` nodes
-  - **type_annotations**: `TSTypeAnnotation` or `TSTypeParameterInstantiation` nodes
-  - **imports**: `ImportDeclaration` nodes (with `type` modifier if present)
-  - **script_lang**: `lang="ts"` attribute on script tag
-- Score calculation: interfaces=3.3, type_annotations=3.3, script_lang=3.4 (max 10.0)
+- Extracts TypeScript AST from `<script>` block
+- Checks for specific patterns from `validation_spec.json`:
+  - **interfaces**: Specific interface names (e.g., "ComponentProps", "UserProfile")
+  - **type_annotations**: Specific type usages (e.g., "defineProps<ComponentProps>")
+  - **imports**: Specific import paths (e.g., "@/composables/useAuth")
+  - **composables**: Specific composable calls (e.g., "useAuth()", "useUser()")
+  - **script_lang**: `lang="ts"` attribute
+- Scoring: Configurable weights per pattern category from validation_spec.json
 - No false positives from commented code (parses actual AST, not text)
 
-**Architecture Decision**:
-- **This tool**: Validates structural patterns (benchmark/scoring tool)
-- **Target project**: Validates TypeScript compilation (production environment)
-- Separation of concerns: pattern conformance vs semantic correctness
+**Scoring Model**:
+```python
+# From validation_spec.json
+{
+  "scoring": {
+    "compilation": 0.5,      # 50% weight
+    "pattern_match": 0.4,    # 40% weight
+    "naming": 0.1            # 10% weight
+  }
+}
+
+final_score = (
+    compilation_success * weights["compilation"] +
+    ast_conformance * weights["pattern_match"] +
+    naming_conformance * weights["naming"]
+) * 10  # Scale to 0-10
+```
 
 ---
 
@@ -254,28 +296,44 @@ class RefactoringTest:
             TestResult dataclass with:
             - model: str
             - fixture: str
-            - ast_score: float
+            - compiles: bool
+            - compilation_errors: List[str]
+            - pattern_score: float (0-10)
+            - final_score: float (0-10, weighted)
             - tokens_per_sec: float
             - duration_sec: float
             - gpu_avg_utilization: float
             - gpu_peak_memory_gb: float
             - output_code: str
-            - errors: List[str]
             - timestamp: str
         """
 ```
 
 **Workflow**:
-1. Load fixture files (input, expected, prompt, ast_checks)
-2. Render prompt: replace `{{input_code}}` in prompt.md with input.vue content
-3. Wrap Ollama call with GPU monitor
-4. Run AST validation on output
-5. Calculate conformance score
-6. Return structured result
+1. Load fixture (prompt.md, validation_spec.json)
+2. Read original file from target_project (e.g., src/components/HelloWorld.vue)
+3. Render prompt: replace `{{original_code}}` with file content
+4. Wrap Ollama call with GPU monitor
+5. Write LLM output back to target file
+6. Run vue-tsc in target_project (compilation validation)
+7. Run AST validation on LLM output (pattern conformance)
+8. Calculate composite score based on validation_spec weights
+9. Restore original file (cleanup for next run)
+10. Return structured result
 
 **Scoring Logic**:
 ```python
-final_score = ast_score  # 0-10 from AST validation
+# Weighted scoring from validation_spec.json
+compilation_score = 1.0 if compiles else 0.0
+pattern_score = ast_result.score  # 0.0-1.0 based on patterns found
+naming_score = naming_result.score  # 0.0-1.0 based on conventions
+
+weights = validation_spec["scoring"]
+final_score = (
+    compilation_score * weights["compilation"] +
+    pattern_score * weights["pattern_match"] +
+    naming_score * weights["naming"]
+) * 10  # Scale to 0-10
 ```
 
 **Error Handling**:
@@ -325,10 +383,12 @@ def main():
         results.append(result)
         
         # Print summary
-        status = "✓" if result.ast_score >= 8.0 else "✗"
+        compile_icon = "✓" if result.compiles else "✗"
+        score_icon = "✓" if result.final_score >= 8.0 else "✗"
         console.print(
-            f"{status} Run {i+1}: "
-            f"Score={result.ast_score:.1f}/10, "
+            f"{compile_icon} Compile | {score_icon} Score | Run {i+1}: "
+            f"Final={result.final_score:.1f}/10 "
+            f"(Pattern={result.pattern_score:.1f}), "
             f"Speed={result.tokens_per_sec:.1f} tok/s, "
             f"GPU={result.gpu_avg_utilization:.0f}%"
         )
@@ -371,7 +431,45 @@ Runs: 3
 
 ## Fixture Specification: `simple-component`
 
-### `input.vue`
+### Directory Structure
+```
+fixtures/refactoring/simple-component/
+├── target_project/              # Complete Vue 3 project
+│   ├── package.json             # Vue 3.5 + TypeScript 5.x
+│   ├── tsconfig.json            # Standard Vue 3 TS config
+│   ├── vite.config.ts           # Minimal Vite config
+│   └── src/
+│       ├── components/
+│       │   └── HelloWorld.vue   # File to be modified (untyped initially)
+│       └── App.vue              # (optional, for context)
+│
+├── prompt.md                    # Jinja2 template
+└── validation_spec.json         # Validation rules + scoring
+```
+
+### `target_project/package.json`
+```json
+{
+  "name": "simple-component-fixture",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "type-check": "vue-tsc --noEmit"
+  },
+  "dependencies": {
+    "vue": "^3.5.0"
+  },
+  "devDependencies": {
+    "@vue/compiler-sfc": "^3.5.0",
+    "typescript": "^5.6.0",
+    "vue-tsc": "^2.2.0",
+    "vite": "^6.0.0",
+    "@vitejs/plugin-vue": "^5.2.0"
+  }
+}
+```
+
+### `target_project/src/components/HelloWorld.vue` (original state)
 ```vue
 <script setup>
 const props = defineProps({
@@ -394,16 +492,61 @@ const doubled = computed(() => props.count * 2)
 </template>
 ```
 
-### `expected.vue`
+### `prompt.md`
+```markdown
+You are a Vue.js expert. Refactor the following component to add TypeScript type safety.
+
+Requirements:
+- Add `lang="ts"` to script tag
+- Define an interface named `HelloWorldProps` for props with proper types
+- Use `defineProps<HelloWorldProps>()` syntax
+- Maintain exact same functionality
+- Keep template unchanged
+
+Original code:
+```vue
+{{original_code}}
+```
+
+Output ONLY the complete refactored component code, no explanations.
+```
+
+### `validation_spec.json`
+```json
+{
+  "target_file": "src/components/HelloWorld.vue",
+  "task_description": "Add TypeScript types to Vue 3 component props",
+
+  "required_patterns": {
+    "interfaces": ["HelloWorldProps"],
+    "type_annotations": ["defineProps<HelloWorldProps>"],
+    "script_lang": "ts",
+    "imports": []
+  },
+
+  "naming_conventions": {
+    "interfaces": "PascalCase",
+    "props_interface_suffix": "Props"
+  },
+
+  "scoring": {
+    "compilation": 0.5,
+    "pattern_match": 0.4,
+    "naming": 0.1
+  }
+}
+```
+
+### Expected LLM Output (reference)
 ```vue
 <script setup lang="ts">
-interface ComponentProps {
+interface HelloWorldProps {
   title: string
   count: number
   items: string[]
 }
 
-const props = defineProps<ComponentProps>()
+const props = defineProps<HelloWorldProps>()
 
 const doubled = computed(() => props.count * 2)
 </script>
@@ -419,40 +562,15 @@ const doubled = computed(() => props.count * 2)
 </template>
 ```
 
-### `prompt.md`
-```markdown
-You are a Vue.js expert. Refactor the following component to add TypeScript type safety.
-
-Requirements:
-- Add `lang="ts"` to script tag
-- Define an interface for props with proper types
-- Use `defineProps<Interface>()` syntax
-- Maintain exact same functionality
-- Keep template unchanged
-
-Input code:
-```vue
-{{input_code}}
-```
-
-Output only the refactored component, no explanations.
-```
-
-### `ast_checks.json`
-```json
-{
-  "interfaces": ["ComponentProps"],
-  "type_annotations": ["defineProps<ComponentProps>"],
-  "script_lang": ["<script setup lang=\"ts\">"],
-  "imports": []
-}
-```
-
-**AST Scoring**:
-- `interfaces` present: +3.3 points
-- `type_annotations` present: +3.3 points  
-- `script_lang` present: +3.4 points
-- Max score: 10.0
+**Scoring Breakdown**:
+- Compilation (50%): ✓ Compiles with vue-tsc = 5.0 points
+- Pattern Match (40%):
+  - Has interface "HelloWorldProps": ✓ = 1.3 points
+  - Has type annotation "defineProps<HelloWorldProps>": ✓ = 1.3 points
+  - Has script lang="ts": ✓ = 1.4 points
+  - Total: 4.0 points
+- Naming (10%): Interface is PascalCase with "Props" suffix: ✓ = 1.0 point
+- **Final Score: 10.0/10**
 
 ---
 
@@ -473,8 +591,9 @@ pip install -r requirements.txt
 
 ### System Requirements
 - Python 3.12+ (installed)
-- Node.js 24.x (installed, for AST parser)
-- Node.js dependencies: `npm install --save-dev @vue/compiler-sfc typescript vue-tsc`
+- Node.js 24.x (installed, for AST parser + vue-tsc)
+- Global tools: `npm install --save-dev @vue/compiler-sfc` (for AST parser script)
+- Per-fixture dependencies: `cd fixtures/*/target_project && npm install` (for vue-tsc)
 - nvidia-smi (pre-installed with NVIDIA drivers)
 - Ollama running with GPU support
 
@@ -495,6 +614,11 @@ Before running benchmarks, verify:
    ```bash
    node --version  # Should be 24.x
    node -e "console.log(require('@vue/compiler-sfc').parse)"  # Should print function
+
+   # Install fixture dependencies
+   cd fixtures/refactoring/simple-component/target_project
+   npm install
+   npm run type-check  # Should pass for original untyped code (with warnings)
    ```
 
 3. **Ollama Models**:
@@ -519,7 +643,10 @@ Before running benchmarks, verify:
     "model": "qwen2.5-coder:7b-instruct-q8_0",
     "fixture": "simple-component",
     "timestamp": "2025-01-17T14:23:45",
-    "ast_score": 10.0,
+    "compiles": true,
+    "compilation_errors": [],
+    "pattern_score": 4.0,
+    "final_score": 10.0,
     "tokens_per_sec": 185.3,
     "duration_sec": 4.2,
     "gpu_avg_utilization": 94.2,
@@ -551,21 +678,23 @@ MVP is successful when:
 
 1. ✅ **Runs without errors** on 3 consecutive tests
 2. ✅ **GPU utilization** averages >80% during inference
-3. ✅ **AST validation** scores expected output as 10/10
-4. ✅ **Results JSON** is well-formed and contains all metrics
-5. ✅ **Performance** matches expectations (~150-250 tok/s for 7B Q8 model)
+3. ✅ **Compilation** succeeds with vue-tsc in target project
+4. ✅ **Pattern validation** scores expected output as 10/10
+5. ✅ **Results JSON** is well-formed and contains all metrics
+6. ✅ **Performance** matches expectations (~150-250 tok/s for 7B Q8 model)
 
 ---
 
 ## Known Limitations (MVP)
 
-1. **Single test type**: Only refactoring, no context window/consistency tests
+1. **Single test scenario**: Only TypeScript refactoring, no Vue 2→3 migration, Nuxt, or design system scenarios
 2. **No aggregation**: Raw JSON only, no statistics or reports
-3. **Pattern validation only**: Does not validate TypeScript semantic correctness (target project's responsibility)
-4. **No Vitest**: Functional testing postponed to future phase
+3. **Basic pattern matching**: Only checks for presence of patterns, not semantic correctness or usage patterns
+4. **No Vitest**: Functional testing (running in browser) postponed to future phase
 5. **Hardcoded config**: No CLI arguments, edit source to change model/fixture
 6. **No multi-model comparison**: Run script multiple times manually
 7. **No architecture detection**: MoE vs Dense distinction not tracked yet
+8. **Single file per fixture**: LLM modifies one file at a time, no multi-file refactoring
 
 ---
 
@@ -573,14 +702,22 @@ MVP is successful when:
 
 After MVP validation:
 
-1. Add second fixture (`complex-component` with composables)
+1. Add more scenarios:
+   - Vue 2 → Vue 3 migration (Options API → Composition API)
+   - Nuxt 3 project with server composables
+   - Design system integration (use specific components library)
+   - Complex refactoring with multiple files
 2. Implement aggregation (mean, stddev across runs)
 3. Add Markdown report generation
 4. CLI with click (model, fixture, runs arguments)
 5. Add context window test type
-6. Add Vitest functional validation (run generated code in real Vue project)
+6. Add Vitest functional validation (run generated code in browser)
 7. Model architecture detection (MoE vs Dense)
-8. Add semantic TypeScript validation in target Vue project environment
+8. Advanced pattern tracking:
+   - Composable usage correctness (not just presence)
+   - Component composition patterns
+   - Reactivity API usage (ref/reactive/computed)
+9. Multi-file refactoring support
 
 ---
 

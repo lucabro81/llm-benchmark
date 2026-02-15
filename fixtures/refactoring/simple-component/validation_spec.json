@@ -1,0 +1,22 @@
+{
+  "target_file": "src/components/HelloWorld.vue",
+  "task_description": "Add TypeScript types to Vue 3 component props",
+
+  "required_patterns": {
+    "interfaces": ["HelloWorldProps"],
+    "type_annotations": ["defineProps<HelloWorldProps>"],
+    "script_lang": "ts",
+    "imports": []
+  },
+
+  "naming_conventions": {
+    "interfaces": "PascalCase",
+    "props_interface_suffix": "Props"
+  },
+
+  "scoring": {
+    "compilation": 0.5,
+    "pattern_match": 0.4,
+    "naming": 0.1
+  }
+}
