@@ -46,9 +46,9 @@ Create a tool to benchmark LLMs locally using Ollama. The tool should be able to
 
 ### What's IN
 - **Single test type**: Refactoring accuracy
-- **Single validator**: TypeScript compilation + AST structure check
+- **Single validator**: AST structure conformance check
 - **GPU monitoring**: Real-time nvidia-smi integration
-- **Basic metrics**: compile status, tokens/sec, GPU utilization, duration
+- **Basic metrics**: AST conformance score, tokens/sec, GPU utilization, duration
 - **Single fixture**: Vue component refactoring (props typing)
 - **Raw JSON output**: Structured results for future aggregation
 - **Simple runner**: Python script with hardcoded parameters
@@ -77,8 +77,11 @@ Create a tool to benchmark LLMs locally using Ollama. The tool should be able to
 │   ├── __init__.py
 │   ├── ollama_client.py          # Ollama API wrapper + response parsing
 │   ├── gpu_monitor.py            # nvidia-smi integration
-│   ├── validator.py              # TypeScript + AST validation
+│   ├── validator.py              # AST structure validation
 │   └── refactoring_test.py       # Refactoring test runner
+│
+├── scripts/
+│   └── parse_vue_ast.js          # Node.js AST parser helper
 │
 ├── fixtures/
 │   └── refactoring/
@@ -171,32 +174,27 @@ def monitor_gpu_during_inference(callback: Callable) -> GPUMetrics:
 
 ### 3. `src/validator.py`
 
-**Purpose**: Validate LLM output (TypeScript compilation + AST structure)
+**Purpose**: Validate LLM output conformance to expected code patterns
+
+**Responsibility Clarification**:
+- This tool validates **CONFORMANCE to expected patterns**, not TypeScript compilation
+- TypeScript compilation correctness is the responsibility of the **target Vue project**
+- This tool measures how well the LLM followed the coding standards/patterns requested
 
 **Key Functions**:
 ```python
-def validate_typescript(code: str, temp_dir: Path) -> TypeScriptResult:
-    """
-    Check if Vue component compiles with TypeScript
-    
-    Returns:
-        TypeScriptResult dataclass with:
-        - compiles: bool
-        - errors: List[str]
-        - temp_file: Path
-    """
-
 def validate_ast_structure(code: str, expected_structures: dict) -> ASTResult:
     """
-    Check if code contains expected AST structures
-    
+    Check if code contains expected AST structures using official Vue parser
+
     Expected structures (from ast_checks.json):
     {
       "interfaces": ["ComponentProps"],
-      "type_annotations": ["props: ComponentProps"],
-      "imports": ["import type { ComponentProps }"]
+      "type_annotations": ["defineProps<ComponentProps>"],
+      "script_lang": ["<script setup lang=\"ts\">"],
+      "imports": []
     }
-    
+
     Returns:
         ASTResult dataclass with:
         - has_interfaces: bool
@@ -207,27 +205,22 @@ def validate_ast_structure(code: str, expected_structures: dict) -> ASTResult:
     """
 ```
 
-**TypeScript Validation**:
-- Write code to temp file: `{temp_dir}/output_{uuid}.vue`
-- Run: `tsc --noEmit --skipLibCheck {temp_file}`
-- Parse stderr for errors
-- Keep temp file for debugging (cleanup at end of run)
-- Return bool + error list
+**AST Validation Implementation**:
+- Uses **@vue/compiler-sfc** (official Vue SFC parser) + TypeScript AST
+- Calls Node.js helper script (`scripts/parse_vue_ast.js`) via subprocess
+- Parser extracts TypeScript AST from `<script>` block
+- Checks for actual AST nodes (not regex):
+  - **interfaces**: `TSInterfaceDeclaration` nodes
+  - **type_annotations**: `TSTypeAnnotation` or `TSTypeParameterInstantiation` nodes
+  - **imports**: `ImportDeclaration` nodes (with `type` modifier if present)
+  - **script_lang**: `lang="ts"` attribute on script tag
+- Score calculation: interfaces=3.3, type_annotations=3.3, script_lang=3.4 (max 10.0)
+- No false positives from commented code (parses actual AST, not text)
 
-**AST Validation**:
-- Use regex or simple string matching for MVP (no full parser yet)
-- Check for presence of:
-  - `interface {Name} {` (interfaces)
-  - `: {Type}` after variable/param (type annotations)
-  - `import type` or `import {` (imports)
-- Score: 10 if all present, proportional if partial
-- Log what's missing for debugging
-
-**Trade-offs**:
-- MVP uses regex, not proper AST parser (faster to implement)
-- False positives possible (commented code matches)
-- Good enough to validate basic refactoring quality
-- Future: migrate to proper TypeScript AST parser
+**Architecture Decision**:
+- **This tool**: Validates structural patterns (benchmark/scoring tool)
+- **Target project**: Validates TypeScript compilation (production environment)
+- Separation of concerns: pattern conformance vs semantic correctness
 
 ---
 
@@ -261,7 +254,6 @@ class RefactoringTest:
             TestResult dataclass with:
             - model: str
             - fixture: str
-            - compiles: bool
             - ast_score: float
             - tokens_per_sec: float
             - duration_sec: float
@@ -277,17 +269,13 @@ class RefactoringTest:
 1. Load fixture files (input, expected, prompt, ast_checks)
 2. Render prompt: replace `{{input_code}}` in prompt.md with input.vue content
 3. Wrap Ollama call with GPU monitor
-4. Run TypeScript validation on output
-5. Run AST validation on output
-6. Calculate composite score (binary compile × AST score)
-7. Return structured result
+4. Run AST validation on output
+5. Calculate conformance score
+6. Return structured result
 
 **Scoring Logic**:
 ```python
-if not compiles:
-    final_score = 0.0
-else:
-    final_score = ast_score  # 0-10 from AST validation
+final_score = ast_score  # 0-10 from AST validation
 ```
 
 **Error Handling**:
@@ -337,7 +325,7 @@ def main():
         results.append(result)
         
         # Print summary
-        status = "✓" if result.compiles else "✗"
+        status = "✓" if result.ast_score >= 8.0 else "✗"
         console.print(
             f"{status} Run {i+1}: "
             f"Score={result.ast_score:.1f}/10, "
@@ -485,8 +473,8 @@ pip install -r requirements.txt
 
 ### System Requirements
 - Python 3.12+ (installed)
-- Node.js 24.x (installed, for `tsc`)
-- TypeScript compiler: `npm install -g typescript`
+- Node.js 24.x (installed, for AST parser)
+- Node.js dependencies: `npm install --save-dev @vue/compiler-sfc typescript vue-tsc`
 - nvidia-smi (pre-installed with NVIDIA drivers)
 - Ollama running with GPU support
 
@@ -503,9 +491,10 @@ Before running benchmarks, verify:
    # Monitor GPU usage during generation
    ```
 
-2. **TypeScript Compiler**:
+2. **Node.js Dependencies**:
    ```bash
-   tsc --version  # Should be 5.x
+   node --version  # Should be 24.x
+   node -e "console.log(require('@vue/compiler-sfc').parse)"  # Should print function
    ```
 
 3. **Ollama Models**:
@@ -513,13 +502,7 @@ Before running benchmarks, verify:
    ollama list | grep qwen2.5-coder:7b-instruct-q8_0
    ```
 
-4. **Fixture Validity**:
-   ```bash
-   tsc --noEmit fixtures/refactoring/simple-component/expected.vue
-   # Should compile with no errors
-   ```
-
-5. **Python Environment**:
+4. **Python Environment**:
    ```bash
    source venv/bin/activate
    python -c "import ollama, rich; print('OK')"
@@ -536,7 +519,6 @@ Before running benchmarks, verify:
     "model": "qwen2.5-coder:7b-instruct-q8_0",
     "fixture": "simple-component",
     "timestamp": "2025-01-17T14:23:45",
-    "compiles": true,
     "ast_score": 10.0,
     "tokens_per_sec": 185.3,
     "duration_sec": 4.2,
@@ -569,10 +551,9 @@ MVP is successful when:
 
 1. ✅ **Runs without errors** on 3 consecutive tests
 2. ✅ **GPU utilization** averages >80% during inference
-3. ✅ **TypeScript validation** correctly identifies compile errors
-4. ✅ **AST validation** scores expected output as 10/10
-5. ✅ **Results JSON** is well-formed and contains all metrics
-6. ✅ **Performance** matches expectations (~150-250 tok/s for 7B Q8 model)
+3. ✅ **AST validation** scores expected output as 10/10
+4. ✅ **Results JSON** is well-formed and contains all metrics
+5. ✅ **Performance** matches expectations (~150-250 tok/s for 7B Q8 model)
 
 ---
 
@@ -580,7 +561,7 @@ MVP is successful when:
 
 1. **Single test type**: Only refactoring, no context window/consistency tests
 2. **No aggregation**: Raw JSON only, no statistics or reports
-3. **AST validation**: Regex-based, may have false positives
+3. **Pattern validation only**: Does not validate TypeScript semantic correctness (target project's responsibility)
 4. **No Vitest**: Functional testing postponed to future phase
 5. **Hardcoded config**: No CLI arguments, edit source to change model/fixture
 6. **No multi-model comparison**: Run script multiple times manually
@@ -597,9 +578,9 @@ After MVP validation:
 3. Add Markdown report generation
 4. CLI with click (model, fixture, runs arguments)
 5. Add context window test type
-6. Implement proper TypeScript AST parser
-7. Add Vitest functional validation
-8. Model architecture detection (MoE vs Dense)
+6. Add Vitest functional validation (run generated code in real Vue project)
+7. Model architecture detection (MoE vs Dense)
+8. Add semantic TypeScript validation in target Vue project environment
 
 ---
 

@@ -40,17 +40,17 @@
 - [x] Handle callback exceptions gracefully
 - [x] Unit tests - 20 tests passing (1 integration skipped)
 
-#### 2.3 Validator (`src/validator.py`)
-- [ ] Create `TypeScriptResult` dataclass
-- [ ] Create `ASTResult` dataclass
-- [ ] Implement `validate_typescript()` function
-- [ ] Setup temp file handling (UUID naming)
-- [ ] Run tsc compilation check
-- [ ] Parse tsc error output
-- [ ] Implement `validate_ast_structure()` function
-- [ ] Add regex checks (interfaces, type annotations, imports)
-- [ ] Calculate AST score (0-10)
-- [ ] Test with valid/invalid Vue files
+#### 2.3 Validator (`src/validator.py`) - COMPLETED
+- [x] Create `ASTResult` dataclass
+- [x] Implement `validate_ast_structure()` function
+- [x] Add AST parser using @vue/compiler-sfc (official Vue parser - no false positives!)
+- [x] Calculate AST score (0-10) with proportional scoring (3.3 + 3.3 + 3.4)
+- [x] Test with valid/invalid Vue files
+- [x] Create Node.js AST parser script (`scripts/parse_vue_ast.js`)
+- [x] Install Node.js dependencies (@vue/compiler-sfc, typescript, vue-tsc)
+- [x] Unit tests - 17 tests passing
+- [x] Clarify responsibilities: This tool validates pattern conformance, NOT TypeScript compilation
+- [x] Remove TypeScript compilation validation (target Vue project's responsibility)
 
 #### 2.4 Refactoring Test (`src/refactoring_test.py`)
 - [ ] Create `TestResult` dataclass
@@ -135,6 +135,9 @@ llm-benchmark/
 │   ├── validator.py
 │   └── refactoring_test.py
 │
+├── scripts/
+│   └── parse_vue_ast.js          # Node.js AST parser helper
+│
 ├── fixtures/
 │   └── refactoring/
 │       └── simple-component/
@@ -198,15 +201,6 @@ class GPUMetrics:
     samples: int
 ```
 
-### TypeScriptResult
-```python
-@dataclass
-class TypeScriptResult:
-    compiles: bool
-    errors: List[str]
-    temp_file: Path
-```
-
 ### ASTResult
 ```python
 @dataclass
@@ -225,7 +219,6 @@ class TestResult:
     model: str
     fixture: str
     timestamp: str
-    compiles: bool
     ast_score: float
     tokens_per_sec: float
     duration_sec: float
@@ -265,7 +258,6 @@ class TestResult:
 - [x] All unit tests pass
 - [ ] Integration test completes 3 runs without errors
 - [ ] GPU utilization averages >80%
-- [ ] TypeScript validation works correctly
 - [ ] AST validation scores expected.vue as 10/10
 - [ ] Results JSON is well-formed
 - [ ] Performance ~150-250 tok/s for 7B Q8 model
@@ -275,7 +267,7 @@ class TestResult:
 ## Known Issues / TODOs
 
 ### Limitations (MVP Scope)
-- Regex-based AST validation (may have false positives)
+- Pattern conformance validation only (not TypeScript semantic validation)
 - No CLI arguments (hardcoded config)
 - Single test type only
 - No statistical aggregation
@@ -283,11 +275,11 @@ class TestResult:
 - No multi-model comparison tools
 
 ### Future Enhancements (Post-MVP)
-- Add proper TypeScript AST parser
 - Implement CLI with click/argparse
 - Add markdown/CSV report generation
 - Support multiple test types (context window, consistency)
-- Add Vitest functional testing
+- Add Vitest functional testing (run generated code in real Vue project)
+- Add semantic TypeScript validation in target Vue project environment
 - Architecture detection (MoE vs Dense)
 - Statistical analysis across runs
 
@@ -303,5 +295,5 @@ class TestResult:
 
 ---
 
-**Last Updated**: 2026-02-01
-**Next Milestone**: Complete Phase 1 (Project Setup)
+**Last Updated**: 2026-02-15
+**Next Milestone**: Complete Phase 2.4 (Refactoring Test)
