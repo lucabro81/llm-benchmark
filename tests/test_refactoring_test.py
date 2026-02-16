@@ -184,3 +184,188 @@ class TestRefactoringTestInit:
         test = RefactoringTest(model="test-model", fixture_path=fixture_path)
 
         assert test.fixture_name == "my-fixture"
+
+
+class TestRefactoringTestRun:
+    """Test RefactoringTest.run() workflow (Phase 1 prompt-only)."""
+
+    @patch("src.refactoring_test.ollama_client")
+    @patch("src.refactoring_test.gpu_monitor")
+    @patch("src.refactoring_test.validator")
+    def test_successful_run_workflow(self, mock_validator, mock_gpu, mock_ollama, tmp_path):
+        """Should execute complete workflow and return TestResult."""
+        # Setup fixture
+        fixture_path = self._create_test_fixture(tmp_path)
+
+        # Mock dependencies
+        from src.ollama_client import ChatResult
+        from src.gpu_monitor import GPUMetrics
+        from src.validator import CompilationResult, ASTResult, NamingResult
+
+        mock_ollama.chat.return_value = ChatResult(
+            response_text='<script setup lang="ts">\ninterface TestProps { title: string }\nconst props = defineProps<TestProps>()\n</script>',
+            duration_sec=4.2,
+            tokens_generated=50,
+            tokens_per_sec=185.3,
+            success=True,
+            error=None
+        )
+
+        mock_gpu.monitor_gpu_during_inference.return_value = GPUMetrics(
+            avg_utilization=94.2,
+            peak_utilization=98.1,
+            avg_memory_used=11.4,
+            peak_memory_used=12.1,
+            samples=10
+        )
+
+        mock_validator.validate_compilation.return_value = CompilationResult(
+            success=True,
+            errors=[],
+            warnings=[],
+            duration_sec=2.0
+        )
+
+        mock_validator.validate_ast_structure.return_value = ASTResult(
+            has_interfaces=True,
+            has_type_annotations=True,
+            has_imports=False,
+            missing=[],
+            score=10.0
+        )
+
+        mock_validator.validate_naming.return_value = NamingResult(
+            follows_conventions=True,
+            violations=[],
+            score=1.0
+        )
+
+        # Run test
+        test = RefactoringTest(model="test-model", fixture_path=fixture_path)
+        result = test.run(run_number=1)
+
+        # Verify TestResult
+        assert isinstance(result, TestResult)
+        assert result.model == "test-model"
+        assert result.fixture == fixture_path.name
+        assert result.run_number == 1
+        assert result.compiles is True
+        assert result.final_score == 10.0
+        assert result.tokens_per_sec == 185.3
+        assert result.gpu_avg_utilization == 94.2
+
+        # Verify components called
+        mock_ollama.chat.assert_called_once()
+        mock_validator.validate_compilation.assert_called_once()
+        mock_validator.validate_ast_structure.assert_called_once()
+        mock_validator.validate_naming.assert_called_once()
+
+    @patch("src.refactoring_test.ollama_client")
+    @patch("src.refactoring_test.gpu_monitor")
+    @patch("src.refactoring_test.validator")
+    def test_weighted_scoring_calculation(self, mock_validator, mock_gpu, mock_ollama, tmp_path):
+        """Should calculate weighted final score correctly."""
+        fixture_path = self._create_test_fixture(tmp_path)
+
+        from src.ollama_client import ChatResult
+        from src.gpu_monitor import GPUMetrics
+        from src.validator import CompilationResult, ASTResult, NamingResult
+
+        mock_ollama.chat.return_value = ChatResult(
+            response_text="code",
+            duration_sec=4.0,
+            tokens_generated=50,
+            tokens_per_sec=150.0,
+            success=True,
+        )
+
+        mock_gpu.monitor_gpu_during_inference.return_value = GPUMetrics(
+            avg_utilization=90.0, peak_utilization=95.0,
+            avg_memory_used=10.0, peak_memory_used=11.0, samples=5
+        )
+
+        # Compilation: success (1.0) * 0.5 = 0.5
+        # Pattern: 6.0/10 = 0.6 * 0.4 = 0.24
+        # Naming: 1.0 * 0.1 = 0.1
+        # Total: (0.5 + 0.24 + 0.1) * 10 = 8.4
+        mock_validator.validate_compilation.return_value = CompilationResult(
+            success=True, errors=[], warnings=[], duration_sec=2.0
+        )
+        mock_validator.validate_ast_structure.return_value = ASTResult(
+            has_interfaces=True, has_type_annotations=False,
+            has_imports=False, missing=["type_annotations"], score=6.0
+        )
+        mock_validator.validate_naming.return_value = NamingResult(
+            follows_conventions=True, violations=[], score=1.0
+        )
+
+        test = RefactoringTest(model="test-model", fixture_path=fixture_path)
+        result = test.run(run_number=1)
+
+        # Check weighted score
+        assert result.pattern_score == 6.0
+        assert result.naming_score == 1.0
+        assert abs(result.final_score - 8.4) < 0.1
+
+    @patch("src.refactoring_test.ollama_client")
+    @patch("src.refactoring_test.gpu_monitor")
+    @patch("src.refactoring_test.validator")
+    def test_restores_original_file_after_run(self, mock_validator, mock_gpu, mock_ollama, tmp_path):
+        """Should restore original file content after test completes."""
+        fixture_path = self._create_test_fixture(tmp_path)
+
+        from src.ollama_client import ChatResult
+        from src.gpu_monitor import GPUMetrics
+        from src.validator import CompilationResult, ASTResult, NamingResult
+
+        mock_ollama.chat.return_value = ChatResult(
+            response_text="MODIFIED CODE",
+            duration_sec=4.0, tokens_generated=50, tokens_per_sec=150.0, success=True
+        )
+        mock_gpu.monitor_gpu_during_inference.return_value = GPUMetrics(
+            avg_utilization=90.0, peak_utilization=95.0,
+            avg_memory_used=10.0, peak_memory_used=11.0, samples=5
+        )
+        mock_validator.validate_compilation.return_value = CompilationResult(
+            success=True, errors=[], warnings=[], duration_sec=1.0
+        )
+        mock_validator.validate_ast_structure.return_value = ASTResult(
+            has_interfaces=True, has_type_annotations=True, has_imports=False,
+            missing=[], score=10.0
+        )
+        mock_validator.validate_naming.return_value = NamingResult(
+            follows_conventions=True, violations=[], score=1.0
+        )
+
+        test = RefactoringTest(model="test-model", fixture_path=fixture_path)
+        original_code = test.original_code
+
+        # Run test
+        test.run(run_number=1)
+
+        # Verify file restored
+        restored_code = test.target_file.read_text()
+        assert restored_code == original_code
+
+    def _create_test_fixture(self, tmp_path):
+        """Helper to create minimal test fixture."""
+        fixture_path = tmp_path / "test-fixture"
+        fixture_path.mkdir()
+
+        (fixture_path / "prompt.md").write_text("Refactor: {{original_code}}")
+
+        validation_spec = {
+            "target_file": "src/test.vue",
+            "required_patterns": {"interfaces": ["TestProps"]},
+            "naming_conventions": {"interfaces": "PascalCase", "props_interface_suffix": "Props"},
+            "scoring": {"compilation": 0.5, "pattern_match": 0.4, "naming": 0.1}
+        }
+        (fixture_path / "validation_spec.json").write_text(json.dumps(validation_spec))
+
+        target_project = fixture_path / "target_project"
+        target_project.mkdir()
+        src_dir = target_project / "src"
+        src_dir.mkdir()
+        (src_dir / "test.vue").write_text("<script setup>\nconst props = defineProps({ title: String })\n</script>")
+
+        return fixture_path
