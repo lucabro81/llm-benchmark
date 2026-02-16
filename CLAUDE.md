@@ -2,7 +2,54 @@
 
 **Project**: Local LLM Benchmarking Tool for Vue.js/Nuxt/TypeScript Development
 **Date**: 2025-01-17
-**Phase**: MVP (Minimum Viable Product)
+**Phase**: MVP Phase 1 (Prompt-Only Baseline)
+
+---
+
+## Implementation Phases
+
+### Phase 1: Prompt-Only Baseline (CURRENT)
+**Goal**: Validate workflow with simplest possible setup
+
+**Approach**:
+- Single prompt → LLM generates complete code → validate
+- No tool-calling, no iterations
+- LLM must produce correct code in one shot
+
+**Rationale**:
+- Prove infrastructure works (fixtures, validation, GPU monitoring, JSON output)
+- Get baseline metrics before adding complexity
+- Quick validation that "it doesn't explode"
+
+**Success Criteria**:
+- Runs 3 consecutive tests without crashes
+- Produces valid JSON results
+- Metrics are sensible (GPU usage, tokens/sec, scores)
+
+### Phase 2: Tool-Calling Agent (NEXT)
+**Goal**: Reflect real-world agent usage patterns
+
+**Approach**:
+- Provide LLM with tools: `read_file`, `write_file`, `run_type_check`, `finish`
+- Iterative loop (max 5-10 iterations)
+- LLM can read errors, self-correct, validate incrementally
+
+**Rationale**:
+- Real coding agents (Claude Code, Cursor, Aider) work this way
+- Tests both code generation AND tool usage skill
+- Weaker models may compensate with better iteration strategy
+
+**New Metrics to Track**:
+- `tool_calls_count`: Total tool calls per task
+- `iterations_to_success`: How many cycles to complete
+- `tools_used`: Sequence of tools used (for pattern analysis)
+- `self_corrected`: Boolean, did LLM read compile errors and fix?
+
+**Implementation**:
+- Update `ollama_client.py` for function calling (Ollama 0.3+ supports this)
+- Modify `refactoring_test.py` with agent loop
+- Update fixtures with examples of expected tool sequences
+- Add efficiency scoring (penalize excessive iterations)
 
 ---
 

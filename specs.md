@@ -2,7 +2,81 @@
 
 **Project**: Local LLM Benchmarking Tool
 **Created**: 2026-02-01
-**Status**: Planning Phase
+**Status**: Phase 1 (Prompt-Only Baseline)
+
+---
+
+## Implementation Phases
+
+### Phase 1: Prompt-Only Baseline (CURRENT)
+
+**Goal**: Validate workflow with simplest possible setup
+
+**Approach**:
+- Single prompt → LLM generates complete code → validate
+- No tool-calling, no iterations
+- LLM must produce correct code in one shot
+
+**Rationale**:
+- Prove infrastructure works (fixtures, validation, GPU monitoring, JSON output)
+- Get baseline metrics before adding complexity
+- Quick validation that "it doesn't explode"
+
+**Success Criteria**:
+- ✅ Runs 3 consecutive tests without crashes
+- ✅ Produces valid JSON results
+- ✅ Metrics are sensible (GPU usage, tokens/sec, scores)
+
+**Components Needed**:
+- `ollama_client.py` - Simple chat() function (no tool-calling)
+- `gpu_monitor.py` - nvidia-smi monitoring
+- `validator.py` - Compilation + AST validation
+- `refactoring_test.py` - Orchestrator (prompt-only workflow)
+- `run_test.py` - Entry point
+- Fixture: `simple-component` with validation_spec.json
+
+---
+
+### Phase 2: Tool-Calling Agent (NEXT)
+
+**Goal**: Reflect real-world agent usage patterns
+
+**Approach**:
+- Provide LLM with tools: `read_file`, `write_file`, `run_type_check`, `finish`
+- Iterative loop (max 5-10 iterations)
+- LLM can read errors, self-correct, validate incrementally
+
+**Rationale**:
+- Real coding agents (Claude Code, Cursor, Aider) work this way
+- Tests both code generation AND tool usage skill
+- Weaker models may compensate with better iteration strategy
+
+**New Metrics to Track**:
+- `tool_calls_count`: Total tool calls per task
+- `iterations_to_success`: How many cycles to complete
+- `tools_used`: Sequence of tools used (for pattern analysis)
+- `self_corrected`: Boolean, did LLM read compile errors and fix?
+
+**Implementation Changes**:
+- Update `ollama_client.py` for function calling (Ollama 0.3+ supports this)
+- Modify `refactoring_test.py` with agent loop
+- Update fixtures with examples of expected tool sequences
+- Add efficiency scoring (penalize excessive iterations)
+
+**New Data Structures**:
+```python
+@dataclass
+class ToolCall:
+    name: str
+    parameters: dict
+
+@dataclass
+class TestResultWithTools(TestResult):
+    tool_calls_count: int
+    iterations_to_success: int
+    tools_used: List[str]
+    self_corrected: bool
+```
 
 ---
 
@@ -324,6 +398,100 @@ class TestResult:
 
 ---
 
+## Implementation Phases Strategy
+
+### Phase 1: Prompt-Only Baseline (CURRENT PRIORITY)
+
+**Goal**: Validate workflow with simplest possible setup
+
+**Approach**:
+- Single prompt → LLM generates complete code → validate
+- No tool-calling, no iterations
+- LLM must produce correct code in one shot
+
+**Rationale**:
+- Prove infrastructure works (fixtures, validation, GPU monitoring, JSON output)
+- Get baseline metrics before adding complexity
+- Quick validation that "it doesn't explode"
+
+**Success Criteria**:
+- Runs 3 consecutive tests without crashes
+- Produces valid JSON results
+- Metrics are sensible (GPU usage, tokens/sec, scores)
+
+**Components Status**:
+- `ollama_client.py`: Simple `chat()` method (no tool-calling) - ✅ DONE
+- `gpu_monitor.py`: Basic monitoring - ✅ DONE
+- `validator.py`: Compilation + AST validation - ✅ DONE
+- `refactoring_test.py`: Single-shot workflow - ⬜ TODO
+- `run_test.py`: Simple runner - ⬜ TODO
+- Fixture `simple-component`: Single file refactoring - ⬜ TODO
+
+### Phase 2: Tool-Calling Agent (AFTER Phase 1 is stable)
+
+**Goal**: Reflect real-world agent usage patterns
+
+**Approach**:
+- Provide LLM with tools: `read_file`, `write_file`, `run_type_check`, `finish`
+- Iterative loop (max 5-10 iterations)
+- LLM can read errors, self-correct, validate incrementally
+
+**Rationale**:
+- Real coding agents (Claude Code, Cursor, Aider) work this way
+- Tests both code generation AND tool usage skill
+- Weaker models may compensate with better iteration strategy
+
+**New Metrics to Track**:
+```python
+# Extended TestResult dataclass for Phase 2
+@dataclass
+class TestResult:
+    # ... all Phase 1 fields ...
+
+    # Phase 2: Agent metrics
+    tool_calls_count: int = 0           # Total tool calls
+    iterations_to_success: int = 0      # Cycles to complete
+    tools_used: List[str] = None        # Sequence of tools
+    self_corrected: bool = False        # Read errors and fixed?
+    efficiency_score: float = 1.0       # Penalty for excessive iterations
+```
+
+**Implementation Tasks**:
+- [ ] Update `ollama_client.py` for function calling (Ollama 0.3+ supports this)
+- [ ] Modify `refactoring_test.py` with agent loop
+- [ ] Update fixtures with examples of expected tool sequences
+- [ ] Add efficiency scoring (penalize excessive iterations)
+- [ ] Implement tool handlers (`read_file`, `write_file`, `run_type_check`, `finish`)
+- [ ] Add iteration limits and timeout handling
+
+**Tool Definitions** (Phase 2):
+```python
+AVAILABLE_TOOLS = [
+    {
+        "name": "read_file",
+        "description": "Read content of a file in the target project",
+        "parameters": {"path": "string"}
+    },
+    {
+        "name": "write_file",
+        "description": "Write/overwrite a file in the target project",
+        "parameters": {"path": "string", "content": "string"}
+    },
+    {
+        "name": "run_type_check",
+        "description": "Run vue-tsc to check TypeScript errors",
+        "parameters": {}
+    },
+    {
+        "name": "finish",
+        "description": "Signal task completion",
+        "parameters": {}
+    }
+]
+```
+
+---
+
 ## Notes
 
 - Keep temp files on validation errors for debugging
@@ -331,8 +499,11 @@ class TestResult:
 - Test each component independently before integration
 - Use rich console for better UX
 - Commit after each major component completion
+- **Phase 1 priority**: Get prompt-only workflow working end-to-end
+- **Phase 2 delayed**: Tool-calling only after Phase 1 validates successfully
 
 ---
 
-**Last Updated**: 2026-02-15
-**Next Milestone**: Complete Phase 2.4 (Refactoring Test)
+**Last Updated**: 2026-02-16
+**Current Phase**: Phase 1 (Prompt-Only Baseline)
+**Next Milestone**: Complete Phase 2.4 (Refactoring Test) for Phase 1
