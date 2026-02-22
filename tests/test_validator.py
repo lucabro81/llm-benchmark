@@ -312,8 +312,7 @@ class TestValidatorIntegration:
         )
         if check.returncode != 0:
             pytest.fail(
-                "@vue/compiler-sfc not found. Run: "
-                "cd fixtures/refactoring/simple-component/target_project && npm install"
+                "@vue/compiler-sfc not found. Run: npm install (in project root)"
             )
 
         code = """

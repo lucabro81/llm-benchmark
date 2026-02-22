@@ -1,0 +1,14 @@
+{
+  "name": "llm-benchmark",
+  "version": "1.0.0",
+  "description": "LLM Benchmarking Suite for Vue.js/Nuxt/TypeScript Development",
+  "private": true,
+  "devDependencies": {
+    "@vue/compiler-sfc": "^3.5.28",
+    "typescript": "^5.9.3",
+    "vue-tsc": "^3.2.4"
+  },
+  "scripts": {
+    "parse-ast": "node scripts/parse_vue_ast.js"
+  }
+}
