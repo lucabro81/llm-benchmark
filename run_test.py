@@ -60,7 +60,7 @@ def show_run_summary(result: BenchmarkResult):
         f"Final={result.final_score:.1f}/10 "
         f"(Pattern={result.pattern_score:.1f}), "
         f"Speed={result.tokens_per_sec:.1f} tok/s, "
-        f"GPU={result.gpu_avg_utilization:.0f}%"
+        f"Time={result.duration_sec:.1f}s"
     )
 
 
@@ -97,22 +97,15 @@ def show_summary(results: List[BenchmarkResult]):
     # Calculate statistics
     avg_score = sum(r.final_score for r in results) / len(results)
     avg_speed = sum(r.tokens_per_sec for r in results) / len(results)
-    avg_gpu = sum(r.gpu_avg_utilization for r in results) / len(results)
+    avg_duration = sum(r.duration_sec for r in results) / len(results)
     success_count = sum(1 for r in results if r.compiles)
     success_rate = (success_count / len(results)) * 100
 
     console.print("\n[bold]Summary:[/bold]")
     console.print(f"  Avg Score:     {avg_score:.2f}/10")
     console.print(f"  Avg Speed:     {avg_speed:.1f} tok/s")
-    console.print(f"  Avg GPU:       {avg_gpu:.1f}%")
+    console.print(f"  Avg Duration:  {avg_duration:.1f}s")
     console.print(f"  Success Rate:  {success_rate:.0f}% ({success_count}/{len(results)} compiled)")
-
-    # Warnings
-    if avg_gpu < 80:
-        console.print(
-            f"\n[yellow]⚠ Warning: Average GPU utilization is {avg_gpu:.0f}% (target >80%)[/yellow]"
-        )
-        console.print("[yellow]  → Check Ollama GPU configuration[/yellow]")
 
     if avg_score < 7.0:
         console.print(

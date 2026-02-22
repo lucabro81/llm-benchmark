@@ -14,8 +14,6 @@ def _make_result(run_number=1, final_score=10.0, tokens_per_sec=185.0, compiles=
         run_number=run_number, compiles=compiles, compilation_errors=[],
         compilation_warnings=[], pattern_score=10.0, naming_score=1.0,
         final_score=final_score, tokens_per_sec=tokens_per_sec, duration_sec=4.0,
-        gpu_avg_utilization=94.0, gpu_peak_utilization=98.0,
-        gpu_avg_memory_gb=11.0, gpu_peak_memory_gb=12.0,
         output_code="code", errors=[],
     )
 

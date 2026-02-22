@@ -37,14 +37,6 @@ def _make_fixture(tmp_path, scoring=None):
     return fixture_path
 
 
-def _gpu_side_effect(metrics):
-    """Return a side_effect that executes the callback before returning metrics."""
-    def _run(callback, **kwargs):
-        callback()
-        return metrics
-    return _run
-
-
 # ---------------------------------------------------------------------------
 # Fixture loading
 # ---------------------------------------------------------------------------
@@ -92,20 +84,15 @@ class TestRefactoringTestRun:
     """Test run() — scoring calculation and file lifecycle."""
 
     @patch("src.refactoring_test.ollama_client")
-    @patch("src.refactoring_test.gpu_monitor")
     @patch("src.refactoring_test.validator")
-    def test_perfect_score_when_all_checks_pass(self, mock_validator, mock_gpu, mock_ollama, tmp_path):
+    def test_perfect_score_when_all_checks_pass(self, mock_validator, mock_ollama, tmp_path):
         """Should produce final_score=10.0 when compilation=OK, pattern=10, naming=1."""
         from src.ollama_client import ChatResult
-        from src.gpu_monitor import GPUMetrics
         from src.validator import CompilationResult, ASTResult, NamingResult
 
         mock_ollama.chat.return_value = ChatResult(
             response_text='<script setup lang="ts">\ninterface TestProps { title: string }\nconst props = defineProps<TestProps>()\n</script>',
             duration_sec=4.2, tokens_generated=50, tokens_per_sec=185.3, success=True,
-        )
-        mock_gpu.monitor_gpu_during_inference.side_effect = _gpu_side_effect(
-            GPUMetrics(avg_utilization=94.2, peak_utilization=98.1, avg_memory_used=11.4, peak_memory_used=12.1, samples=10)
         )
         mock_validator.validate_compilation.return_value = CompilationResult(success=True, errors=[], warnings=[], duration_sec=2.0)
         mock_validator.validate_ast_structure.return_value = ASTResult(has_interfaces=True, has_type_annotations=True, has_imports=False, missing=[], score=10.0)
@@ -116,22 +103,16 @@ class TestRefactoringTestRun:
         assert result.final_score == 10.0
         assert result.compiles is True
         assert result.tokens_per_sec == 185.3
-        assert result.gpu_avg_utilization == 94.2
 
     @patch("src.refactoring_test.ollama_client")
-    @patch("src.refactoring_test.gpu_monitor")
     @patch("src.refactoring_test.validator")
-    def test_weighted_scoring_calculation(self, mock_validator, mock_gpu, mock_ollama, tmp_path):
+    def test_weighted_scoring_calculation(self, mock_validator, mock_ollama, tmp_path):
         """Compilation=1*0.5 + pattern=0.6*0.4 + naming=1*0.1 → 8.4."""
         from src.ollama_client import ChatResult
-        from src.gpu_monitor import GPUMetrics
         from src.validator import CompilationResult, ASTResult, NamingResult
 
         mock_ollama.chat.return_value = ChatResult(
             response_text="code", duration_sec=4.0, tokens_generated=50, tokens_per_sec=150.0, success=True,
-        )
-        mock_gpu.monitor_gpu_during_inference.side_effect = _gpu_side_effect(
-            GPUMetrics(avg_utilization=90.0, peak_utilization=95.0, avg_memory_used=10.0, peak_memory_used=11.0, samples=5)
         )
         mock_validator.validate_compilation.return_value = CompilationResult(success=True, errors=[], warnings=[], duration_sec=2.0)
         mock_validator.validate_ast_structure.return_value = ASTResult(
@@ -147,19 +128,14 @@ class TestRefactoringTestRun:
         assert abs(result.final_score - 8.4) < 0.1
 
     @patch("src.refactoring_test.ollama_client")
-    @patch("src.refactoring_test.gpu_monitor")
     @patch("src.refactoring_test.validator")
-    def test_compilation_failure_caps_score(self, mock_validator, mock_gpu, mock_ollama, tmp_path):
+    def test_compilation_failure_caps_score(self, mock_validator, mock_ollama, tmp_path):
         """Compilation=0*0.5 + pattern=1*0.4 + naming=1*0.1 → 5.0."""
         from src.ollama_client import ChatResult
-        from src.gpu_monitor import GPUMetrics
         from src.validator import CompilationResult, ASTResult, NamingResult
 
         mock_ollama.chat.return_value = ChatResult(
             response_text="bad code", duration_sec=3.0, tokens_generated=30, tokens_per_sec=100.0, success=True,
-        )
-        mock_gpu.monitor_gpu_during_inference.side_effect = _gpu_side_effect(
-            GPUMetrics(avg_utilization=80.0, peak_utilization=85.0, avg_memory_used=9.0, peak_memory_used=10.0, samples=3)
         )
         mock_validator.validate_compilation.return_value = CompilationResult(
             success=False, errors=["TS2304: Cannot find name 'foo'"], warnings=[], duration_sec=1.0
@@ -176,19 +152,14 @@ class TestRefactoringTestRun:
         assert abs(result.final_score - 5.0) < 0.1
 
     @patch("src.refactoring_test.ollama_client")
-    @patch("src.refactoring_test.gpu_monitor")
     @patch("src.refactoring_test.validator")
-    def test_original_file_restored_after_run(self, mock_validator, mock_gpu, mock_ollama, tmp_path):
+    def test_original_file_restored_after_run(self, mock_validator, mock_ollama, tmp_path):
         """Target file must be restored to original content after run completes."""
         from src.ollama_client import ChatResult
-        from src.gpu_monitor import GPUMetrics
         from src.validator import CompilationResult, ASTResult, NamingResult
 
         mock_ollama.chat.return_value = ChatResult(
             response_text="MODIFIED CODE", duration_sec=4.0, tokens_generated=50, tokens_per_sec=150.0, success=True,
-        )
-        mock_gpu.monitor_gpu_during_inference.side_effect = _gpu_side_effect(
-            GPUMetrics(avg_utilization=90.0, peak_utilization=95.0, avg_memory_used=10.0, peak_memory_used=11.0, samples=5)
         )
         mock_validator.validate_compilation.return_value = CompilationResult(success=True, errors=[], warnings=[], duration_sec=1.0)
         mock_validator.validate_ast_structure.return_value = ASTResult(has_interfaces=True, has_type_annotations=True, has_imports=False, missing=[], score=10.0)

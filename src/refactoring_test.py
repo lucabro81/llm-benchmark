@@ -2,7 +2,7 @@
 
 This module orchestrates the refactoring test workflow:
 1. Load fixture (prompt, validation spec, target project)
-2. Call LLM with GPU monitoring
+2. Call LLM
 3. Validate output (compilation + AST + naming)
 4. Calculate weighted score
 5. Return structured result
@@ -16,7 +16,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import List
 
-from src import ollama_client, gpu_monitor, validator
+from src import ollama_client, validator
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -39,10 +39,6 @@ class BenchmarkResult:
         final_score: Weighted final score (0.0-10.0)
         tokens_per_sec: LLM generation speed (tokens/second)
         duration_sec: Total test duration in seconds
-        gpu_avg_utilization: Average GPU utilization percentage
-        gpu_peak_utilization: Peak GPU utilization percentage
-        gpu_avg_memory_gb: Average GPU memory usage in GB
-        gpu_peak_memory_gb: Peak GPU memory usage in GB
         output_code: Generated Vue component code
         errors: List of test execution errors
     """
@@ -62,11 +58,6 @@ class BenchmarkResult:
     tokens_per_sec: float
     duration_sec: float
 
-    gpu_avg_utilization: float
-    gpu_peak_utilization: float
-    gpu_avg_memory_gb: float
-    gpu_peak_memory_gb: float
-
     output_code: str
     errors: List[str]
 
@@ -76,7 +67,7 @@ class RefactoringTest:
 
     Orchestrates the complete refactoring test workflow:
     - Loads fixture files (prompt, validation spec, target project)
-    - Calls LLM with GPU monitoring
+    - Calls LLM
     - Validates output (compilation + AST + naming)
     - Calculates weighted final score
     - Returns structured BenchmarkResult
@@ -148,7 +139,7 @@ class RefactoringTest:
         Workflow:
         1. Restore original file
         2. Render prompt with {{original_code}}
-        3. Call LLM with GPU monitoring
+        3. Call LLM
         4. Extract code from response
         5. Write output to target file
         6. Validate compilation (vue-tsc)
@@ -176,17 +167,8 @@ class RefactoringTest:
             rendered_prompt = self.prompt_template.replace("{{original_code}}", self.original_code)
             logger.info(f"Rendered prompt: {len(rendered_prompt)} chars")
 
-            # 3. Call LLM with GPU monitoring
-            # TODO: This closure pattern works in production but has issues with mocked tests.
-            # Will be validated with real Ollama on proper hardware.
-            chat_result = None
-
-            def call_llm():
-                nonlocal chat_result
-                chat_result = ollama_client.chat(model=self.model, prompt=rendered_prompt)
-                return chat_result
-
-            gpu_metrics = gpu_monitor.monitor_gpu_during_inference(call_llm)
+            # 3. Call LLM
+            chat_result = ollama_client.chat(model=self.model, prompt=rendered_prompt)
 
             logger.info(
                 f"LLM response: {chat_result.tokens_per_sec:.1f} tok/s, "
@@ -241,10 +223,6 @@ class RefactoringTest:
                 final_score=final_score,
                 tokens_per_sec=chat_result.tokens_per_sec,
                 duration_sec=chat_result.duration_sec,
-                gpu_avg_utilization=gpu_metrics.avg_utilization,
-                gpu_peak_utilization=gpu_metrics.peak_utilization,
-                gpu_avg_memory_gb=gpu_metrics.avg_memory_used,
-                gpu_peak_memory_gb=gpu_metrics.peak_memory_used,
                 output_code=output_code,
                 errors=errors,
             )
