@@ -1,237 +1,183 @@
 # LLM Benchmark Suite
 
-Local benchmarking tool for testing LLM performance on Vue.js/Nuxt/TypeScript development tasks using Ollama.
+Local benchmarking tool for testing LLM performance on Vue.js/TypeScript development tasks using Ollama.
 
 ## Overview
 
-This tool benchmarks LLMs on real-world development tasks by:
-- Running refactoring challenges (adding TypeScript type safety to Vue components)
-- Validating output with TypeScript compiler and AST structure checks
-- Monitoring GPU utilization in real-time
-- Collecting performance metrics (tokens/sec, duration, GPU usage)
-
-## Features
-
-- **Single Test Type (MVP)**: Refactoring accuracy for Vue.js components
-- **Validation**: TypeScript compilation + AST structure verification
-- **GPU Monitoring**: Real-time nvidia-smi integration
-- **Metrics**: Compilation status, tokens/sec, GPU utilization, duration
-- **Structured Output**: JSON results for analysis
+Benchmarks LLMs on real-world refactoring tasks by:
+- Prompting the model to add TypeScript type safety to Vue 3 components
+- Validating output with TypeScript compiler (`vue-tsc`) and AST structure checks
+- Scoring on compilation success, pattern conformance, and naming conventions
+- Collecting performance metrics (tokens/sec, duration)
 
 ## Requirements
 
-### System
 - Python 3.12+
-- Node.js 24.x with TypeScript 5.x
-- **NVIDIA GPU with drivers (nvidia-smi)** - Required for GPU monitoring
-  - Tests will mock GPU on systems without NVIDIA hardware
-  - Integration tests are skipped automatically on non-GPU systems
-- Ollama with GPU support (recommended) or CPU mode
-
-### Python Dependencies
-See [requirements.txt](requirements.txt)
+- Node.js 24.x
+- Ollama running locally (or via `OLLAMA_BASE_URL`)
 
 ## Installation
 
-### 1. Clone and Setup Virtual Environment
 ```bash
-cd ~/Projects/llm-benchmark
+git clone <repo>
+cd llm-benchmark
+
+# Python dependencies
 python3 -m venv venv
-
-# Activate with alias (recommended)
-alias llmbench='source ~/Projects/llm-benchmark/venv/bin/activate'
-llmbench
-
-# Or activate manually
 source venv/bin/activate
-```
-
-### 2. Install Dependencies
-```bash
 pip install -r requirements.txt
-```
 
-### 3. Install TypeScript
-```bash
-npm install -g typescript
-```
+# Node.js AST parser dependencies (project root)
+npm install
 
-### 4. Verify Ollama
-```bash
-ollama list  # Check available models
-nvidia-smi   # Verify GPU access
+# Per-fixture Node.js dependencies (vue-tsc, needed for compilation validation)
+npm install --prefix fixtures/refactoring/simple-component/target_project
+npm install --prefix fixtures/refactoring/typed-emits-composable/target_project
 ```
 
 ## Configuration
 
-The tool uses environment variables for configuration. Create a `.env` file in the project root:
+Optional: set `OLLAMA_BASE_URL` to point to a remote Ollama instance.
 
 ```bash
-# .env
-OLLAMA_BASE_URL=http://localhost:11434  # Optional, defaults to localhost
+# .env (gitignored)
+OLLAMA_BASE_URL=http://192.168.1.100:11434
 ```
 
-Or export environment variables:
+## Running the Benchmark
+
 ```bash
-export OLLAMA_BASE_URL=http://192.168.1.100:11434
+source venv/bin/activate
+
+# Run all fixtures with a model (3 runs each)
+python run_test.py --model qwen2.5-coder:7b-instruct-q8_0
+
+# Run a specific fixture
+python run_test.py --model qwen2.5-coder:7b-instruct-q8_0 --fixture simple-component
+
+# Change number of runs
+python run_test.py --model qwen2.5-coder:7b-instruct-q8_0 --runs 5
 ```
 
-## Usage
-
-### Run Tests (Development)
-```bash
-# Activate environment
-llmbench  # or: source venv/bin/activate
-
-# Run all tests
-pytest
-
-# Run specific test module
-pytest tests/test_ollama_client.py -v
-
-# Run with coverage
-pytest --cov=src --cov-report=term-missing
+Results are saved as JSON to `results/` (gitignored):
+```
+results/{model}_{fixture}_{timestamp}.json
 ```
 
-### Run Benchmark (Coming Soon)
-```bash
-# This will be available after MVP completion
-python run_test.py
-```
+## Fixtures
+
+### `simple-component`
+Add TypeScript types to a basic Vue 3 component with three props (`title`, `count`, `items`).
+
+Expected output: `HelloWorldProps` interface, `defineProps<HelloWorldProps>()`, `lang="ts"`.
+
+Max score: **10.0/10**
+
+### `typed-emits-composable`
+Add full TypeScript type safety to a component with props, typed emits with payloads, computed return type annotation, and type imports.
+
+Expected output: `UserProfileProps` + `UserProfileEmits` interfaces, `defineEmits<UserProfileEmits>()`, `ComputedRef<string>` annotation, `import type { User }`.
+
+Max score: **10.0/10** — harder prompt, more patterns required.
+
+## Scoring
+
+Each run produces a `final_score` (0–10) weighted across three dimensions:
+
+| Dimension       | Weight | What it checks |
+|----------------|--------|----------------|
+| Compilation     | 50%    | `vue-tsc --noEmit` passes |
+| Pattern match   | 40%    | AST: interfaces, type annotations, `lang="ts"` |
+| Naming          | 10%    | Interface names follow fixture conventions |
+
+Naming conventions are declared per fixture in `validation_spec.json` — each fixture can define its own accepted suffixes (e.g. `["Props"]` or `["Props", "Emits"]`).
 
 ## Project Structure
 
 ```
 llm-benchmark/
-├── src/                      # Core modules
-│   ├── __init__.py
-│   ├── ollama_client.py     # [DONE] Ollama API wrapper
-│   ├── gpu_monitor.py       # [TODO] GPU monitoring
-│   ├── validator.py         # [TODO] TypeScript/AST validation
-│   └── refactoring_test.py  # [TODO] Test orchestration
+├── run_test.py                    # CLI entry point (argparse)
+├── requirements.txt
+├── package.json                   # Node.js AST parser deps (@vue/compiler-sfc)
 │
-├── tests/                    # Test suite (TDD)
-│   ├── test_ollama_client.py   # [DONE] 13 tests passing
-│   ├── test_gpu_monitor.py     # [TODO] Coming next
-│   └── ...
-│
-├── fixtures/                 # Test fixtures
+├── src/
+│   ├── common/
+│   │   └── ollama_client.py       # Ollama API wrapper + metrics extraction
 │   └── refactoring/
-│       └── simple-component/
-│           ├── input.vue      # Untyped Vue component
-│           ├── expected.vue   # Typed reference
-│           ├── prompt.md      # LLM prompt template
-│           └── ast_checks.json
+│       ├── simple_component/
+│       │   ├── test_runner.py     # RefactoringTest orchestrator + BenchmarkResult
+│       │   └── validator.py       # validate_compilation, validate_ast_structure, validate_naming
+│       └── typed_emits_composable/
+│           ├── test_runner.py     # Same workflow, different validator import
+│           └── validator.py       # validate_naming supports interface_suffixes list
 │
-├── results/                  # Benchmark outputs (gitignored)
+├── fixtures/
+│   └── refactoring/
+│       ├── simple-component/
+│       │   ├── prompt.md          # LLM prompt template ({{original_code}})
+│       │   ├── validation_spec.json
+│       │   └── target_project/    # Complete Vue 3 project (npm install here)
+│       └── typed-emits-composable/
+│           ├── prompt.md
+│           ├── validation_spec.json
+│           └── target_project/    # Complete Vue 3 project (npm install here)
 │
-├── .env                      # Configuration (gitignored)
-├── requirements.txt          # Python dependencies
-├── CLAUDE.md                 # Detailed implementation plan
-└── specs.md                  # Development checklist
+├── scripts/
+│   └── parse_vue_ast.js           # Node.js AST parser (@vue/compiler-sfc + Babel)
+│
+├── tests/                         # TDD test suite
+│   ├── test_ollama_client.py
+│   ├── test_validator.py
+│   ├── test_refactoring_test.py
+│   ├── test_typed_emits_validator.py
+│   └── test_run_test.py
+│
+└── results/                       # Benchmark outputs (gitignored)
 ```
 
-## Available Commands
+## Development
 
-### Environment Management
+### Running Tests
+
 ```bash
-# Activate virtual environment
-llmbench  # Using alias
-source venv/bin/activate  # Manual activation
+source venv/bin/activate
 
-# Deactivate
-deactivate
-
-# Update dependencies
-pip install -r requirements.txt --upgrade
-```
-
-### Testing
-```bash
-# Run all tests
+# All tests (unit + integration)
 pytest
 
-# Run with verbose output
-pytest -v
-
-# Run specific test file
-pytest tests/test_ollama_client.py
-
-# Run specific test class
-pytest tests/test_ollama_client.py::TestChatFunction
-
-# Run specific test
-pytest tests/test_ollama_client.py::TestChatFunction::test_successful_chat_call
-
-# Run with coverage
-pytest --cov=src --cov-report=html
-open htmlcov/index.html
-
-# Run only unit tests (skip integration)
+# Unit tests only (no Ollama required)
 pytest -m "not integration"
 
-# Run integration tests (requires NVIDIA GPU)
-# Note: Integration tests are skipped by default as they require:
-# - Physical NVIDIA GPU with drivers installed
-# - nvidia-smi available in PATH
-pytest -m integration -v
+# Verbose
+pytest -v
 ```
 
-**Note on Integration Tests:**
-- Integration tests are marked with `@pytest.mark.integration` and `@pytest.mark.skip`
-- They test real hardware (nvidia-smi, actual Ollama) instead of mocks
-- Skipped by default on machines without NVIDIA GPU
-- Run them manually only on GPU-enabled systems
+Integration tests (marked `@pytest.mark.integration`) require a live Ollama instance with the model loaded. They will fail on dev machines without the model — this is expected.
 
-### Code Quality
-```bash
-# Format code with black
-black src/ tests/
+### Adding a New Fixture
 
-# Lint with flake8
-flake8 src/ tests/
+1. Create `fixtures/refactoring/<fixture-name>/` with:
+   - `prompt.md` — LLM prompt template using `{{original_code}}`
+   - `validation_spec.json` — required patterns, naming conventions, scoring weights
+   - `target_project/` — complete Vue 3 project (`npm install` before running)
 
-# Type checking with mypy
-mypy src/
+2. Create `src/refactoring/<fixture_name>/` with:
+   - `__init__.py`
+   - `validator.py` — copy from an existing fixture and adjust `validate_naming()` as needed
+   - `test_runner.py` — copy from an existing fixture, update the `validator` import
 
-# Sort imports
-isort src/ tests/
-```
+3. Register the fixture in `run_test.py`:
+   ```python
+   _RUNNER_MAP = {
+       ...
+       "new-fixture-name": "src.refactoring.new_fixture_name.test_runner",
+   }
+   ```
 
-### Ollama Operations
-```bash
-# List available models
-ollama list
+4. Write tests in `tests/test_<fixture_name>_validator.py`.
 
-# Pull a model
-ollama pull qwen2.5-coder:7b-instruct-q8_0
+### Environment Variables
 
-# Test model manually
-ollama run qwen2.5-coder:7b-instruct-q8_0 "Say hello"
-
-# Check Ollama service
-curl http://localhost:11434/api/tags
-```
-
-### GPU Monitoring
-```bash
-# Check GPU status
-nvidia-smi
-
-# Monitor GPU in real-time
-watch -n 1 nvidia-smi
-
-# GPU info (utilization + memory)
-nvidia-smi --query-gpu=utilization.gpu,memory.used --format=csv
-```
-
-## License
-
-Private project - Not licensed for distribution
-
-## References
-
-- [Ollama Documentation](https://ollama.ai/docs)
-- [Ollama Python SDK](https://github.com/ollama/ollama-python)
-- [TypeScript Handbook](https://www.typescriptlang.org/docs/)
-- [Vue.js Documentation](https://vuejs.org/)
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama server URL |
