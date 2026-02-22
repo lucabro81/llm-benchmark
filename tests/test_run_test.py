@@ -5,11 +5,11 @@ from pathlib import Path
 
 import pytest
 
-from src.refactoring_test import TestResult
+from src.refactoring_test import BenchmarkResult
 
 
 def _make_result(run_number=1, final_score=10.0, tokens_per_sec=185.0, compiles=True):
-    return TestResult(
+    return BenchmarkResult(
         model="test", fixture="test", timestamp="2025-01-17T14:23:45",
         run_number=run_number, compiles=compiles, compilation_errors=[],
         compilation_warnings=[], pattern_score=10.0, naming_score=1.0,
@@ -46,7 +46,7 @@ class TestRunTestOutput:
     """Test JSON serialisation of results."""
 
     def test_result_serialises_to_json(self):
-        """TestResult.__dict__ should be JSON-serialisable with correct values."""
+        """BenchmarkResult.__dict__ should be JSON-serialisable with correct values."""
         result = _make_result(run_number=1, final_score=10.0)
         parsed = json.loads(json.dumps([result.__dict__]))
 

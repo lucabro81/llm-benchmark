@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
-class TestResult:
+class BenchmarkResult:
     """Complete test execution result.
 
     Attributes:
@@ -79,7 +79,7 @@ class RefactoringTest:
     - Calls LLM with GPU monitoring
     - Validates output (compilation + AST + naming)
     - Calculates weighted final score
-    - Returns structured TestResult
+    - Returns structured BenchmarkResult
 
     Example:
         >>> test = RefactoringTest(
@@ -142,7 +142,7 @@ class RefactoringTest:
             f"original_code={len(self.original_code)} chars"
         )
 
-    def run(self, run_number: int = 1) -> TestResult:
+    def run(self, run_number: int = 1) -> BenchmarkResult:
         """Execute single test run (Phase 1 prompt-only workflow).
 
         Workflow:
@@ -156,13 +156,13 @@ class RefactoringTest:
         8. Validate naming conventions
         9. Calculate final score (weighted)
         10. Cleanup (restore original file)
-        11. Return TestResult
+        11. Return BenchmarkResult
 
         Args:
             run_number: Test run number (for multiple runs)
 
         Returns:
-            TestResult with all metrics and validation results
+            BenchmarkResult with all metrics and validation results
         """
         timestamp = datetime.now().isoformat()
         errors = []
@@ -228,7 +228,7 @@ class RefactoringTest:
 
             logger.info(f"Final score: {final_score:.1f}/10")
 
-            return TestResult(
+            return BenchmarkResult(
                 model=self.model,
                 fixture=self.fixture_name,
                 timestamp=timestamp,

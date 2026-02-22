@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 import pytest
 
-from src.refactoring_test import RefactoringTest, TestResult
+from src.refactoring_test import RefactoringTest, BenchmarkResult
 
 
 # ---------------------------------------------------------------------------

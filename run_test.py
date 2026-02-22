@@ -23,7 +23,7 @@ from typing import List
 from rich.console import Console
 from rich.progress import track
 
-from src.refactoring_test import RefactoringTest, TestResult
+from src.refactoring_test import RefactoringTest, BenchmarkResult
 
 # Configuration (hardcoded for MVP)
 MODEL = "qwen2.5-coder:7b-instruct-q8_0"
@@ -45,11 +45,11 @@ def show_header():
     console.print(f"Runs:    [yellow]{RUNS}[/yellow]\n")
 
 
-def show_run_summary(result: TestResult):
+def show_run_summary(result: BenchmarkResult):
     """Display summary for a single test run.
 
     Args:
-        result: TestResult from a single test run
+        result: BenchmarkResult from a single test run
     """
     compile_icon = "✓" if result.compiles else "✗"
     score_icon = "✓" if result.final_score >= 8.0 else "✗"
@@ -64,11 +64,11 @@ def show_run_summary(result: TestResult):
     )
 
 
-def save_results(results: List[TestResult]) -> Path:
+def save_results(results: List[BenchmarkResult]) -> Path:
     """Save results to JSON file.
 
     Args:
-        results: List of TestResult objects from all runs
+        results: List of BenchmarkResult objects from all runs
 
     Returns:
         Path to saved JSON file
@@ -88,11 +88,11 @@ def save_results(results: List[TestResult]) -> Path:
     return output_file
 
 
-def show_summary(results: List[TestResult]):
+def show_summary(results: List[BenchmarkResult]):
     """Display summary statistics across all runs.
 
     Args:
-        results: List of TestResult objects from all runs
+        results: List of BenchmarkResult objects from all runs
     """
     # Calculate statistics
     avg_score = sum(r.final_score for r in results) / len(results)
