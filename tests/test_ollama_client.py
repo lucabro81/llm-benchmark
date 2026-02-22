@@ -122,7 +122,6 @@ class TestChatIntegration:
     """Integration tests (require running Ollama instance)."""
 
     @pytest.mark.integration
-    @pytest.mark.skip(reason="Requires running Ollama instance")
     def test_real_ollama_call(self):
         """Integration test with real Ollama."""
         result = chat(

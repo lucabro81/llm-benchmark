@@ -169,7 +169,6 @@ class TestGPUMonitorIntegration:
     """Integration tests (require actual nvidia-smi)."""
 
     @pytest.mark.integration
-    @pytest.mark.skip(reason="Requires NVIDIA GPU with drivers")
     def test_real_gpu_monitoring(self):
         """Integration test with real nvidia-smi."""
         result = monitor_gpu_during_inference(lambda: time.sleep(1))
