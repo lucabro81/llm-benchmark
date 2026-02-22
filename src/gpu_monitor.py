@@ -83,13 +83,20 @@ def parse_nvidia_smi_output(output: str) -> Tuple[float, float]:
     # Use first GPU if multiple GPUs present
     first_line = lines[0].strip()
 
+    def _parse_field(raw: str) -> float:
+        """Parse a single nvidia-smi field, treating [N/A] as 0.0."""
+        value = raw.strip()
+        if value == "[N/A]":
+            return 0.0
+        return float(value)
+
     try:
         parts = first_line.split(",")
         if len(parts) != 2:
             raise ValueError(f"Invalid CSV format: {first_line}")
 
-        utilization = float(parts[0].strip())
-        memory_mb = float(parts[1].strip())
+        utilization = _parse_field(parts[0])
+        memory_mb = _parse_field(parts[1])
 
         return utilization, memory_mb
 

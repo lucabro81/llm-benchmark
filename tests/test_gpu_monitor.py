@@ -63,6 +63,12 @@ class TestNvidiaSmiParsing:
         assert utilization == 0.0
         assert memory_mb == 1024.0
 
+    def test_parse_na_memory_returns_zero(self):
+        """Should treat [N/A] memory field as 0.0 (integrated/partial GPU drivers)."""
+        utilization, memory_mb = parse_nvidia_smi_output("0, [N/A]\n")
+        assert utilization == 0.0
+        assert memory_mb == 0.0
+
     def test_parse_empty_output_raises(self):
         """Should raise ValueError for empty output."""
         with pytest.raises(ValueError):
