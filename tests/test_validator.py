@@ -300,7 +300,22 @@ class TestValidatorIntegration:
 
     @pytest.mark.integration
     def test_real_ast_parsing(self):
-        """Integration test with real Node.js AST parser."""
+        """Integration test with real Node.js AST parser.
+        Requires: node installed + npm install in fixture target_project
+        (needs @vue/compiler-sfc in node_modules).
+        """
+        import subprocess
+        # Fail fast with a clear message if @vue/compiler-sfc is not installed
+        check = subprocess.run(
+            ["node", "-e", "require('@vue/compiler-sfc')"],
+            capture_output=True, text=True
+        )
+        if check.returncode != 0:
+            pytest.fail(
+                "@vue/compiler-sfc not found. Run: "
+                "cd fixtures/refactoring/simple-component/target_project && npm install"
+            )
+
         code = """
 <script setup lang="ts">
 interface ComponentProps {
