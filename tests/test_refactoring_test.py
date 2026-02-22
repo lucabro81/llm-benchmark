@@ -211,13 +211,19 @@ class TestRefactoringTestRun:
             error=None
         )
 
-        mock_gpu.monitor_gpu_during_inference.return_value = GPUMetrics(
+        gpu_metrics = GPUMetrics(
             avg_utilization=94.2,
             peak_utilization=98.1,
             avg_memory_used=11.4,
             peak_memory_used=12.1,
             samples=10
         )
+
+        def run_callback_and_return_metrics(callback, **kwargs):
+            callback()
+            return gpu_metrics
+
+        mock_gpu.monitor_gpu_during_inference.side_effect = run_callback_and_return_metrics
 
         mock_validator.validate_compilation.return_value = CompilationResult(
             success=True,
@@ -279,10 +285,16 @@ class TestRefactoringTestRun:
             success=True,
         )
 
-        mock_gpu.monitor_gpu_during_inference.return_value = GPUMetrics(
+        gpu_metrics_weighted = GPUMetrics(
             avg_utilization=90.0, peak_utilization=95.0,
             avg_memory_used=10.0, peak_memory_used=11.0, samples=5
         )
+
+        def run_callback_and_return_metrics_weighted(callback, **kwargs):
+            callback()
+            return gpu_metrics_weighted
+
+        mock_gpu.monitor_gpu_during_inference.side_effect = run_callback_and_return_metrics_weighted
 
         # Compilation: success (1.0) * 0.5 = 0.5
         # Pattern: 6.0/10 = 0.6 * 0.4 = 0.24
@@ -322,10 +334,16 @@ class TestRefactoringTestRun:
             response_text="MODIFIED CODE",
             duration_sec=4.0, tokens_generated=50, tokens_per_sec=150.0, success=True
         )
-        mock_gpu.monitor_gpu_during_inference.return_value = GPUMetrics(
+        gpu_metrics_restore = GPUMetrics(
             avg_utilization=90.0, peak_utilization=95.0,
             avg_memory_used=10.0, peak_memory_used=11.0, samples=5
         )
+
+        def run_callback_and_return_metrics_restore(callback, **kwargs):
+            callback()
+            return gpu_metrics_restore
+
+        mock_gpu.monitor_gpu_during_inference.side_effect = run_callback_and_return_metrics_restore
         mock_validator.validate_compilation.return_value = CompilationResult(
             success=True, errors=[], warnings=[], duration_sec=1.0
         )
