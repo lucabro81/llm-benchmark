@@ -1,0 +1,22 @@
+{
+  "target_file": "src/components/UserProfile.vue",
+  "task_description": "Add TypeScript types: props, emits with payloads, computed return type, type imports",
+
+  "required_patterns": {
+    "interfaces": ["UserProfileProps", "UserProfileEmits"],
+    "type_annotations": ["UserProfileProps", "UserProfileEmits", "ComputedRef"],
+    "script_lang": "ts",
+    "imports": ["@/types/user", "vue"]
+  },
+
+  "naming_conventions": {
+    "interfaces": "PascalCase",
+    "interface_suffixes": ["Props", "Emits"]
+  },
+
+  "scoring": {
+    "compilation": 0.5,
+    "pattern_match": 0.4,
+    "naming": 0.1
+  }
+}

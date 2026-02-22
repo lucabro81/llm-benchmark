@@ -5,7 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from src.refactoring_test import BenchmarkResult
+from src.refactoring.simple_component.test_runner import BenchmarkResult
+from run_test import discover_fixtures
 
 
 def _make_result(run_number=1, final_score=10.0, tokens_per_sec=185.0, compiles=True):
@@ -41,6 +42,52 @@ class TestRunTestSummary:
         results = [_make_result(compiles=c) for c in [True, True, False]]
         rate = sum(1 for r in results if r.compiles) / len(results)
         assert abs(rate - 0.667) < 0.01
+
+
+class TestDiscoverFixtures:
+    """Test fixture discovery from filesystem."""
+
+    def test_discovers_valid_fixtures(self, tmp_path):
+        """Should return fixture dirs that contain validation_spec.json."""
+        (tmp_path / "fixture-a").mkdir()
+        (tmp_path / "fixture-a" / "validation_spec.json").write_text("{}")
+        (tmp_path / "fixture-b").mkdir()
+        (tmp_path / "fixture-b" / "validation_spec.json").write_text("{}")
+
+        result = discover_fixtures(tmp_path)
+        assert len(result) == 2
+        assert all(p.name.startswith("fixture-") for p in result)
+
+    def test_ignores_dirs_without_validation_spec(self, tmp_path):
+        """Should skip dirs that lack validation_spec.json."""
+        (tmp_path / "valid-fixture").mkdir()
+        (tmp_path / "valid-fixture" / "validation_spec.json").write_text("{}")
+        (tmp_path / "no-spec-dir").mkdir()  # no validation_spec.json
+
+        result = discover_fixtures(tmp_path)
+        assert len(result) == 1
+        assert result[0].name == "valid-fixture"
+
+    def test_returns_sorted_by_name(self, tmp_path):
+        """Should return fixtures in alphabetical order."""
+        for name in ["z-fixture", "a-fixture", "m-fixture"]:
+            (tmp_path / name).mkdir()
+            (tmp_path / name / "validation_spec.json").write_text("{}")
+
+        result = discover_fixtures(tmp_path)
+        names = [p.name for p in result]
+        assert names == sorted(names)
+
+    def test_raises_if_base_dir_missing(self, tmp_path):
+        """Should raise FileNotFoundError if the base directory does not exist."""
+        with pytest.raises(FileNotFoundError):
+            discover_fixtures(tmp_path / "nonexistent")
+
+    def test_raises_if_no_valid_fixtures(self, tmp_path):
+        """Should raise FileNotFoundError if base_dir has no valid fixtures."""
+        (tmp_path / "empty-dir").mkdir()  # dir but no validation_spec.json
+        with pytest.raises(FileNotFoundError):
+            discover_fixtures(tmp_path)
 
 
 class TestRunTestOutput:

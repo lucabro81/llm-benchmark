@@ -110,7 +110,7 @@ def validate_ast_structure(code: str, expected_structures: dict) -> ASTResult:
 
     try:
         # Call Node.js AST parser script
-        script_path = Path(__file__).parent.parent / "scripts" / "parse_vue_ast.js"
+        script_path = Path(__file__).parent.parent.parent.parent / "scripts" / "parse_vue_ast.js"
 
         result = subprocess.run(
             ["node", str(script_path), str(temp_file)],

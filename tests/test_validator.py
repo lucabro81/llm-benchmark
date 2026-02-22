@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from src.validator import (
+from src.refactoring.simple_component.validator import (
     ASTResult,
     CompilationResult,
     NamingResult,

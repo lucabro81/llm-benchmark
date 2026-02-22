@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 import pytest
 
-from src.refactoring_test import RefactoringTest, BenchmarkResult
+from src.refactoring.simple_component.test_runner import RefactoringTest, BenchmarkResult
 
 
 # ---------------------------------------------------------------------------
@@ -83,12 +83,12 @@ class TestRefactoringTestInit:
 class TestRefactoringTestRun:
     """Test run() — scoring calculation and file lifecycle."""
 
-    @patch("src.refactoring_test.ollama_client")
-    @patch("src.refactoring_test.validator")
+    @patch("src.refactoring.simple_component.test_runner.ollama_client")
+    @patch("src.refactoring.simple_component.test_runner.validator")
     def test_perfect_score_when_all_checks_pass(self, mock_validator, mock_ollama, tmp_path):
         """Should produce final_score=10.0 when compilation=OK, pattern=10, naming=1."""
-        from src.ollama_client import ChatResult
-        from src.validator import CompilationResult, ASTResult, NamingResult
+        from src.common.ollama_client import ChatResult
+        from src.refactoring.simple_component.validator import CompilationResult, ASTResult, NamingResult
 
         mock_ollama.chat.return_value = ChatResult(
             response_text='<script setup lang="ts">\ninterface TestProps { title: string }\nconst props = defineProps<TestProps>()\n</script>',
@@ -107,12 +107,12 @@ class TestRefactoringTestRun:
         assert result.naming_violations == []
         assert result.scoring_weights == {"compilation": 0.5, "pattern_match": 0.4, "naming": 0.1}
 
-    @patch("src.refactoring_test.ollama_client")
-    @patch("src.refactoring_test.validator")
+    @patch("src.refactoring.simple_component.test_runner.ollama_client")
+    @patch("src.refactoring.simple_component.test_runner.validator")
     def test_weighted_scoring_calculation(self, mock_validator, mock_ollama, tmp_path):
         """Compilation=1*0.5 + pattern=0.6*0.4 + naming=1*0.1 → 8.4."""
-        from src.ollama_client import ChatResult
-        from src.validator import CompilationResult, ASTResult, NamingResult
+        from src.common.ollama_client import ChatResult
+        from src.refactoring.simple_component.validator import CompilationResult, ASTResult, NamingResult
 
         mock_ollama.chat.return_value = ChatResult(
             response_text="code", duration_sec=4.0, tokens_generated=50, tokens_per_sec=150.0, success=True,
@@ -132,12 +132,12 @@ class TestRefactoringTestRun:
         assert "type_annotations" in result.ast_missing
         assert result.naming_violations == []
 
-    @patch("src.refactoring_test.ollama_client")
-    @patch("src.refactoring_test.validator")
+    @patch("src.refactoring.simple_component.test_runner.ollama_client")
+    @patch("src.refactoring.simple_component.test_runner.validator")
     def test_compilation_failure_caps_score(self, mock_validator, mock_ollama, tmp_path):
         """Compilation=0*0.5 + pattern=1*0.4 + naming=1*0.1 → 5.0."""
-        from src.ollama_client import ChatResult
-        from src.validator import CompilationResult, ASTResult, NamingResult
+        from src.common.ollama_client import ChatResult
+        from src.refactoring.simple_component.validator import CompilationResult, ASTResult, NamingResult
 
         mock_ollama.chat.return_value = ChatResult(
             response_text="bad code", duration_sec=3.0, tokens_generated=30, tokens_per_sec=100.0, success=True,
@@ -157,12 +157,12 @@ class TestRefactoringTestRun:
         assert abs(result.final_score - 5.0) < 0.1
         assert "TS2304" in result.compilation_errors[0]
 
-    @patch("src.refactoring_test.ollama_client")
-    @patch("src.refactoring_test.validator")
+    @patch("src.refactoring.simple_component.test_runner.ollama_client")
+    @patch("src.refactoring.simple_component.test_runner.validator")
     def test_original_file_restored_after_run(self, mock_validator, mock_ollama, tmp_path):
         """Target file must be restored to original content after run completes."""
-        from src.ollama_client import ChatResult
-        from src.validator import CompilationResult, ASTResult, NamingResult
+        from src.common.ollama_client import ChatResult
+        from src.refactoring.simple_component.validator import CompilationResult, ASTResult, NamingResult
 
         mock_ollama.chat.return_value = ChatResult(
             response_text="MODIFIED CODE", duration_sec=4.0, tokens_generated=50, tokens_per_sec=150.0, success=True,

@@ -16,7 +16,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import List
 
-from src import ollama_client, validator
+from src.common import ollama_client
+from src.refactoring.simple_component import validator
 
 # Configure logging
 logger = logging.getLogger(__name__)
