@@ -178,6 +178,9 @@ class TestGPUMonitorIntegration:
     def test_real_gpu_monitoring(self):
         """Integration test with real nvidia-smi.
         Requires: NVIDIA GPU with drivers and nvidia-smi in PATH.
+
+        Note: on unified-memory GPUs (e.g. GB10/ATS) memory.used reports [N/A]
+        and avg_memory_used will be 0.0 — this is expected and not a failure.
         """
         # sleep 3s to guarantee at least 4 polls at default interval (0.5s)
         result = monitor_gpu_during_inference(lambda: time.sleep(3))
@@ -185,5 +188,5 @@ class TestGPUMonitorIntegration:
             f"Expected at least 1 GPU sample but got 0. "
             f"Check that nvidia-smi is working: run 'nvidia-smi' manually."
         )
-        assert result.avg_utilization >= 0
-        assert result.avg_memory_used >= 0  # idle GPU may have 0 compute but valid memory
+        assert 0.0 <= result.avg_utilization <= 100.0
+        assert result.avg_memory_used >= 0.0  # 0.0 on unified-memory GPUs is valid
