@@ -35,8 +35,11 @@ class BenchmarkResult:
         compilation_errors: List of TypeScript compilation errors
         compilation_warnings: List of TypeScript compilation warnings
         pattern_score: AST pattern matching score (0.0-10.0)
+        ast_missing: List of AST structures not found (e.g. ["interfaces", "script_lang"])
         naming_score: Naming convention score (0.0-10.0)
+        naming_violations: List of naming convention violations found
         final_score: Weighted final score (0.0-10.0)
+        scoring_weights: Weights used for final_score {"compilation": 0.5, ...}
         tokens_per_sec: LLM generation speed (tokens/second)
         duration_sec: Total test duration in seconds
         output_code: Generated Vue component code
@@ -52,8 +55,11 @@ class BenchmarkResult:
     compilation_errors: List[str]
     compilation_warnings: List[str]
     pattern_score: float
+    ast_missing: List[str]
     naming_score: float
+    naming_violations: List[str]
     final_score: float
+    scoring_weights: dict
 
     tokens_per_sec: float
     duration_sec: float
@@ -219,8 +225,11 @@ class RefactoringTest:
                 compilation_errors=compilation_result.errors,
                 compilation_warnings=compilation_result.warnings,
                 pattern_score=ast_result.score,
+                ast_missing=ast_result.missing,
                 naming_score=naming_result.score * 10,  # Scale to 0-10
+                naming_violations=naming_result.violations,
                 final_score=final_score,
+                scoring_weights=weights,
                 tokens_per_sec=chat_result.tokens_per_sec,
                 duration_sec=chat_result.duration_sec,
                 output_code=output_code,

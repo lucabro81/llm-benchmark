@@ -103,6 +103,9 @@ class TestRefactoringTestRun:
         assert result.final_score == 10.0
         assert result.compiles is True
         assert result.tokens_per_sec == 185.3
+        assert result.ast_missing == []
+        assert result.naming_violations == []
+        assert result.scoring_weights == {"compilation": 0.5, "pattern_match": 0.4, "naming": 0.1}
 
     @patch("src.refactoring_test.ollama_client")
     @patch("src.refactoring_test.validator")
@@ -126,6 +129,8 @@ class TestRefactoringTestRun:
         assert result.pattern_score == 6.0
         assert result.naming_score == 10.0  # naming_result.score (0-1) scaled to 0-10
         assert abs(result.final_score - 8.4) < 0.1
+        assert "type_annotations" in result.ast_missing
+        assert result.naming_violations == []
 
     @patch("src.refactoring_test.ollama_client")
     @patch("src.refactoring_test.validator")
@@ -150,6 +155,7 @@ class TestRefactoringTestRun:
         # (0*0.5 + 1.0*0.4 + 1.0*0.1) * 10 = 5.0
         assert result.compiles is False
         assert abs(result.final_score - 5.0) < 0.1
+        assert "TS2304" in result.compilation_errors[0]
 
     @patch("src.refactoring_test.ollama_client")
     @patch("src.refactoring_test.validator")
