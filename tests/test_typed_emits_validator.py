@@ -1,5 +1,9 @@
 """Tests for typed_emits_composable validator (validate_naming with interface_suffixes)."""
 
+import json
+from pathlib import Path
+from unittest.mock import patch
+
 import pytest
 
 from src.refactoring.typed_emits_composable.validator import validate_naming, NamingResult
@@ -100,3 +104,67 @@ class TestValidateNamingWithInterfaceSuffixes:
         )
         assert result.score == 1.0
         assert result.follows_conventions is True
+
+
+# ---------------------------------------------------------------------------
+# Exception handling in typed_emits_composable test runner
+# ---------------------------------------------------------------------------
+
+def _make_typed_emits_fixture(tmp_path):
+    """Create a minimal valid fixture directory for typed-emits-composable."""
+    fixture_path = tmp_path / "typed-emits-composable"
+    fixture_path.mkdir()
+
+    (fixture_path / "prompt.md").write_text("Refactor: {{original_code}}")
+
+    spec = {
+        "target_file": "src/components/UserProfile.vue",
+        "required_patterns": {"interfaces": ["UserProfileProps", "UserProfileEmits"]},
+        "naming_conventions": {"interfaces": "PascalCase", "interface_suffixes": ["Props", "Emits"]},
+        "scoring": {"compilation": 0.5, "pattern_match": 0.4, "naming": 0.1},
+    }
+    (fixture_path / "validation_spec.json").write_text(json.dumps(spec))
+
+    target_project = fixture_path / "target_project"
+    components_dir = target_project / "src" / "components"
+    components_dir.mkdir(parents=True)
+    (components_dir / "UserProfile.vue").write_text(
+        "<script setup>\nconst props = defineProps({ user: Object })\n</script>"
+    )
+
+    return fixture_path
+
+
+class TestTypedEmitsRunnerExceptionHandling:
+    """Ensure typed_emits_composable test runner handles validation exceptions gracefully."""
+
+    @patch("src.refactoring.typed_emits_composable.test_runner.ollama_client")
+    @patch("src.refactoring.typed_emits_composable.test_runner.validator")
+    def test_ast_exception_in_typed_emits_runner_handled_gracefully(self, mock_validator, mock_ollama, tmp_path):
+        """When validate_ast_structure raises in typed_emits runner, returns degraded BenchmarkResult."""
+        from src.refactoring.typed_emits_composable.test_runner import RefactoringTest, BenchmarkResult
+        from src.common.ollama_client import ChatResult
+        from src.refactoring.typed_emits_composable.validator import CompilationResult, NamingResult
+
+        mock_ollama.chat.return_value = ChatResult(
+            response_text="bad code with invalid emits syntax",
+            duration_sec=7.5, tokens_generated=40, tokens_per_sec=31.3, success=True,
+        )
+        mock_validator.validate_compilation.return_value = CompilationResult(
+            success=False, errors=["TS2304: error"], warnings=[], duration_sec=1.0
+        )
+        mock_validator.validate_ast_structure.side_effect = Exception(
+            "AST parsing failed: Compile error: [vue/compiler-sfc] Unexpected token (11:3)"
+        )
+        mock_validator.validate_naming.return_value = NamingResult(
+            follows_conventions=False, violations=[], score=0.0
+        )
+
+        result = RefactoringTest(model="test-model", fixture_path=_make_typed_emits_fixture(tmp_path)).run(run_number=10)
+
+        # Must not raise — returns a degraded BenchmarkResult
+        assert isinstance(result, BenchmarkResult)
+        assert result.pattern_score == 0.0
+        assert result.run_number == 10
+        assert len(result.errors) > 0
+        assert any("AST" in e for e in result.errors)

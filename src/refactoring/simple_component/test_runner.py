@@ -18,6 +18,7 @@ from typing import List
 
 from src.common import ollama_client
 from src.refactoring.simple_component import validator
+from src.refactoring.simple_component.validator import ASTResult, NamingResult
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -194,18 +195,38 @@ class RefactoringTest:
             logger.info(f"Compilation: {compilation_result.success}")
 
             # 7. Validate AST patterns
-            ast_result = validator.validate_ast_structure(
-                output_code,
-                self.validation_spec.get("required_patterns", {})
-            )
-            logger.info(f"AST score: {ast_result.score}/10")
+            try:
+                ast_result = validator.validate_ast_structure(
+                    output_code,
+                    self.validation_spec.get("required_patterns", {})
+                )
+                logger.info(f"AST score: {ast_result.score}/10")
+            except Exception as e:
+                logger.warning(f"AST validation failed: {e}")
+                errors.append(f"AST validation error: {e}")
+                ast_result = ASTResult(
+                    has_interfaces=False,
+                    has_type_annotations=False,
+                    has_imports=False,
+                    missing=["AST parsing failed"],
+                    score=0.0,
+                )
 
             # 8. Validate naming
-            naming_result = validator.validate_naming(
-                output_code,
-                self.validation_spec.get("naming_conventions", {})
-            )
-            logger.info(f"Naming score: {naming_result.score}")
+            try:
+                naming_result = validator.validate_naming(
+                    output_code,
+                    self.validation_spec.get("naming_conventions", {})
+                )
+                logger.info(f"Naming score: {naming_result.score}")
+            except Exception as e:
+                logger.warning(f"Naming validation failed: {e}")
+                errors.append(f"Naming validation error: {e}")
+                naming_result = NamingResult(
+                    follows_conventions=False,
+                    violations=["Naming validation failed"],
+                    score=0.0,
+                )
 
             # 9. Calculate final score (weighted)
             weights = self.validation_spec["scoring"]

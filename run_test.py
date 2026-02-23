@@ -152,6 +152,9 @@ def show_run_summary(result: BenchmarkResult):
     if result.compilation_errors:
         for err in result.compilation_errors[:3]:
             console.print(f"   [red]  TS error: {err}[/red]")
+    if result.errors:
+        for err in result.errors:
+            console.print(f"   [red]  ⚠ {err[:120]}[/red]")
 
 
 def show_fixture_summary(results: List[BenchmarkResult], fixture_name: str):

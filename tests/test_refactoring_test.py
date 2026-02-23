@@ -177,3 +177,55 @@ class TestRefactoringTestRun:
         test.run(run_number=1)
 
         assert test.target_file.read_text() == original_code
+
+    @patch("src.refactoring.simple_component.test_runner.ollama_client")
+    @patch("src.refactoring.simple_component.test_runner.validator")
+    def test_ast_validation_exception_produces_zero_score_and_continues(self, mock_validator, mock_ollama, tmp_path):
+        """When validate_ast_structure raises, run() returns BenchmarkResult with score=0, errors recorded."""
+        from src.common.ollama_client import ChatResult
+        from src.refactoring.simple_component.validator import CompilationResult, NamingResult
+
+        mock_ollama.chat.return_value = ChatResult(
+            response_text="garbage code", duration_sec=3.0, tokens_generated=20, tokens_per_sec=100.0, success=True,
+        )
+        mock_validator.validate_compilation.return_value = CompilationResult(
+            success=False, errors=["TS2304: error"], warnings=[], duration_sec=1.0
+        )
+        mock_validator.validate_ast_structure.side_effect = Exception(
+            "AST parsing failed: Compile error: Unexpected token (11:3)"
+        )
+        mock_validator.validate_naming.return_value = NamingResult(follows_conventions=True, violations=[], score=1.0)
+
+        result = RefactoringTest(model="test-model", fixture_path=_make_fixture(tmp_path)).run(run_number=1)
+
+        # Must not raise — returns a degraded BenchmarkResult
+        assert isinstance(result, BenchmarkResult)
+        assert result.pattern_score == 0.0
+        assert len(result.errors) > 0
+        assert any("AST" in e for e in result.errors)
+
+    @patch("src.refactoring.simple_component.test_runner.ollama_client")
+    @patch("src.refactoring.simple_component.test_runner.validator")
+    def test_naming_validation_exception_produces_zero_score_and_continues(self, mock_validator, mock_ollama, tmp_path):
+        """When validate_naming raises, run() returns BenchmarkResult with naming_score=0, errors recorded."""
+        from src.common.ollama_client import ChatResult
+        from src.refactoring.simple_component.validator import CompilationResult, ASTResult
+
+        mock_ollama.chat.return_value = ChatResult(
+            response_text="some code", duration_sec=3.0, tokens_generated=20, tokens_per_sec=100.0, success=True,
+        )
+        mock_validator.validate_compilation.return_value = CompilationResult(
+            success=True, errors=[], warnings=[], duration_sec=1.0
+        )
+        mock_validator.validate_ast_structure.return_value = ASTResult(
+            has_interfaces=True, has_type_annotations=True, has_imports=False, missing=[], score=10.0
+        )
+        mock_validator.validate_naming.side_effect = Exception("Naming validation crashed")
+
+        result = RefactoringTest(model="test-model", fixture_path=_make_fixture(tmp_path)).run(run_number=1)
+
+        # Must not raise — returns a degraded BenchmarkResult
+        assert isinstance(result, BenchmarkResult)
+        assert result.naming_score == 0.0
+        assert len(result.errors) > 0
+        assert any("Naming" in e for e in result.errors)
