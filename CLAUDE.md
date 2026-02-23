@@ -1,14 +1,14 @@
-# LLM Benchmark Suite - Implementation Plan v1.0
+# LLM Benchmark Suite - Implementation Plan v2.0
 
 **Project**: Local LLM Benchmarking Tool for Vue.js/Nuxt/TypeScript Development
-**Date**: 2025-01-17
-**Phase**: MVP Phase 1 (Prompt-Only Baseline)
+**Date**: 2026-02-23
+**Phase**: MVP Phase 1 — COMPLETED
 
 ---
 
 ## Implementation Phases
 
-### Phase 1: Prompt-Only Baseline (CURRENT)
+### Phase 1: Prompt-Only Baseline — ✅ COMPLETED
 **Goal**: Validate workflow with simplest possible setup
 
 **Approach**:
@@ -16,15 +16,26 @@
 - No tool-calling, no iterations
 - LLM must produce correct code in one shot
 
-**Rationale**:
-- Prove infrastructure works (fixtures, validation, GPU monitoring, JSON output)
-- Get baseline metrics before adding complexity
-- Quick validation that "it doesn't explode"
+**Outcome**:
+- Infrastructure proven: 2 fixtures, dual validation, comprehensive metrics, JSON output
+- Baseline metrics established on dedicated NVIDIA inference hardware
+- 57 unit tests passing (1 integration test requires GPU machine + model)
+- GPU monitoring removed — on dedicated inference hardware the GPU is always at 100%, making the metric meaningless
 
-**Success Criteria**:
-- Runs 3 consecutive tests without crashes
-- Produces valid JSON results
-- Metrics are sensible (GPU usage, tokens/sec, scores)
+**Design decisions made during Phase 1**:
+- `gpu_monitor.py` removed — superfluous metric on dedicated inference HW
+- `src/` organized per-fixture (`src/refactoring/<fixture>/`) — deliberate duplication over premature abstraction
+- `validate_naming()` added with `interface_suffixes` (list) support
+- Exception handling in test runner: AST crash → degraded `BenchmarkResult`, not process crash
+- Progress bar replaced with `── Run X/N ──` run counter for cleaner terminal output
+
+**Success Criteria** (all met):
+- ✅ Runs 10 consecutive tests without crashes
+- ✅ Produces valid JSON results
+- ✅ Metrics are sensible (tokens/sec, scores)
+- ✅ Compilation succeeds with vue-tsc in target project
+- ✅ Pattern validation scores perfect output as 10/10
+- ✅ CLI operational (`--model`, `--fixture`, `--runs`)
 
 ### Phase 2: Tool-Calling Agent (NEXT)
 **Goal**: Reflect real-world agent usage patterns
@@ -47,7 +58,7 @@
 
 **Implementation**:
 - Update `ollama_client.py` for function calling (Ollama 0.3+ supports this)
-- Modify `refactoring_test.py` with agent loop
+- Add per-fixture `test_runner_agent.py` with agent loop
 - Update fixtures with examples of expected tool sequences
 - Add efficiency scoring (penalize excessive iterations)
 
@@ -91,25 +102,25 @@ Create a tool to benchmark LLMs locally using Ollama in controlled Vue.js projec
 
 ## Scope MVP
 
-### What's IN
-- **Single test scenario**: TypeScript refactoring in Vue 3 project
+### What's IN (Phase 1 — delivered)
+- **Two test fixtures**: `simple-component` (props typing) and `typed-emits-composable` (props + emits + computed)
 - **Self-contained fixtures**: Each fixture includes a complete Vue project with dependencies
 - **Dual validation**: TypeScript compilation (vue-tsc) + AST pattern conformance
-- **GPU monitoring**: Real-time nvidia-smi integration
-- **Comprehensive metrics**: Compilation success, pattern conformance score, tokens/sec, GPU utilization, duration
+- **Per-fixture src layout**: Each fixture has its own `test_runner.py` and `validator.py` under `src/refactoring/<fixture>/`; only the Ollama client lives in `src/common/`
+- **Comprehensive metrics**: Compilation success, pattern score, naming score, scoring breakdown, tokens/sec, duration
 - **In-place execution**: LLM modifies files directly in fixture's target project
-- **Raw JSON output**: Structured results for future aggregation
-- **Simple runner**: Python script with hardcoded parameters
+- **Raw JSON output**: Structured results for future aggregation (one file per fixture per run)
+- **CLI runner**: `--model` (required), `--fixture` (optional, runs all if omitted), `--runs` (default 3)
+- **Graceful degradation**: AST/naming validation exceptions produce score=0 result, never crash the run loop
 
 ### What's OUT (Future Phases)
-- Multiple test scenarios (Vue 2→3 migration, Nuxt projects, design system integration)
-- CLI with argparse/click
+- Vue 2→3 migration, Nuxt projects, design system integration scenarios
 - Report generation (Markdown/CSV)
-- Data aggregation and statistics
-- Multiple fixtures per scenario
+- Data aggregation and statistics (mean, stddev across runs)
 - Vitest functional testing (run code in browser)
 - Architecture-aware comparisons (MoE vs Dense)
 - Advanced pattern matching (composable usage tracking, component composition)
+- Multi-file refactoring support
 
 ---
 
@@ -117,52 +128,80 @@ Create a tool to benchmark LLMs locally using Ollama in controlled Vue.js projec
 
 ```
 ~/Projects/llm-benchmark/
-├── venv/                          # Python virtual environment (exists)
-├── requirements.txt               # Python dependencies
-├── .gitignore                     # Ignore venv/, results/, temp files
+├── venv/                          # Python virtual environment
+├── requirements.txt               # Python dependencies (ollama, rich)
+├── .gitignore
+├── CLAUDE.md                      # This file — project reference for Claude
+├── specs.md                       # Implementation checklist
+├── README.md                      # User-facing documentation
 │
 ├── src/
 │   ├── __init__.py
-│   ├── ollama_client.py          # Ollama API wrapper + response parsing
-│   ├── gpu_monitor.py            # nvidia-smi integration
-│   ├── validator.py              # AST structure validation
-│   └── refactoring_test.py       # Refactoring test runner
+│   ├── common/
+│   │   ├── __init__.py
+│   │   └── ollama_client.py       # Shared Ollama API wrapper
+│   └── refactoring/
+│       ├── __init__.py
+│       ├── simple_component/
+│       │   ├── __init__.py
+│       │   ├── test_runner.py     # RefactoringTest + BenchmarkResult
+│       │   └── validator.py       # validate_compilation, validate_ast_structure, validate_naming
+│       └── typed_emits_composable/
+│           ├── __init__.py
+│           ├── test_runner.py     # same interface as simple_component
+│           └── validator.py       # validate_naming extended with interface_suffixes
 │
 ├── scripts/
-│   └── parse_vue_ast.js          # Node.js AST parser helper
+│   └── parse_vue_ast.js           # Node.js AST parser (@vue/compiler-sfc + Babel)
 │
 ├── fixtures/
 │   └── refactoring/
-│       └── simple-component/           # First test fixture
-│           ├── target_project/         # Complete Vue 3 project
-│           │   ├── package.json        # Vue + TypeScript + deps
-│           │   ├── tsconfig.json       # Vue 3 TS config
+│       ├── simple-component/
+│       │   ├── target_project/    # Complete Vue 3 project (npm install done)
+│       │   │   ├── package.json
+│       │   │   ├── tsconfig.json
+│       │   │   ├── vite.config.ts
+│       │   │   └── src/components/HelloWorld.vue
+│       │   ├── prompt.md
+│       │   └── validation_spec.json
+│       └── typed-emits-composable/
+│           ├── target_project/    # Complete Vue 3 project (npm install done)
+│           │   ├── package.json
+│           │   ├── tsconfig.json
+│           │   ├── vite.config.ts
 │           │   └── src/
-│           │       └── components/
-│           │           └── HelloWorld.vue  # File to be modified by LLM
-│           ├── prompt.md               # Template with {{original_code}}
-│           └── validation_spec.json    # Expected patterns + scoring weights
+│           │       ├── components/UserProfile.vue
+│           │       └── types/user.ts
+│           ├── prompt.md
+│           └── validation_spec.json
+│
+├── tests/
+│   ├── test_ollama_client.py
+│   ├── test_validator.py          # tests for simple_component validator
+│   ├── test_refactoring_test.py   # tests for simple_component test_runner
+│   ├── test_typed_emits_validator.py  # tests for typed_emits validator + runner
+│   └── test_run_test.py           # tests for CLI runner + discover_fixtures
 │
 ├── results/                       # gitignored, created at runtime
 │   └── .gitkeep
 │
-└── run_test.py                    # Entry point script
+└── run_test.py                    # CLI entry point
 ```
 
 ---
 
 ## Component Specifications
 
-### 1. `src/ollama_client.py`
+### 1. `src/common/ollama_client.py`
 
-**Purpose**: Wrapper for Ollama API with error handling and metrics extraction
+**Purpose**: Shared Ollama API wrapper with error handling and metrics extraction
 
 **Key Functions**:
 ```python
 def chat(model: str, prompt: str, timeout: int = 30) -> ChatResult:
     """
     Call Ollama chat API and return structured result
-    
+
     Returns:
         ChatResult dataclass with:
         - response_text: str
@@ -174,417 +213,186 @@ def chat(model: str, prompt: str, timeout: int = 30) -> ChatResult:
     """
 ```
 
-**Error Handling**:
-- Model not found → raise `ModelNotFoundError`
-- Timeout exceeded → raise `TimeoutError`
-- API connection issues → raise `OllamaConnectionError`
-- Log all errors with context
+**Custom Exceptions**:
+- `ModelNotFoundError` — model not in Ollama
+- `OllamaConnectionError` — cannot reach Ollama API
+- `TimeoutError` — request exceeded timeout
 
 **Implementation Notes**:
-- Use `ollama.chat()` from Python SDK
-- Set timeout via subprocess or async wrapper
-- Parse response metadata for token counts
-- Return structured dataclass, not raw dict
+- Uses `ollama.chat()` from Python SDK
+- Reads `OLLAMA_BASE_URL` env var for non-default hosts
+- Parses `eval_duration` (nanoseconds) and `eval_count` (tokens) from response metadata
 
 ---
 
-### 2. `src/gpu_monitor.py`
+### 2. `src/refactoring/<fixture>/validator.py`
 
-**Purpose**: Monitor GPU utilization during LLM inference using nvidia-smi
+**Purpose**: Dual validation — TypeScript compilation + AST pattern conformance + naming conventions
 
-**Key Functions**:
-```python
-def monitor_gpu_during_inference(callback: Callable) -> GPUMetrics:
-    """
-    Monitor GPU while callback executes
-    
-    Polls nvidia-smi every 0.5s during execution
-    
-    Returns:
-        GPUMetrics dataclass with:
-        - avg_utilization: float (%)
-        - peak_utilization: float (%)
-        - avg_memory_used: float (GB)
-        - peak_memory_used: float (GB)
-        - samples: int
-    """
-```
-
-**Implementation**:
-- Run `nvidia-smi --query-gpu=utilization.gpu,memory.used --format=csv,noheader,nounits` in loop
-- Parse CSV output: `85, 12345` → 85% GPU, 12345 MB VRAM
-- Poll every 500ms during inference
-- Store samples and calculate avg/peak after callback completes
-- Thread-safe if inference is async
-
-**Validation**:
-- Check `nvidia-smi` available at startup
-- Warn if avg_utilization < 80% (config issue)
-- Fail gracefully if nvidia-smi errors
-
----
-
-### 3. `src/validator.py`
-
-**Purpose**: Dual validation - compilation + pattern conformance
-
-**Validation Architecture**:
-```
-LLM Output (written to target_project/src/...)
-    ↓
-[1] TypeScript Compilation (vue-tsc in target project context)
-    ↓
-[2] AST Pattern Matching (@vue/compiler-sfc + Babel)
-    ↓
-Composite Score
-```
+One copy per fixture. `simple_component/validator.py` and `typed_emits_composable/validator.py` are identical except for `validate_naming()`, which in the latter supports `interface_suffixes` (list).
 
 **Key Functions**:
 ```python
 def validate_compilation(target_project: Path) -> CompilationResult:
-    """
-    Run vue-tsc in target project to verify code compiles.
-
-    Returns:
-        CompilationResult dataclass with:
-        - success: bool
-        - errors: List[str]
-        - warnings: List[str]
-    """
+    """Run npm run type-check (vue-tsc) in target_project directory."""
 
 def validate_ast_structure(code: str, expected_structures: dict) -> ASTResult:
     """
-    Check if code contains expected AST structures using official Vue parser
+    Parse Vue SFC via Node.js (parse_vue_ast.js) and check for patterns.
+    Raises Exception if parser returns non-zero exit code.
+    Raises FileNotFoundError if Node.js or script not found.
+    """
 
-    Expected structures (from ast_checks.json):
-    {
-      "interfaces": ["ComponentProps"],
-      "type_annotations": ["defineProps<ComponentProps>"],
-      "script_lang": ["<script setup lang=\"ts\">"],
-      "imports": []
-    }
-
-    Returns:
-        ASTResult dataclass with:
-        - has_interfaces: bool
-        - has_type_annotations: bool
-        - has_imports: bool
-        - missing: List[str]
-        - score: float (0-10)
+def validate_naming(code: str, conventions: dict) -> NamingResult:
+    """
+    Check interface naming conventions via regex.
+    Supports:
+      - interface_suffixes: ["Props", "Emits"]  ← list, takes precedence
+      - props_interface_suffix: "Props"          ← legacy string, backward compat
     """
 ```
 
-**Compilation Validation**:
-- Executes `vue-tsc --noEmit` in target_project directory
-- Full context: all dependencies, tsconfig, project structure
-- Returns success/failure + TypeScript error messages
-- No file copying - LLM output already written to target file
+**Validation Architecture**:
+```
+LLM Output
+    ↓
+[1] TypeScript Compilation (vue-tsc via npm run type-check)
+    ↓
+[2] AST Pattern Matching (Node.js: @vue/compiler-sfc + Babel)
+    ↓
+[3] Naming Convention Check (Python regex on interface declarations)
+    ↓
+Composite Score
+```
 
-**AST Pattern Validation**:
-- Uses **@vue/compiler-sfc** (official Vue SFC parser) + Babel TypeScript AST
-- Calls Node.js helper script (`scripts/parse_vue_ast.js`) via subprocess
-- Extracts TypeScript AST from `<script>` block
-- Checks for specific patterns from `validation_spec.json`:
-  - **interfaces**: Specific interface names (e.g., "ComponentProps", "UserProfile")
-  - **type_annotations**: Specific type usages (e.g., "defineProps<ComponentProps>")
-  - **imports**: Specific import paths (e.g., "@/composables/useAuth")
-  - **composables**: Specific composable calls (e.g., "useAuth()", "useUser()")
-  - **script_lang**: `lang="ts"` attribute
-- Scoring: Configurable weights per pattern category from validation_spec.json
-- No false positives from commented code (parses actual AST, not text)
-
-**Scoring Model**:
+**Scoring Model** (from `validation_spec.json`):
 ```python
-# From validation_spec.json
-{
-  "scoring": {
-    "compilation": 0.5,      # 50% weight
-    "pattern_match": 0.4,    # 40% weight
-    "naming": 0.1            # 10% weight
-  }
-}
-
 final_score = (
-    compilation_success * weights["compilation"] +
-    ast_conformance * weights["pattern_match"] +
-    naming_conformance * weights["naming"]
+    (1.0 if compiles else 0.0) * weights["compilation"] +   # 50%
+    (ast_result.score / 10.0) * weights["pattern_match"] +  # 40%
+    naming_result.score * weights["naming"]                  # 10%
 ) * 10  # Scale to 0-10
 ```
 
+**AST Parser Notes** (`scripts/parse_vue_ast.js`):
+- Uses `compileScript` from `@vue/compiler-sfc` to extract Babel AST from `<script setup>`
+- Call signature syntax (e.g. `('event': [payload]): void`) is NOT supported — use object-type syntax (`'event': [payload]`) for emit interfaces
+- Checks: TSInterfaceDeclaration, type parameters in variable declarations, ImportDeclaration
+
 ---
 
-### 4. `src/refactoring_test.py`
+### 3. `src/refactoring/<fixture>/test_runner.py`
 
-**Purpose**: Orchestrate refactoring test execution
+**Purpose**: Orchestrate a single fixture's refactoring test execution
 
 **Key Class**:
 ```python
 class RefactoringTest:
     def __init__(self, model: str, fixture_path: Path):
-        self.model = model
-        self.fixture_path = fixture_path
-        self.input_code = self._load_file("input.vue")
-        self.expected_code = self._load_file("expected.vue")
-        self.prompt_template = self._load_file("prompt.md")
-        self.ast_checks = self._load_json("ast_checks.json")
-    
-    def run(self) -> TestResult:
+        # Loads: prompt.md, validation_spec.json, original target file
+
+    def run(self, run_number: int = 1) -> BenchmarkResult:
         """
-        Execute single test run
-        
         Steps:
-        1. Render prompt from template
-        2. Monitor GPU + call Ollama
-        3. Validate output (TypeScript + AST)
-        4. Calculate score
-        5. Return structured result
-        
-        Returns:
-            TestResult dataclass with:
-            - model: str
-            - fixture: str
-            - compiles: bool
-            - compilation_errors: List[str]
-            - pattern_score: float (0-10)
-            - final_score: float (0-10, weighted)
-            - tokens_per_sec: float
-            - duration_sec: float
-            - gpu_avg_utilization: float
-            - gpu_peak_memory_gb: float
-            - output_code: str
-            - timestamp: str
+        1. Restore original file
+        2. Render prompt ({{original_code}} substitution)
+        3. Call LLM via ollama_client.chat()
+        4. Extract Vue code from response (strip markdown fences)
+        5. Write output to target file
+        6. validate_compilation() — always robust, returns CompilationResult
+        7. validate_ast_structure() — wrapped in try/except → score=0 on crash
+        8. validate_naming() — wrapped in try/except → score=0 on crash
+        9. Calculate composite score
+        10. Restore original file (finally block)
+        11. Return BenchmarkResult
         """
 ```
 
-**Workflow**:
-1. Load fixture (prompt.md, validation_spec.json)
-2. Read original file from target_project (e.g., src/components/HelloWorld.vue)
-3. Render prompt: replace `{{original_code}}` with file content
-4. Wrap Ollama call with GPU monitor
-5. Write LLM output back to target file
-6. Run vue-tsc in target_project (compilation validation)
-7. Run AST validation on LLM output (pattern conformance)
-8. Calculate composite score based on validation_spec weights
-9. Restore original file (cleanup for next run)
-10. Return structured result
-
-**Scoring Logic**:
+**BenchmarkResult dataclass**:
 ```python
-# Weighted scoring from validation_spec.json
-compilation_score = 1.0 if compiles else 0.0
-pattern_score = ast_result.score  # 0.0-1.0 based on patterns found
-naming_score = naming_result.score  # 0.0-1.0 based on conventions
-
-weights = validation_spec["scoring"]
-final_score = (
-    compilation_score * weights["compilation"] +
-    pattern_score * weights["pattern_match"] +
-    naming_score * weights["naming"]
-) * 10  # Scale to 0-10
+@dataclass
+class BenchmarkResult:
+    model: str
+    fixture: str
+    timestamp: str
+    run_number: int
+    compiles: bool
+    compilation_errors: List[str]
+    compilation_warnings: List[str]
+    pattern_score: float         # 0-10 from AST validation
+    ast_missing: List[str]       # which AST checks failed
+    naming_score: float          # 0-10 (naming_result.score * 10)
+    naming_violations: List[str]
+    final_score: float           # 0-10 weighted composite
+    scoring_weights: dict        # from validation_spec.json
+    tokens_per_sec: float
+    duration_sec: float
+    output_code: str
+    errors: List[str]            # validation errors (AST crash, naming crash, etc.)
 ```
 
 **Error Handling**:
-- Model not found → propagate error (fail fast)
-- Timeout → save partial result with error flag
-- Validation errors → score=0, save errors in result
+- `ModelNotFoundError`, `OllamaConnectionError` → propagate (fail fast)
+- `validate_ast_structure()` raises → catch, append to `errors`, score=0
+- `validate_naming()` raises → catch, append to `errors`, score=0
+- File restoration always happens in `finally` block
 
 ---
 
-### 5. `run_test.py`
+### 4. `run_test.py`
 
-**Purpose**: Entry point script to run benchmark
+**Purpose**: CLI entry point for running benchmarks
 
-**Implementation**:
+**CLI**:
+```
+python run_test.py --model <model> [--fixture <name>] [--runs <n>]
+
+  --model    required  Ollama model name (e.g. qwen2.5-coder:7b-instruct-q8_0)
+  --fixture  optional  Fixture name under fixtures/refactoring/ (runs ALL if omitted)
+  --runs     optional  Number of runs per fixture (default: 3)
+```
+
+**Key Functions**:
 ```python
-#!/usr/bin/env python3
-from pathlib import Path
-from src.refactoring_test import RefactoringTest
-from rich.console import Console
-from rich.progress import track
-import json
+def discover_fixtures(base_dir: Path) -> List[Path]:
+    """Scan fixtures/refactoring/ for dirs containing validation_spec.json, sorted."""
 
-console = Console()
+_RUNNER_MAP = {
+    "simple-component": "src.refactoring.simple_component.test_runner",
+    "typed-emits-composable": "src.refactoring.typed_emits_composable.test_runner",
+}
+# Adding a new fixture requires: (1) create files, (2) register here
 
-# Configuration (hardcoded for MVP)
-MODEL = "qwen2.5-coder:7b-instruct-q8_0"
-FIXTURE = Path("fixtures/refactoring/simple-component")
-RUNS = 3
-OUTPUT_DIR = Path("results")
-
-def main():
-    console.print(f"[bold cyan]LLM Benchmark MVP[/bold cyan]")
-    console.print(f"Model: [yellow]{MODEL}[/yellow]")
-    console.print(f"Fixture: [yellow]{FIXTURE}[/yellow]")
-    console.print(f"Runs: [yellow]{RUNS}[/yellow]\n")
-    
-    # Create results directory
-    OUTPUT_DIR.mkdir(exist_ok=True)
-    
-    # Initialize test
-    test = RefactoringTest(model=MODEL, fixture_path=FIXTURE)
-    
-    # Run multiple times
-    results = []
-    for i in track(range(RUNS), description="Running tests..."):
-        result = test.run()
-        results.append(result)
-        
-        # Print summary
-        compile_icon = "✓" if result.compiles else "✗"
-        score_icon = "✓" if result.final_score >= 8.0 else "✗"
-        console.print(
-            f"{compile_icon} Compile | {score_icon} Score | Run {i+1}: "
-            f"Final={result.final_score:.1f}/10 "
-            f"(Pattern={result.pattern_score:.1f}), "
-            f"Speed={result.tokens_per_sec:.1f} tok/s, "
-            f"GPU={result.gpu_avg_utilization:.0f}%"
-        )
-    
-    # Save raw results
-    timestamp = results[0].timestamp.replace(":", "-")
-    output_file = OUTPUT_DIR / f"{MODEL.replace(':', '_')}_refactoring_{timestamp}.json"
-    
-    with open(output_file, 'w') as f:
-        json.dump([r.__dict__ for r in results], f, indent=2)
-    
-    console.print(f"\n[green]✓ Results saved to {output_file}[/green]")
-    
-    # Warn if GPU utilization low
-    avg_gpu = sum(r.gpu_avg_utilization for r in results) / len(results)
-    if avg_gpu < 80:
-        console.print(
-            f"\n[yellow]⚠ Warning: Average GPU utilization is {avg_gpu:.0f}% (target >80%)[/yellow]"
-        )
-
-if __name__ == "__main__":
-    main()
+def run_fixture(model, fixture_path, runs, runner_class) -> Optional[List[BenchmarkResult]]:
+    """Run all runs for one fixture. Prints '── Run X/N ──' before each run."""
 ```
 
-**Output Example**:
+**Console output per run**:
 ```
-LLM Benchmark MVP
-Model: qwen2.5-coder:7b-instruct-q8_0
-Fixture: fixtures/refactoring/simple-component
-Runs: 3
+── Run 1/10 ──
+✓ Compile | ✓ Score   10.0/10  31.3 tok/s  7.5s
+   Scoring:  compile 5.0pt (50%) + pattern 4.0pt (40%) + naming 1.0pt (10%)
+   AST:      interfaces type_annotations script_lang  (score 10.0/10)
+   Naming:   ✓ conventions  (score 10.0/10)
+──────────
+```
 
-✓ Run 1: Score=9.0/10, Speed=185.3 tok/s, GPU=94%
-✓ Run 2: Score=10.0/10, Speed=178.1 tok/s, GPU=92%
-✓ Run 3: Score=8.0/10, Speed=181.7 tok/s, GPU=95%
-
-✓ Results saved to results/qwen2.5-coder_7b-instruct-q8_0_refactoring_2025-01-17T14-23-45.json
+**JSON output**: one file per fixture per benchmark session:
+```
+results/{model}_{fixture}_{timestamp}.json
 ```
 
 ---
 
-## Fixture Specification: `simple-component`
+## Fixture Specifications
 
-### Directory Structure
-```
-fixtures/refactoring/simple-component/
-├── target_project/              # Complete Vue 3 project
-│   ├── package.json             # Vue 3.5 + TypeScript 5.x
-│   ├── tsconfig.json            # Standard Vue 3 TS config
-│   ├── vite.config.ts           # Minimal Vite config
-│   └── src/
-│       ├── components/
-│       │   └── HelloWorld.vue   # File to be modified (untyped initially)
-│       └── App.vue              # (optional, for context)
-│
-├── prompt.md                    # Jinja2 template
-└── validation_spec.json         # Validation rules + scoring
-```
+### `simple-component`
 
-### `target_project/package.json`
-```json
-{
-  "name": "simple-component-fixture",
-  "version": "1.0.0",
-  "type": "module",
-  "scripts": {
-    "type-check": "vue-tsc --noEmit"
-  },
-  "dependencies": {
-    "vue": "^3.5.0"
-  },
-  "devDependencies": {
-    "@vue/compiler-sfc": "^3.5.0",
-    "typescript": "^5.6.0",
-    "vue-tsc": "^2.2.0",
-    "vite": "^6.0.0",
-    "@vitejs/plugin-vue": "^5.2.0"
-  }
-}
-```
+**Task**: Add TypeScript types to Vue 3 props (no emits, no imports)
 
-### `target_project/src/components/HelloWorld.vue` (original state)
-```vue
-<script setup>
-const props = defineProps({
-  title: String,
-  count: Number,
-  items: Array
-})
+**Target file**: `src/components/HelloWorld.vue`
 
-const doubled = computed(() => props.count * 2)
-</script>
-
-<template>
-  <div>
-    <h1>{{ title }}</h1>
-    <p>Count: {{ count }}, Doubled: {{ doubled }}</p>
-    <ul>
-      <li v-for="item in items" :key="item">{{ item }}</li>
-    </ul>
-  </div>
-</template>
-```
-
-### `prompt.md`
-```markdown
-You are a Vue.js expert. Refactor the following component to add TypeScript type safety.
-
-Requirements:
-- Add `lang="ts"` to script tag
-- Define an interface named `HelloWorldProps` for props with proper types
-- Use `defineProps<HelloWorldProps>()` syntax
-- Maintain exact same functionality
-- Keep template unchanged
-
-Original code:
-```vue
-{{original_code}}
-```
-
-Output ONLY the complete refactored component code, no explanations.
-```
-
-### `validation_spec.json`
-```json
-{
-  "target_file": "src/components/HelloWorld.vue",
-  "task_description": "Add TypeScript types to Vue 3 component props",
-
-  "required_patterns": {
-    "interfaces": ["HelloWorldProps"],
-    "type_annotations": ["defineProps<HelloWorldProps>"],
-    "script_lang": "ts",
-    "imports": []
-  },
-
-  "naming_conventions": {
-    "interfaces": "PascalCase",
-    "props_interface_suffix": "Props"
-  },
-
-  "scoring": {
-    "compilation": 0.5,
-    "pattern_match": 0.4,
-    "naming": 0.1
-  }
-}
-```
-
-### Expected LLM Output (reference)
+**Expected output** (reference):
 ```vue
 <script setup lang="ts">
 interface HelloWorldProps {
@@ -592,32 +400,104 @@ interface HelloWorldProps {
   count: number
   items: string[]
 }
-
 const props = defineProps<HelloWorldProps>()
-
 const doubled = computed(() => props.count * 2)
 </script>
-
-<template>
-  <div>
-    <h1>{{ title }}</h1>
-    <p>Count: {{ count }}, Doubled: {{ doubled }}</p>
-    <ul>
-      <li v-for="item in items" :key="item">{{ item }}</li>
-    </ul>
-  </div>
-</template>
 ```
 
-**Scoring Breakdown**:
-- Compilation (50%): ✓ Compiles with vue-tsc = 5.0 points
-- Pattern Match (40%):
-  - Has interface "HelloWorldProps": ✓ = 1.3 points
-  - Has type annotation "defineProps<HelloWorldProps>": ✓ = 1.3 points
-  - Has script lang="ts": ✓ = 1.4 points
-  - Total: 4.0 points
-- Naming (10%): Interface is PascalCase with "Props" suffix: ✓ = 1.0 point
-- **Final Score: 10.0/10**
+**Scoring breakdown** (perfect output = 10.0/10):
+- Compilation 50%: compiles with vue-tsc = 5.0pt
+- Pattern 40%: interfaces ✓ + type_annotations ✓ + script_lang ✓ = 4.0pt
+- Naming 10%: PascalCase + "Props" suffix = 1.0pt
+
+**`validation_spec.json`**:
+```json
+{
+  "target_file": "src/components/HelloWorld.vue",
+  "required_patterns": {
+    "interfaces": ["HelloWorldProps"],
+    "type_annotations": ["HelloWorldProps"],
+    "script_lang": "ts",
+    "imports": []
+  },
+  "naming_conventions": {
+    "interfaces": "PascalCase",
+    "props_interface_suffix": "Props"
+  },
+  "scoring": { "compilation": 0.5, "pattern_match": 0.4, "naming": 0.1 }
+}
+```
+
+---
+
+### `typed-emits-composable`
+
+**Task**: Add full TypeScript types — props + emits with payloads + computed return type + type imports
+
+**Target file**: `src/components/UserProfile.vue`
+
+**Expected output** (reference):
+```vue
+<script setup lang="ts">
+import type { User } from '@/types/user'
+import { computed, ComputedRef } from 'vue'
+
+interface UserProfileProps {
+  user: User
+  editable: boolean
+}
+
+interface UserProfileEmits {
+  'update:user': [user: User]
+  'delete': [id: number]
+}
+
+const props = defineProps<UserProfileProps>()
+const emit = defineEmits<UserProfileEmits>()
+
+const displayName: ComputedRef<string> = computed(() => {
+  return props.user?.name || 'Unknown User'
+})
+</script>
+```
+
+**Important**: emit interfaces must use **object-type syntax** (`'event': [payload]`), NOT call signatures (`('event': [payload]): void`). The latter is valid TypeScript but not supported by `@vue/compiler-sfc`'s `compileScript` + Babel parser.
+
+**Scoring breakdown** (perfect output = 10.0/10):
+- Compilation 50%: compiles with vue-tsc = 5.0pt
+- Pattern 40%: interfaces ✓ + type_annotations ✓ + script_lang ✓ = 4.0pt
+- Naming 10%: PascalCase + Props/Emits suffix = 1.0pt
+
+**`validation_spec.json`**:
+```json
+{
+  "target_file": "src/components/UserProfile.vue",
+  "required_patterns": {
+    "interfaces": ["UserProfileProps", "UserProfileEmits"],
+    "type_annotations": ["UserProfileProps", "UserProfileEmits", "ComputedRef"],
+    "script_lang": "ts",
+    "imports": ["@/types/user", "vue"]
+  },
+  "naming_conventions": {
+    "interfaces": "PascalCase",
+    "interface_suffixes": ["Props", "Emits"]
+  },
+  "scoring": { "compilation": 0.5, "pattern_match": 0.4, "naming": 0.1 }
+}
+```
+
+---
+
+## Adding a New Fixture
+
+1. Create `fixtures/refactoring/<fixture-name>/` with `prompt.md`, `validation_spec.json`, `target_project/`
+2. Run `npm install` in `target_project/`
+3. Create `src/refactoring/<fixture_name>/` with `__init__.py`, `test_runner.py`, `validator.py`
+4. Register in `run_test.py` `_RUNNER_MAP`:
+   ```python
+   "fixture-name": "src.refactoring.fixture_name.test_runner",
+   ```
+5. Write tests in `tests/test_<fixture_name>_validator.py` (TDD)
 
 ---
 
@@ -629,155 +509,130 @@ ollama>=0.4.0
 rich>=13.0.0
 ```
 
-**Installation**:
-```bash
-cd ~/Projects/llm-benchmark
-source venv/bin/activate
-pip install -r requirements.txt
-```
-
 ### System Requirements
-- Python 3.12+ (installed)
-- Node.js 24.x (installed, for AST parser + vue-tsc)
-- Global tools: `npm install --save-dev @vue/compiler-sfc` (for AST parser script)
-- Per-fixture dependencies: `cd fixtures/*/target_project && npm install` (for vue-tsc)
-- nvidia-smi (pre-installed with NVIDIA drivers)
-- Ollama running with GPU support
+- Python 3.12+
+- Node.js 24.x (for `parse_vue_ast.js` + `vue-tsc`)
+- Per-fixture: `npm install` in each `target_project/` (installs vue-tsc, @vue/compiler-sfc)
+- Ollama running with a loaded model
+- NVIDIA GPU (recommended for inference speed; CPU works but is slow)
 
 ---
 
 ## Validation Checklist (Pre-Benchmark)
 
-Before running benchmarks, verify:
+```bash
+# 1. Python environment
+source venv/bin/activate
+python -c "import ollama, rich; print('OK')"
 
-1. **GPU Access**:
-   ```bash
-   nvidia-smi  # Should show GB10 GPU
-   ollama run qwen2.5-coder:7b-instruct-q8_0 "hello" --verbose
-   # Monitor GPU usage during generation
-   ```
+# 2. Node.js
+node --version  # 24.x
 
-2. **Node.js Dependencies**:
-   ```bash
-   node --version  # Should be 24.x
-   node -e "console.log(require('@vue/compiler-sfc').parse)"  # Should print function
+# 3. Fixture dependencies
+cd fixtures/refactoring/simple-component/target_project && npm run type-check
+cd fixtures/refactoring/typed-emits-composable/target_project && npm run type-check
 
-   # Install fixture dependencies
-   cd fixtures/refactoring/simple-component/target_project
-   npm install
-   npm run type-check  # Should pass for original untyped code (with warnings)
-   ```
+# 4. Ollama model
+ollama list | grep qwen2.5-coder
 
-3. **Ollama Models**:
-   ```bash
-   ollama list | grep qwen2.5-coder:7b-instruct-q8_0
-   ```
-
-4. **Python Environment**:
-   ```bash
-   source venv/bin/activate
-   python -c "import ollama, rich; print('OK')"
-   ```
+# 5. Unit tests
+pytest tests/ -v  # 57 passed, 1 failed (integration — expected without local model)
+```
 
 ---
 
 ## Expected Output Format
+
+### Console
+```
+╔════════════════════════════════════════════╗
+║  LLM Benchmark - Phase 1 (Prompt-Only)     ║
+╚════════════════════════════════════════════╝
+
+Model:    qwen2.5-coder:7b-instruct-q8_0
+Fixtures: typed-emits-composable
+Runs:     3 per fixture
+
+── Run 1/3 ──
+✓ Compile | ✓ Score   10.0/10  31.3 tok/s  7.5s
+   Scoring:  compile 5.0pt (50%) + pattern 4.0pt (40%) + naming 1.0pt (10%)
+   AST:      interfaces type_annotations script_lang  (score 10.0/10)
+   Naming:   ✓ conventions  (score 10.0/10)
+──────────
+
+Summary: typed-emits-composable
+  Avg Final Score:   10.00/10
+  Avg Pattern Score: 10.00/10
+  Avg Naming Score:  10.00/10
+  Avg Speed:         31.3 tok/s
+  Avg Duration:      7.5s
+  Compile Success:   100% (3/3 runs)
+```
 
 ### JSON Result Structure
 ```json
 [
   {
     "model": "qwen2.5-coder:7b-instruct-q8_0",
-    "fixture": "simple-component",
-    "timestamp": "2025-01-17T14:23:45",
+    "fixture": "typed-emits-composable",
+    "timestamp": "2026-02-23T10:08:32.411345",
+    "run_number": 1,
     "compiles": true,
     "compilation_errors": [],
-    "pattern_score": 4.0,
+    "compilation_warnings": [],
+    "pattern_score": 10.0,
+    "ast_missing": [],
+    "naming_score": 10.0,
+    "naming_violations": [],
     "final_score": 10.0,
-    "tokens_per_sec": 185.3,
-    "duration_sec": 4.2,
-    "gpu_avg_utilization": 94.2,
-    "gpu_peak_utilization": 98.1,
-    "gpu_avg_memory_gb": 11.4,
-    "gpu_peak_memory_gb": 12.1,
+    "scoring_weights": {"compilation": 0.5, "pattern_match": 0.4, "naming": 0.1},
+    "tokens_per_sec": 31.3,
+    "duration_sec": 7.5,
     "output_code": "<script setup lang=\"ts\">...",
-    "errors": [],
-    "run_number": 1
-  },
-  {
-    "model": "qwen2.5-coder:7b-instruct-q8_0",
-    "fixture": "simple-component",
-    ...
-    "run_number": 2
-  },
-  {
-    ...
-    "run_number": 3
+    "errors": []
   }
 ]
 ```
 
 ---
 
-## Success Criteria
+## Known Limitations (Phase 1)
 
-MVP is successful when:
-
-1. ✅ **Runs without errors** on 3 consecutive tests
-2. ✅ **GPU utilization** averages >80% during inference
-3. ✅ **Compilation** succeeds with vue-tsc in target project
-4. ✅ **Pattern validation** scores expected output as 10/10
-5. ✅ **Results JSON** is well-formed and contains all metrics
-6. ✅ **Performance** matches expectations (~150-250 tok/s for 7B Q8 model)
-
----
-
-## Known Limitations (MVP)
-
-1. **Single test scenario**: Only TypeScript refactoring, no Vue 2→3 migration, Nuxt, or design system scenarios
-2. **No aggregation**: Raw JSON only, no statistics or reports
-3. **Basic pattern matching**: Only checks for presence of patterns, not semantic correctness or usage patterns
-4. **No Vitest**: Functional testing (running in browser) postponed to future phase
-5. **Hardcoded config**: No CLI arguments, edit source to change model/fixture
-6. **No multi-model comparison**: Run script multiple times manually
-7. **No architecture detection**: MoE vs Dense distinction not tracked yet
-8. **Single file per fixture**: LLM modifies one file at a time, no multi-file refactoring
+1. **Two test scenarios only**: TypeScript props refactoring + typed emits/composable; no Vue 2→3 migration, Nuxt, or design system scenarios
+2. **No aggregation**: Raw JSON only, no mean/stddev across runs
+3. **Basic pattern matching**: Only checks for presence of patterns, not semantic correctness
+4. **No Vitest**: Functional testing (running in browser) postponed
+5. **No multi-model comparison UI**: Run script multiple times manually with different `--model`
+6. **No architecture detection**: MoE vs Dense distinction not tracked
+7. **Single file per fixture**: LLM modifies one file at a time
+8. **AST parser limitations**: `@vue/compiler-sfc` + Babel does not support TypeScript call signature syntax in emit interfaces — prompts must specify object-type syntax
 
 ---
 
-## Next Steps (Post-MVP)
+## Next Steps (Phase 2+)
 
-After MVP validation:
-
-1. Add more scenarios:
-   - Vue 2 → Vue 3 migration (Options API → Composition API)
-   - Nuxt 3 project with server composables
-   - Design system integration (use specific components library)
-   - Complex refactoring with multiple files
-2. Implement aggregation (mean, stddev across runs)
-3. Add Markdown report generation
-4. CLI with click (model, fixture, runs arguments)
-5. Add context window test type
-6. Add Vitest functional validation (run generated code in browser)
-7. Model architecture detection (MoE vs Dense)
-8. Advanced pattern tracking:
-   - Composable usage correctness (not just presence)
-   - Component composition patterns
-   - Reactivity API usage (ref/reactive/computed)
-9. Multi-file refactoring support
+1. **Phase 2 — Tool-Calling Agent**:
+   - `read_file`, `write_file`, `run_type_check`, `finish` tools
+   - Iterative loop (max 5-10 iterations)
+   - New metrics: `tool_calls_count`, `iterations_to_success`, `self_corrected`
+2. Add more scenarios: Vue 2→3 migration, Nuxt 3, design system integration
+3. Statistical aggregation (mean, stddev across runs)
+4. Markdown/CSV report generation
+5. Vitest functional validation
+6. Model architecture detection (MoE vs Dense)
+7. Advanced pattern tracking (composable usage correctness, reactivity API)
 
 ---
 
 ## Notes
 
-- MVP focuses on **proving the workflow**, not completeness
-- If GPU utilization is low, stop and debug before continuing
-- If AST validation is too noisy, simplify checks
-- Keep temp files on error for manual inspection
-- Expect ~30 minutes of implementation for MVP
+- **Per-fixture duplication is intentional**: `test_runner.py` and `validator.py` are ~90% identical between fixtures; the 10% difference in `validate_naming()` is fixture-specific and critical. Abstraction deferred until patterns stabilize.
+- Keep temp files on validation errors for manual inspection
+- If AST validation is too noisy, simplify checks in `validation_spec.json`
+- Expect ~31 tok/s on GB10 Blackwell for 7B Q8 model (~7.5s per run)
 
 ---
 
-**Document Version**: 1.0  
-**Last Updated**: 2025-01-17  
-**Status**: Ready for implementation
+**Document Version**: 2.0
+**Last Updated**: 2026-02-23
+**Status**: Phase 1 COMPLETED — Phase 2 (Tool-Calling) NEXT
