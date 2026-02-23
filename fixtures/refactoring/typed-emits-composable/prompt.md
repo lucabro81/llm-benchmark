@@ -7,9 +7,10 @@ Requirements:
 - Define interface `UserProfileProps` for component props:
   - `user`: User
   - `editable`: boolean
-- Define interface `UserProfileEmits` for component emits with typed payloads:
+- Define interface `UserProfileEmits` for component emits using object-type syntax with tuple payloads:
   - `'update:user'`: [user: User]
   - `'delete'`: [id: number]
+  (use object-type syntax, NOT call signatures — i.e. `{ 'event': [payload] }` not `{ ('event': [payload]): void }`)
 - Use `defineProps<UserProfileProps>()` syntax
 - Use `defineEmits<UserProfileEmits>()` syntax
 - Annotate `displayName` with return type `ComputedRef<string>`

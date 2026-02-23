@@ -17,7 +17,6 @@ from pathlib import Path
 from typing import List, Optional, Type
 
 from rich.console import Console
-from rich.progress import track
 
 from src.refactoring.simple_component.test_runner import BenchmarkResult
 
@@ -136,8 +135,7 @@ def show_run_summary(result: BenchmarkResult):
     )
 
     console.print(
-        f"\n{compile_icon} Compile | {score_icon} Score  "
-        f"[bold]Run {result.run_number}[/bold]: "
+        f"{compile_icon} Compile | {score_icon} Score  "
         f"[bold cyan]{result.final_score:.1f}/10[/bold cyan]  "
         f"[dim]{result.tokens_per_sec:.1f} tok/s  {result.duration_sec:.1f}s[/dim]"
     )
@@ -155,6 +153,7 @@ def show_run_summary(result: BenchmarkResult):
     if result.errors:
         for err in result.errors:
             console.print(f"   [red]  ⚠ {err[:120]}[/red]")
+    console.print("[dim]──────────[/dim]\n")
 
 
 def show_fixture_summary(results: List[BenchmarkResult], fixture_name: str):
@@ -167,7 +166,7 @@ def show_fixture_summary(results: List[BenchmarkResult], fixture_name: str):
     success_count = sum(1 for r in results if r.compiles)
     success_rate = (success_count / len(results)) * 100
 
-    console.print(f"\n[bold]Summary: {fixture_name}[/bold]")
+    console.print(f"[bold]Summary: {fixture_name}[/bold]")
     console.print(f"  Avg Final Score:   [bold cyan]{avg_score:.2f}/10[/bold cyan]")
     console.print(f"  Avg Pattern Score: {avg_pattern:.2f}/10")
     console.print(f"  Avg Naming Score:  {avg_naming:.2f}/10")
@@ -252,7 +251,8 @@ def run_fixture(
         return None
 
     results = []
-    for i in track(range(runs), description=f"Running {fixture_path.name}..."):
+    for i in range(runs):
+        console.print(f"[dim]── Run {i + 1}/{runs} ──[/dim]")
         result = test.run(run_number=i + 1)
         results.append(result)
         show_run_summary(result)
