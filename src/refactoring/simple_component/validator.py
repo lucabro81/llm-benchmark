@@ -31,6 +31,7 @@ class ASTResult:
         has_imports: True if import statements found
         missing: List of missing structure types
         score: Quality score from 0-10 based on structures present
+        checks: Per-pattern boolean breakdown (serialized in results JSON)
     """
 
     has_interfaces: bool
@@ -38,6 +39,15 @@ class ASTResult:
     has_imports: bool
     missing: List[str]
     score: float
+    checks: dict = None
+
+    def __post_init__(self):
+        if self.checks is None:
+            self.checks = {
+                "has_interfaces": self.has_interfaces,
+                "has_type_annotations": self.has_type_annotations,
+                "has_imports": self.has_imports,
+            }
 
 
 @dataclass
@@ -173,6 +183,12 @@ def validate_ast_structure(code: str, expected_structures: dict) -> ASTResult:
             has_imports=has_imports,
             missing=missing,
             score=score,
+            checks={
+                "has_script_lang_ts": has_script_lang_ts,
+                "has_interfaces": has_interfaces,
+                "has_type_annotations": has_type_annotations,
+                "has_imports": has_imports,
+            },
         )
 
     except FileNotFoundError as e:
@@ -232,25 +248,16 @@ def validate_compilation(target_project: Path) -> CompilationResult:
         )
         duration_sec = time.time() - start_time
 
-        # Parse errors and warnings from output (check both stdout and stderr)
         errors = []
         warnings = []
 
-        # Check stderr for errors
-        if result.stderr:
-            for line in result.stderr.split("\n"):
-                line = line.strip()
-                if "error TS" in line or " - error" in line:
-                    errors.append(line)
-                elif "warning" in line.lower():
-                    warnings.append(line)
-
-        # Check stdout for warnings (vue-tsc sometimes puts them there)
-        if result.stdout:
-            for line in result.stdout.split("\n"):
-                line = line.strip()
-                if "warning" in line.lower() and line not in warnings:
-                    warnings.append(line)
+        # vue-tsc writes TS errors to stdout; check both streams
+        for line in (result.stdout + "\n" + result.stderr).split("\n"):
+            line = line.strip()
+            if "error TS" in line or " - error" in line:
+                errors.append(line)
+            elif "warning" in line.lower() and line not in warnings:
+                warnings.append(line)
 
         # Check success (returncode 0 = success)
         success = result.returncode == 0

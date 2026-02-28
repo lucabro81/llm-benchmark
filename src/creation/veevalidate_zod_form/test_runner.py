@@ -37,6 +37,7 @@ class BenchmarkResult:
     compilation_warnings: List[str]
     pattern_score: float
     ast_missing: List[str]
+    ast_checks: dict
     naming_score: float
     naming_violations: List[str]
     final_score: float
@@ -196,6 +197,7 @@ class CreationTest:
                 compilation_warnings=compilation_result.warnings,
                 pattern_score=ast_result.score,
                 ast_missing=ast_result.missing,
+                ast_checks=ast_result.checks,
                 naming_score=naming_result.score * 10,
                 naming_violations=naming_result.violations,
                 final_score=final_score,

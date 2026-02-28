@@ -14,7 +14,7 @@ def _make_result(run_number=1, final_score=10.0, tokens_per_sec=185.0, compiles=
         model="test", fixture="test", timestamp="2025-01-17T14:23:45",
         run_number=run_number, compiles=compiles, compilation_errors=[],
         compilation_warnings=[], pattern_score=10.0, ast_missing=[],
-        naming_score=10.0, naming_violations=[],
+        ast_checks={}, naming_score=10.0, naming_violations=[],
         final_score=final_score,
         scoring_weights={"compilation": 0.5, "pattern_match": 0.4, "naming": 0.1},
         tokens_per_sec=tokens_per_sec, duration_sec=4.0,

@@ -28,6 +28,7 @@ logger = logging.getLogger(__name__)
 class ASTResult:
     score: float
     missing: List[str] = field(default_factory=list)
+    checks: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -67,10 +68,13 @@ def validate_ast_structure(code: str, expected_patterns: dict) -> ASTResult:
 
     missing = []
     score = 0.0
+    checks = {}
 
     # --- script_lang ---
     if expected_patterns.get("script_lang") == "ts":
-        if re.search(r"<script[^>]+lang=[\"']ts[\"']", code):
+        found = bool(re.search(r"<script[^>]+lang=[\"']ts[\"']", code))
+        checks["script_lang"] = found
+        if found:
             score += 2.0
         else:
             missing.append("script_lang")
@@ -78,7 +82,9 @@ def validate_ast_structure(code: str, expected_patterns: dict) -> ASTResult:
 
     # --- use_form ---
     if "use_form" in expected_patterns:
-        if re.search(r"\buseForm\s*\(", code):
+        found = bool(re.search(r"\buseForm\s*\(", code))
+        checks["use_form"] = found
+        if found:
             score += 2.0
         else:
             missing.append("use_form")
@@ -90,6 +96,11 @@ def validate_ast_structure(code: str, expected_patterns: dict) -> ASTResult:
     if "zod_schema" in expected_patterns or "typed_schema" in expected_patterns:
         has_z_object = bool(re.search(r"\bz\.object\s*\(", code))
         has_typed_schema = bool(re.search(r"\btoTypedSchema\s*\(", code))
+
+        if "zod_schema" in expected_patterns:
+            checks["zod_schema"] = has_z_object
+        if "typed_schema" in expected_patterns:
+            checks["typed_schema"] = has_typed_schema
 
         if has_z_object and has_typed_schema:
             score += 2.0
@@ -108,9 +119,12 @@ def validate_ast_structure(code: str, expected_patterns: dict) -> ASTResult:
             f for f in required_fields
             if not re.search(rf"\b{re.escape(f)}\b", code)
         ]
+        checks["fields"] = missing_fields == []
         if not missing_fields:
+            checks["fields_detail"] = {f: True for f in required_fields}
             score += 2.0
         else:
+            checks["fields_detail"] = {f: f not in missing_fields for f in required_fields}
             missing.append("fields")
             logger.debug(f"Missing fields: {missing_fields}")
 
@@ -118,14 +132,16 @@ def validate_ast_structure(code: str, expected_patterns: dict) -> ASTResult:
     if "error_display" in expected_patterns:
         has_errors_dot = bool(re.search(r"\berrors\.[a-zA-Z]", code))
         has_error_message_component = bool(re.search(r"<ErrorMessage", code))
-        if has_errors_dot or has_error_message_component:
+        found = has_errors_dot or has_error_message_component
+        checks["error_display"] = found
+        if found:
             score += 2.0
         else:
             missing.append("error_display")
             logger.debug("Missing: error_display")
 
     logger.info(f"AST pattern score: {score}/10, missing: {missing}")
-    return ASTResult(score=round(score, 1), missing=missing)
+    return ASTResult(score=round(score, 1), missing=missing, checks=checks)
 
 
 def validate_compilation(target_project: Path) -> CompilationResult:
@@ -160,19 +176,13 @@ def validate_compilation(target_project: Path) -> CompilationResult:
         errors = []
         warnings = []
 
-        if result.stderr:
-            for line in result.stderr.split("\n"):
-                line = line.strip()
-                if "error TS" in line or " - error" in line:
-                    errors.append(line)
-                elif "warning" in line.lower():
-                    warnings.append(line)
-
-        if result.stdout:
-            for line in result.stdout.split("\n"):
-                line = line.strip()
-                if "warning" in line.lower() and line not in warnings:
-                    warnings.append(line)
+        # vue-tsc writes TS errors to stdout; check both streams
+        for line in (result.stdout + "\n" + result.stderr).split("\n"):
+            line = line.strip()
+            if "error TS" in line or " - error" in line:
+                errors.append(line)
+            elif "warning" in line.lower() and line not in warnings:
+                warnings.append(line)
 
         success = result.returncode == 0
 
