@@ -22,11 +22,13 @@ from src.refactoring.simple_component.test_runner import BenchmarkResult
 
 OUTPUT_DIR = Path("results")
 FIXTURES_BASE = Path("fixtures/refactoring")
+FIXTURES_CREATION = Path("fixtures/creation")
 
-# Explicit mapping: fixture directory name → test runner class
+# Explicit mapping: fixture directory name → test runner module path
 _RUNNER_MAP = {
     "simple-component": "src.refactoring.simple_component.test_runner",
     "typed-emits-composable": "src.refactoring.typed_emits_composable.test_runner",
+    "veevalidate-zod-form": "src.creation.veevalidate_zod_form.test_runner",
 }
 
 console = Console()
@@ -86,7 +88,10 @@ def _get_runner_class(fixture_path: Path) -> Type:
             f"Add it to _RUNNER_MAP in run_test.py."
         )
     module = importlib.import_module(module_path)
-    return module.RefactoringTest
+    # Support both RefactoringTest (refactoring fixtures) and CreationTest (creation fixtures)
+    if hasattr(module, "RefactoringTest"):
+        return module.RefactoringTest
+    return module.CreationTest
 
 
 # ---------------------------------------------------------------------------
@@ -312,11 +317,18 @@ def main() -> int:
     # Determine fixtures to run
     try:
         if args.fixture:
-            fixture_path = FIXTURES_BASE / args.fixture
-            if not fixture_path.exists() or not (fixture_path / "validation_spec.json").exists():
+            # Search in both fixtures/refactoring/ and fixtures/creation/
+            fixture_path = None
+            for base in (FIXTURES_BASE, FIXTURES_CREATION):
+                candidate = base / args.fixture
+                if candidate.exists() and (candidate / "validation_spec.json").exists():
+                    fixture_path = candidate
+                    break
+            if fixture_path is None:
                 console.print(f"[red]✗ Fixture not found: '{args.fixture}'[/red]")
                 try:
                     available = discover_fixtures()
+                    available += discover_fixtures(FIXTURES_CREATION)
                     console.print("[yellow]  Available fixtures:[/yellow]")
                     for f in available:
                         console.print(f"[yellow]    - {f.name}[/yellow]")
@@ -326,6 +338,10 @@ def main() -> int:
             fixtures = [fixture_path]
         else:
             fixtures = discover_fixtures()
+            try:
+                fixtures += discover_fixtures(FIXTURES_CREATION)
+            except FileNotFoundError:
+                pass
     except FileNotFoundError as e:
         console.print(f"[red]✗ {e}[/red]")
         return 1

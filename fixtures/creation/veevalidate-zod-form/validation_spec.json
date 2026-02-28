@@ -1,0 +1,23 @@
+{
+  "target_file": "src/components/RegistrationForm.vue",
+  "task_description": "Implement a registration form using VeeValidate 4 + Zod schema validation",
+
+  "required_patterns": {
+    "script_lang": "ts",
+    "use_form": "useForm",
+    "zod_schema": "z.object",
+    "typed_schema": "toTypedSchema",
+    "fields": ["username", "email", "password", "role", "terms", "bio"],
+    "error_display": "errors"
+  },
+
+  "naming_conventions": {
+    "variables": "camelCase"
+  },
+
+  "scoring": {
+    "compilation": 0.5,
+    "pattern_match": 0.4,
+    "naming": 0.1
+  }
+}
