@@ -288,3 +288,62 @@ class RefactoringTest:
 
         # No fences - return as-is
         return response.strip()
+
+
+def format_run(result: BenchmarkResult) -> None:
+    """Print a single run summary to the console."""
+    from rich.console import Console
+    console = Console()
+
+    compile_icon = "[green]✓[/green]" if result.compiles else "[red]✗[/red]"
+    score_icon = "[green]✓[/green]" if result.final_score >= 8.0 else "[yellow]✗[/yellow]"
+
+    w = result.scoring_weights
+    compile_pts = (1.0 if result.compiles else 0.0) * w["compilation"] * 10
+    pattern_pts = (result.pattern_score / 10.0) * w["pattern_match"] * 10
+    naming_pts = (result.naming_score / 10.0) * w["naming"] * 10
+
+    checks = result.ast_checks or {}
+    pattern_parts = []
+    has_fields_detail = "fields_detail" in checks
+    for key, val in checks.items():
+        if key == "fields_detail":
+            for field_name, passed in val.items():
+                icon = "[green]✓[/green]" if passed else "[red]✗[/red]"
+                pattern_parts.append(f"{icon}{field_name}")
+        elif key == "fields" and has_fields_detail:
+            continue
+        else:
+            icon = "[green]✓[/green]" if val else "[red]✗[/red]"
+            pattern_parts.append(f"{icon}{key}")
+    pattern_detail = " ".join(pattern_parts) if pattern_parts else " ".join(
+        f"[green]✓[/green]{c}" if c not in result.ast_missing else f"[red]✗[/red]{c}"
+        for c in ["interfaces", "type_annotations", "script_lang"]
+    )
+
+    naming_detail = (
+        "[green]✓ conventions[/green]"
+        if not result.naming_violations
+        else f"[red]✗ {'; '.join(result.naming_violations[:3])}[/red]"
+    )
+
+    console.print(
+        f"{compile_icon} Compile | {score_icon} Score  "
+        f"[bold cyan]{result.final_score:.1f}/10[/bold cyan]  "
+        f"[dim]{result.tokens_per_sec:.1f} tok/s  {result.duration_sec:.1f}s[/dim]"
+    )
+    console.print(
+        f"   Scoring:  "
+        f"compile {compile_pts:.1f}pt ({w['compilation']*100:.0f}%) + "
+        f"pattern {pattern_pts:.1f}pt ({w['pattern_match']*100:.0f}%) + "
+        f"naming {naming_pts:.1f}pt ({w['naming']*100:.0f}%)"
+    )
+    console.print(f"   AST:  {pattern_detail}  [dim](score {result.pattern_score:.1f}/10)[/dim]")
+    console.print(f"   Naming:   {naming_detail}  [dim](score {result.naming_score:.1f}/10)[/dim]")
+    if result.compilation_errors:
+        for err in result.compilation_errors[:3]:
+            console.print(f"   [red]  TS error: {err}[/red]")
+    if result.errors:
+        for err in result.errors:
+            console.print(f"   [red]  ⚠ {err[:120]}[/red]")
+    console.print("[dim]──────────[/dim]\n")

@@ -66,14 +66,14 @@ def discover_fixtures(base_dir: Path = FIXTURES_BASE) -> List[Path]:
     return fixtures
 
 
-def _get_runner_class(fixture_path: Path) -> Type:
-    """Import and return the RefactoringTest class for the given fixture.
+def _get_runner_module(fixture_path: Path):
+    """Import the runner module for the given fixture.
 
     Args:
         fixture_path: Path to the fixture directory
 
     Returns:
-        RefactoringTest class for this fixture
+        Imported runner module (exposes a test class and format_run)
 
     Raises:
         ValueError: If fixture has no registered runner
@@ -87,8 +87,11 @@ def _get_runner_class(fixture_path: Path) -> Type:
             f"No runner registered for fixture '{fixture_name}'. "
             f"Add it to _RUNNER_MAP in run_test.py."
         )
-    module = importlib.import_module(module_path)
-    # Support both RefactoringTest (refactoring fixtures) and CreationTest (creation fixtures)
+    return importlib.import_module(module_path)
+
+
+def _get_runner_class(module) -> Type:
+    """Return the test class from an imported runner module."""
     if hasattr(module, "RefactoringTest"):
         return module.RefactoringTest
     return module.CreationTest
@@ -117,71 +120,6 @@ def show_fixture_header(fixture_name: str, index: int, total: int):
         console.print(f"[bold]{'═' * 46}[/bold]")
 
 
-def show_run_summary(result: BenchmarkResult):
-    """Display summary for a single test run."""
-    compile_icon = "[green]✓[/green]" if result.compiles else "[red]✗[/red]"
-    score_icon = "[green]✓[/green]" if result.final_score >= 8.0 else "[yellow]✗[/yellow]"
-
-    w = result.scoring_weights
-    compile_pts = (1.0 if result.compiles else 0.0) * w["compilation"] * 10
-    pattern_pts = (result.pattern_score / 10.0) * w["pattern_match"] * 10
-    naming_pts = (result.naming_score / 10.0) * w["naming"] * 10
-
-    # Build pattern detail line from ast_checks if available, else fall back to ast_missing
-    if result.ast_checks:
-        checks = result.ast_checks
-        pattern_parts = []
-        has_fields_detail = "fields_detail" in checks
-        for key, val in checks.items():
-            if key == "fields_detail":
-                # Expand individual field results inline
-                for field_name, passed in val.items():
-                    color = "green" if passed else "red"
-                    pattern_parts.append(f"[{color}]{field_name}[/{color}]")
-            elif key == "fields" and has_fields_detail:
-                # Skip the aggregate "fields" bool — fields_detail covers it
-                continue
-            else:
-                color = "green" if val else "red"
-                pattern_parts.append(f"[{color}]{key}[/{color}]")
-        pattern_detail = " ".join(pattern_parts)
-    else:
-        # Fallback for results without ast_checks (legacy)
-        all_checks = ["interfaces", "type_annotations", "script_lang"]
-        pattern_detail = " ".join(
-            f"[green]{c}[/green]" if c not in result.ast_missing else f"[red]{c}[/red]"
-            for c in all_checks
-        )
-
-    # Label: "AST" for refactoring fixtures (keys start with "has_"), "Patterns" for creation
-    pattern_label = "AST" if any(k.startswith("has_") for k in (result.ast_checks or {})) else "Patterns"
-
-    naming_detail = (
-        "[green]✓ conventions[/green]"
-        if not result.naming_violations
-        else f"[red]✗ {'; '.join(result.naming_violations[:3])}[/red]"
-    )
-
-    console.print(
-        f"{compile_icon} Compile | {score_icon} Score  "
-        f"[bold cyan]{result.final_score:.1f}/10[/bold cyan]  "
-        f"[dim]{result.tokens_per_sec:.1f} tok/s  {result.duration_sec:.1f}s[/dim]"
-    )
-    console.print(
-        f"   Scoring:  "
-        f"compile {compile_pts:.1f}pt ({w['compilation']*100:.0f}%) + "
-        f"pattern {pattern_pts:.1f}pt ({w['pattern_match']*100:.0f}%) + "
-        f"naming {naming_pts:.1f}pt ({w['naming']*100:.0f}%)"
-    )
-    console.print(f"   {pattern_label}:  {pattern_detail}  [dim](score {result.pattern_score:.1f}/10)[/dim]")
-    console.print(f"   Naming:   {naming_detail}  [dim](score {result.naming_score:.1f}/10)[/dim]")
-    if result.compilation_errors:
-        for err in result.compilation_errors[:3]:
-            console.print(f"   [red]  TS error: {err}[/red]")
-    if result.errors:
-        for err in result.errors:
-            console.print(f"   [red]  ⚠ {err[:120]}[/red]")
-    console.print("[dim]──────────[/dim]\n")
 
 
 def show_fixture_summary(results: List[BenchmarkResult], fixture_name: str):
@@ -258,7 +196,7 @@ def run_fixture(
     model: str,
     fixture_path: Path,
     runs: int,
-    runner_class,
+    runner_module,
 ) -> Optional[List[BenchmarkResult]]:
     """Run benchmark for a single fixture.
 
@@ -266,11 +204,12 @@ def run_fixture(
         model: Ollama model name
         fixture_path: Path to fixture directory
         runs: Number of runs to execute
-        runner_class: RefactoringTest class for this fixture
+        runner_module: Imported runner module (exposes test class and format_run)
 
     Returns:
         List of BenchmarkResult, or None if fixture failed to load
     """
+    runner_class = _get_runner_class(runner_module)
     try:
         test = runner_class(model=model, fixture_path=fixture_path)
     except FileNotFoundError as e:
@@ -283,7 +222,7 @@ def run_fixture(
         console.print(f"[dim]── Run {i + 1}/{runs} ──[/dim]")
         result = test.run(run_number=i + 1)
         results.append(result)
-        show_run_summary(result)
+        runner_module.format_run(result)
 
     return results
 
@@ -378,13 +317,13 @@ def main() -> int:
         show_fixture_header(fixture_path.name, index, len(fixtures))
 
         try:
-            runner_class = _get_runner_class(fixture_path)
+            runner_module = _get_runner_module(fixture_path)
         except ValueError as e:
             console.print(f"[red]✗ {e}[/red]")
             had_errors = True
             continue
 
-        results = run_fixture(args.model, fixture_path, args.runs, runner_class)
+        results = run_fixture(args.model, fixture_path, args.runs, runner_module)
 
         if results is None:
             had_errors = True

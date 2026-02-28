@@ -101,6 +101,8 @@ Scoring weights come from each fixture's `validation_spec.json` (default: compil
 
 Each fixture has its own `test_runner.py` and `validator.py`. Duplication is intentional — fixture-specific logic (especially `validate_naming()`) diverges enough to make shared abstractions premature.
 
+Each `test_runner.py` also exposes a module-level `format_run(result: BenchmarkResult) -> None` function that handles the per-run console output for that fixture. `run_test.py` calls it via the imported module — no display logic lives in `run_test.py`.
+
 ### [run_test.py](run_test.py) — CLI entry point
 
 ```
