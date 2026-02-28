@@ -4,11 +4,11 @@ Local benchmarking tool for testing LLM performance on Vue.js/TypeScript develop
 
 ## Overview
 
-Benchmarks LLMs on real-world refactoring tasks by:
-- Prompting the model to add TypeScript type safety to Vue 3 components
-- Validating output with TypeScript compiler (`vue-tsc`) and AST structure checks
-- Scoring on compilation success, pattern conformance, and naming conventions
-- Collecting performance metrics (tokens/sec, duration)
+Benchmarks LLMs on real-world Vue.js tasks across two categories:
+- **Refactoring** — add TypeScript type safety to existing Vue 3 components
+- **Creation** — implement a complete component from scratch given a spec
+
+Validates output with TypeScript compiler (`vue-tsc`) and pattern checks, scoring on compilation success, pattern conformance, and naming conventions. Collects performance metrics (tokens/sec, duration).
 
 ## Requirements
 
@@ -33,6 +33,7 @@ npm install
 # Per-fixture Node.js dependencies (vue-tsc, needed for compilation validation)
 npm install --prefix fixtures/refactoring/simple-component/target_project
 npm install --prefix fixtures/refactoring/typed-emits-composable/target_project
+npm install --prefix fixtures/creation/veevalidate-zod-form/target_project
 ```
 
 ## Configuration
@@ -54,6 +55,7 @@ python run_test.py --model qwen2.5-coder:7b-instruct-q8_0
 
 # Run a specific fixture
 python run_test.py --model qwen2.5-coder:7b-instruct-q8_0 --fixture simple-component
+python run_test.py --model qwen2.5-coder:7b-instruct-q8_0 --fixture veevalidate-zod-form
 
 # Change number of runs
 python run_test.py --model qwen2.5-coder:7b-instruct-q8_0 --runs 5
@@ -66,31 +68,57 @@ results/{model}_{fixture}_{timestamp}.json
 
 ## Fixtures
 
-### `simple-component`
+### Refactoring
+
+#### `simple-component`
 Add TypeScript types to a basic Vue 3 component with three props (`title`, `count`, `items`).
 
 Expected output: `HelloWorldProps` interface, `defineProps<HelloWorldProps>()`, `lang="ts"`.
 
 Max score: **10.0/10**
 
-### `typed-emits-composable`
+#### `typed-emits-composable`
 Add full TypeScript type safety to a component with props, typed emits with payloads, computed return type annotation, and type imports.
 
 Expected output: `UserProfileProps` + `UserProfileEmits` interfaces, `defineEmits<UserProfileEmits>()`, `ComputedRef<string>` annotation, `import type { User }`.
 
 Max score: **10.0/10** — harder prompt, more patterns required.
 
+### Creation
+
+#### `veevalidate-zod-form`
+Implement a complete registration form from scratch using VeeValidate 4 + Zod schema validation. The model receives only a spec — no existing code to refactor.
+
+Expected output: Zod schema (`z.object`) with 6 fields, `useForm` + `toTypedSchema`, `useField`/`defineField` bindings, template with all fields (text, email, password, radio, checkbox, textarea), error messages displayed.
+
+Required fields: `username` (min 3), `email`, `password` (min 8), `role` (enum), `terms` (literal true), `bio` (optional).
+
+Max score: **10.0/10**
+
 ## Scoring
 
 Each run produces a `final_score` (0–10) weighted across three dimensions:
 
-| Dimension       | Weight | What it checks |
-|----------------|--------|----------------|
-| Compilation     | 50%    | `vue-tsc --noEmit` passes |
-| Pattern match   | 40%    | AST: interfaces, type annotations, `lang="ts"` |
-| Naming          | 10%    | Interface names follow fixture conventions |
+| Dimension     | Weight | What it checks |
+|---------------|--------|----------------|
+| Compilation   | 50%    | `vue-tsc --build` passes without errors |
+| Pattern match | 40%    | Required patterns present in the component |
+| Naming        | 10%    | Variables/interfaces follow fixture conventions |
 
-Naming conventions are declared per fixture in `validation_spec.json` — each fixture can define its own accepted suffixes (e.g. `["Props"]` or `["Props", "Emits"]`).
+Pattern checks vary by fixture category:
+
+**Refactoring** — AST-based (Node.js `@vue/compiler-sfc` + Babel):
+- TypeScript interface declarations
+- Type annotations (`defineProps<T>`, `defineEmits<T>`, return types)
+- Import statements (`import type`, module sources)
+- `lang="ts"` on script tag
+
+**Creation** — regex-based:
+- `lang="ts"` on script tag
+- `useForm(` call present
+- `z.object(` and `toTypedSchema(` both present
+- All required field names present in the component
+- Error display (`errors.field` or `<ErrorMessage>`)
 
 ## Project Structure
 
@@ -103,24 +131,33 @@ llm-benchmark/
 ├── src/
 │   ├── common/
 │   │   └── ollama_client.py       # Ollama API wrapper + metrics extraction
-│   └── refactoring/
-│       ├── simple_component/
-│       │   ├── test_runner.py     # RefactoringTest orchestrator + BenchmarkResult
-│       │   └── validator.py       # validate_compilation, validate_ast_structure, validate_naming
-│       └── typed_emits_composable/
-│           ├── test_runner.py     # Same workflow, different validator import
-│           └── validator.py       # validate_naming supports interface_suffixes list
+│   ├── refactoring/
+│   │   ├── simple_component/
+│   │   │   ├── test_runner.py     # RefactoringTest orchestrator + BenchmarkResult
+│   │   │   └── validator.py       # AST-based validation
+│   │   └── typed_emits_composable/
+│   │       ├── test_runner.py
+│   │       └── validator.py       # validate_naming supports interface_suffixes list
+│   └── creation/
+│       └── veevalidate_zod_form/
+│           ├── test_runner.py     # CreationTest orchestrator + BenchmarkResult
+│           └── validator.py       # Regex-based validation (no AST parser)
 │
 ├── fixtures/
-│   └── refactoring/
-│       ├── simple-component/
-│       │   ├── prompt.md          # LLM prompt template ({{original_code}})
-│       │   ├── validation_spec.json
-│       │   └── target_project/    # Complete Vue 3 project (npm install here)
-│       └── typed-emits-composable/
-│           ├── prompt.md
+│   ├── refactoring/
+│   │   ├── simple-component/
+│   │   │   ├── prompt.md          # LLM prompt template ({{original_code}})
+│   │   │   ├── validation_spec.json
+│   │   │   └── target_project/    # Complete Vue 3 project (npm install here)
+│   │   └── typed-emits-composable/
+│   │       ├── prompt.md
+│   │       ├── validation_spec.json
+│   │       └── target_project/
+│   └── creation/
+│       └── veevalidate-zod-form/
+│           ├── prompt.md          # Full spec prompt (no {{original_code}})
 │           ├── validation_spec.json
-│           └── target_project/    # Complete Vue 3 project (npm install here)
+│           └── target_project/    # Vue 3 + vee-validate + zod (npm install here)
 │
 ├── scripts/
 │   └── parse_vue_ast.js           # Node.js AST parser (@vue/compiler-sfc + Babel)
@@ -130,7 +167,8 @@ llm-benchmark/
 │   ├── test_validator.py
 │   ├── test_refactoring_test.py
 │   ├── test_typed_emits_validator.py
-│   └── test_run_test.py
+│   ├── test_run_test.py
+│   └── test_veevalidate_validator.py
 │
 └── results/                       # Benchmark outputs (gitignored)
 ```
@@ -156,6 +194,8 @@ Integration tests (marked `@pytest.mark.integration`) require a live Ollama inst
 
 ### Adding a New Fixture
 
+#### Refactoring fixture
+
 1. Create `fixtures/refactoring/<fixture-name>/` with:
    - `prompt.md` — LLM prompt template using `{{original_code}}`
    - `validation_spec.json` — required patterns, naming conventions, scoring weights
@@ -166,11 +206,33 @@ Integration tests (marked `@pytest.mark.integration`) require a live Ollama inst
    - `validator.py` — copy from an existing fixture and adjust `validate_naming()` as needed
    - `test_runner.py` — copy from an existing fixture, update the `validator` import
 
-3. Register the fixture in `run_test.py`:
+3. Register in `run_test.py`:
    ```python
    _RUNNER_MAP = {
        ...
        "new-fixture-name": "src.refactoring.new_fixture_name.test_runner",
+   }
+   ```
+
+4. Write tests in `tests/test_<fixture_name>_validator.py`.
+
+#### Creation fixture
+
+1. Create `fixtures/creation/<fixture-name>/` with:
+   - `prompt.md` — full spec prompt (no `{{original_code}}` placeholder)
+   - `validation_spec.json` — required patterns, naming conventions, scoring weights
+   - `target_project/` — Vue 3 project with dependencies pre-installed, empty target component
+
+2. Create `src/creation/<fixture_name>/` with:
+   - `__init__.py`
+   - `validator.py` — implement regex-based `validate_ast_structure()` and `validate_naming()`
+   - `test_runner.py` — use `CreationTest` class (copy from `veevalidate_zod_form/test_runner.py`)
+
+3. Register in `run_test.py`:
+   ```python
+   _RUNNER_MAP = {
+       ...
+       "new-fixture-name": "src.creation.new_fixture_name.test_runner",
    }
    ```
 
