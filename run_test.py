@@ -127,16 +127,39 @@ def show_run_summary(result: BenchmarkResult):
     pattern_pts = (result.pattern_score / 10.0) * w["pattern_match"] * 10
     naming_pts = (result.naming_score / 10.0) * w["naming"] * 10
 
-    all_checks = ["interfaces", "type_annotations", "script_lang"]
-    ast_detail = " ".join(
-        f"[green]{c}[/green]" if c not in result.ast_missing else f"[red]{c}[/red]"
-        for c in all_checks
-    )
+    # Build pattern detail line from ast_checks if available, else fall back to ast_missing
+    if result.ast_checks:
+        checks = result.ast_checks
+        pattern_parts = []
+        has_fields_detail = "fields_detail" in checks
+        for key, val in checks.items():
+            if key == "fields_detail":
+                # Expand individual field results inline
+                for field_name, passed in val.items():
+                    color = "green" if passed else "red"
+                    pattern_parts.append(f"[{color}]{field_name}[/{color}]")
+            elif key == "fields" and has_fields_detail:
+                # Skip the aggregate "fields" bool — fields_detail covers it
+                continue
+            else:
+                color = "green" if val else "red"
+                pattern_parts.append(f"[{color}]{key}[/{color}]")
+        pattern_detail = " ".join(pattern_parts)
+    else:
+        # Fallback for results without ast_checks (legacy)
+        all_checks = ["interfaces", "type_annotations", "script_lang"]
+        pattern_detail = " ".join(
+            f"[green]{c}[/green]" if c not in result.ast_missing else f"[red]{c}[/red]"
+            for c in all_checks
+        )
+
+    # Label: "AST" for refactoring fixtures (keys start with "has_"), "Patterns" for creation
+    pattern_label = "AST" if any(k.startswith("has_") for k in (result.ast_checks or {})) else "Patterns"
 
     naming_detail = (
         "[green]✓ conventions[/green]"
         if not result.naming_violations
-        else f"[red]✗ {'; '.join(result.naming_violations)}[/red]"
+        else f"[red]✗ {'; '.join(result.naming_violations[:3])}[/red]"
     )
 
     console.print(
@@ -150,7 +173,7 @@ def show_run_summary(result: BenchmarkResult):
         f"pattern {pattern_pts:.1f}pt ({w['pattern_match']*100:.0f}%) + "
         f"naming {naming_pts:.1f}pt ({w['naming']*100:.0f}%)"
     )
-    console.print(f"   AST:      {ast_detail}  [dim](score {result.pattern_score:.1f}/10)[/dim]")
+    console.print(f"   {pattern_label}:  {pattern_detail}  [dim](score {result.pattern_score:.1f}/10)[/dim]")
     console.print(f"   Naming:   {naming_detail}  [dim](score {result.naming_score:.1f}/10)[/dim]")
     if result.compilation_errors:
         for err in result.compilation_errors[:3]:
