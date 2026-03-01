@@ -31,6 +31,7 @@ _RUNNER_MAP = {
     "typed-emits-composable": "src.refactoring.typed_emits_composable.test_runner",
     "veevalidate-zod-form": "src.creation.veevalidate_zod_form.test_runner",
     "ts-bugfix": "src.agent.ts_bugfix.test_runner",
+    "veevalidate-zod-form-agent": "src.agent.veevalidate_zod_form.test_runner",
 }
 
 console = Console()
