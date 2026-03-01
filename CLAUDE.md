@@ -65,7 +65,10 @@ Red flags to report:
 │       ├── common/
 │       │   ├── tools.py           # make_tools() factory (read/write/list/compile)
 │       │   └── agent_client.py    # run_agent() → AgentRunResult
-│       └── ts_bugfix/
+│       ├── ts_bugfix/
+│       │   ├── test_runner.py     # AgentTest + AgentBenchmarkResult
+│       │   └── validator.py
+│       └── veevalidate_zod_form/
 │           ├── test_runner.py     # AgentTest + AgentBenchmarkResult
 │           └── validator.py
 │
@@ -88,8 +91,12 @@ Red flags to report:
 │   │       ├── prompt.md
 │   │       └── validation_spec.json
 │   └── agent/
-│       └── ts-bugfix/
-│           ├── target_project/    # Vue 3 project with intentionally broken component
+│       ├── ts-bugfix/
+│       │   ├── target_project/    # Vue 3 project with intentionally broken component
+│       │   ├── prompt.md
+│       │   └── validation_spec.json
+│       └── veevalidate-zod-form-agent/
+│           ├── target_project/    # Vue 3 project with intentional TS error stub
 │           ├── prompt.md
 │           └── validation_spec.json
 │
@@ -129,7 +136,7 @@ Scoring weights come from each fixture's `validation_spec.json` (default: compil
 - `AgentTest` in `src/agent/<fixture>/test_runner.py`
 - Uses smolagents `ToolCallingAgent` + `OpenAIServerModel` → Ollama `/v1`
 - `max_steps` (from `validation_spec.json`) is the hard cap via smolagents
-- `iterations` (count of `run_compilation` calls) is an observational metric
+- `iterations` (count of `write_file` + `run_compilation` calls) is an observational metric
 - JSON format rules injected into the smolagents system prompt at each step to help small models
 
 ### Per-fixture layout

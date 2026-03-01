@@ -36,6 +36,7 @@ npm install --prefix fixtures/refactoring/simple-component/target_project
 npm install --prefix fixtures/refactoring/typed-emits-composable/target_project
 npm install --prefix fixtures/creation/veevalidate-zod-form/target_project
 npm install --prefix fixtures/agent/ts-bugfix/target_project
+npm install --prefix fixtures/agent/veevalidate-zod-form-agent/target_project
 ```
 
 ## Configuration
@@ -59,6 +60,7 @@ python run_test.py --model qwen2.5-coder:7b-instruct-q8_0
 python run_test.py --model qwen2.5-coder:7b-instruct-q8_0 --fixture simple-component
 python run_test.py --model qwen2.5-coder:7b-instruct-q8_0 --fixture veevalidate-zod-form
 python run_test.py --model qwen2.5-coder:7b-instruct-q8_0 --fixture ts-bugfix
+python run_test.py --model qwen2.5-coder:7b-instruct-q8_0 --fixture veevalidate-zod-form-agent
 
 # Change number of runs
 python run_test.py --model qwen2.5-coder:7b-instruct-q8_0 --runs 5
@@ -81,7 +83,17 @@ Intentional bugs: wrong prop type (`string` instead of `number`), missing `compu
 Expected output: correct `ButtonProps` interface, `defineProps<ButtonProps>()`, `computed` imported, `lang="ts"`.
 
 Max score: **10.0/10** — scored on final compilation result, not on number of steps.
-Additional metrics: steps used (out of `max_steps: 20`), number of compilation attempts.
+Additional metrics: steps used (out of `max_steps: 20`), write+compile iterations.
+
+#### `veevalidate-zod-form-agent`
+Implement a complete registration form from scratch using a tool-calling agent loop. The model starts from an intentionally broken stub (TS error) and must write the full component, verify compilation, and iterate until it passes.
+
+Same requirements as the creation fixture `veevalidate-zod-form`, but solved autonomously via tools.
+
+Expected output: Zod schema + `useForm` + `toTypedSchema`, all 6 fields, error display, `lang="ts"`.
+
+Max score: **10.0/10** — scored on final state of the file after the agent loop completes.
+Additional metrics: steps used (out of `max_steps: 20`), write+compile iterations.
 
 ### Refactoring
 
@@ -135,12 +147,12 @@ Pattern checks vary by fixture category:
 - All required field names present in the component
 - Error display (`errors.field` or `<ErrorMessage>`)
 
-**Agent** — same pipeline as refactoring (AST-based), applied to the final state of the file after the agent loop completes. Additional metrics (not part of the score):
+**Agent** — same pipeline as the matching single-shot category (AST-based for ts-bugfix, regex-based for veevalidate-zod-form-agent), applied to the final state of the file after the agent loop completes. Additional metrics (not part of the score):
 
 | Metric | Description |
 |--------|-------------|
 | `steps` | Total tool-calling turns used |
-| `iterations` | Number of `run_compilation` calls |
+| `iterations` | Number of `write_file` + `run_compilation` calls combined |
 | `succeeded` | True if agent finished before `max_steps` |
 
 ## Project Structure
@@ -169,9 +181,12 @@ llm-benchmark/
 │       ├── common/
 │       │   ├── tools.py           # make_tools() factory (read/write/list/compile)
 │       │   └── agent_client.py    # run_agent() → AgentRunResult (smolagents wrapper)
-│       └── ts_bugfix/
+│       ├── ts_bugfix/
+│       │   ├── test_runner.py     # AgentTest + AgentBenchmarkResult
+│       │   └── validator.py       # AST-based validation (same pipeline as refactoring)
+│       └── veevalidate_zod_form/
 │           ├── test_runner.py     # AgentTest + AgentBenchmarkResult
-│           └── validator.py       # AST-based validation (same pipeline as refactoring)
+│           └── validator.py       # Regex-based validation (same pipeline as creation)
 │
 ├── fixtures/
 │   ├── refactoring/
@@ -189,10 +204,14 @@ llm-benchmark/
 │   │       ├── validation_spec.json
 │   │       └── target_project/    # Vue 3 + vee-validate + zod (npm install here)
 │   └── agent/
-│       └── ts-bugfix/
-│           ├── prompt.md          # Task prompt (no template substitution)
+│       ├── ts-bugfix/
+│       │   ├── prompt.md          # Task prompt (no template substitution)
+│       │   ├── validation_spec.json  # includes max_steps
+│       │   └── target_project/    # Vue 3 project with broken component (npm install here)
+│       └── veevalidate-zod-form-agent/
+│           ├── prompt.md
 │           ├── validation_spec.json  # includes max_steps
-│           └── target_project/    # Vue 3 project with broken component (npm install here)
+│           └── target_project/    # Vue 3 project with intentional TS error stub (npm install here)
 │
 ├── scripts/
 │   └── parse_vue_ast.js           # Node.js AST parser (@vue/compiler-sfc + Babel)
@@ -206,7 +225,8 @@ llm-benchmark/
 │   ├── test_veevalidate_validator.py
 │   ├── test_agent_tools.py
 │   ├── test_agent_client.py
-│   └── test_agent_test_runner.py
+│   ├── test_agent_test_runner.py
+│   └── test_agent_veevalidate_test_runner.py
 │
 └── results/                       # Benchmark outputs (gitignored)
 ```
