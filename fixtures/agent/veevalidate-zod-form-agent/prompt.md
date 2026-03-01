@@ -32,12 +32,14 @@ Requirements:
   - A submit button that triggers `handleSubmit(onSubmit)`
 - Use camelCase for all variable and field names
 
-Your goal is to make `run_compilation` succeed with no TypeScript errors.
-The workflow is: write the component with `write_file`, then run `run_compilation` to verify.
-If there are errors, fix them with another `write_file` call, then run `run_compilation` again.
-Only call `final_answer` after `run_compilation` has returned "Compilation succeeded." — never before.
+Your goal is to produce a component that compiles with no TypeScript errors.
 
-Important: use `write_file` to write the component code to the file. Do NOT put the component code in `final_answer`.
+The workflow is:
+1. Write the component with `write_file` — it will automatically run TypeScript compilation and return the result.
+2. If there are compilation errors, fix them and call `write_file` again.
+3. Only call `final_answer` after `write_file` returns "Compilation succeeded." — never before.
+
+Important: write the component code with `write_file`. Do NOT put the component code in `final_answer`.
 
 ## Tool Call Format
 

@@ -174,8 +174,11 @@ class AgentTest:
                 max_steps=self.max_steps,
             )
             errors.extend(agent_result.errors)
+            # write_file now auto-compiles, so count write_file calls as
+            # compilation cycles. Explicit run_compilation calls are also counted.
             iterations = sum(
-                1 for e in agent_result.tool_call_log if e.get("tool") == "run_compilation"
+                1 for e in agent_result.tool_call_log
+                if e.get("tool") in ("write_file", "run_compilation")
             )
 
             # 4. Read final file state

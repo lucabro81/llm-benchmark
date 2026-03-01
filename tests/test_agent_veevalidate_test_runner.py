@@ -278,8 +278,8 @@ class TestAgentTestRun:
 
     @patch("src.agent.veevalidate_zod_form.test_runner.validator")
     @patch("src.agent.veevalidate_zod_form.test_runner.run_agent")
-    def test_iterations_counts_run_compilation_calls(self, mock_run_agent, mock_validator, tmp_path):
-        """iterations = number of run_compilation entries in tool_call_log."""
+    def test_iterations_counts_write_and_compile_calls(self, mock_run_agent, mock_validator, tmp_path):
+        """iterations = write_file + run_compilation calls (write_file now auto-compiles)."""
         fixture_path = _make_fixture(tmp_path)
         log = [
             {"step": 1, "tool": "write_file", "args": {}, "result_summary": "written"},
@@ -295,7 +295,7 @@ class TestAgentTestRun:
         test = AgentTest(model="test-model", fixture_path=fixture_path)
         result = test.run(run_number=1)
 
-        assert result.iterations == 2
+        assert result.iterations == 4
 
     @patch("src.agent.veevalidate_zod_form.test_runner.validator")
     @patch("src.agent.veevalidate_zod_form.test_runner.run_agent")

@@ -114,7 +114,7 @@ class TestWriteFileTool:
         write_file = _get_tool(tools, "write_file")
 
         result = write_file("src/Comp.vue", "new content")
-        assert result == "OK"
+        assert result.startswith("File written.")
         assert (tmp_path / "src" / "Comp.vue").read_text() == "new content"
 
     def test_rejects_disallowed_path(self, tmp_path):
@@ -137,8 +137,47 @@ class TestWriteFileTool:
         write_file = _get_tool(tools, "write_file")
 
         result = write_file("src/components/New.vue", "content")
-        assert result == "OK"
+        assert result.startswith("File written.")
         assert (tmp_path / "src" / "components" / "New.vue").exists()
+
+    def test_no_package_json_skips_compilation(self, tmp_path):
+        """Without package.json the compilation step is skipped gracefully."""
+        (tmp_path / "src").mkdir()
+        tools = make_tools(tmp_path, ["src/Comp.vue"])
+        write_file = _get_tool(tools, "write_file")
+
+        result = write_file("src/Comp.vue", "content")
+        assert result.startswith("File written.")
+        assert "skipped" in result.lower() or "succeeded" not in result.lower()
+
+    @patch("subprocess.run")
+    def test_includes_compilation_success_in_result(self, mock_run, tmp_path):
+        """When compilation passes, result contains success message."""
+        (tmp_path / "package.json").write_text('{"scripts":{"type-check":"vue-tsc"}}')
+        (tmp_path / "src").mkdir()
+        mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+        tools = make_tools(tmp_path, ["src/Comp.vue"])
+        write_file = _get_tool(tools, "write_file")
+
+        result = write_file("src/Comp.vue", "content")
+        assert "Compilation succeeded" in result
+
+    @patch("subprocess.run")
+    def test_includes_compilation_errors_in_result(self, mock_run, tmp_path):
+        """When compilation fails, result contains the TS error lines."""
+        (tmp_path / "package.json").write_text('{"scripts":{"type-check":"vue-tsc"}}')
+        (tmp_path / "src").mkdir()
+        mock_run.return_value = MagicMock(
+            returncode=1,
+            stdout="src/Comp.vue(2,1): error TS2304: Cannot find name 'x'.\n",
+            stderr="",
+        )
+        tools = make_tools(tmp_path, ["src/Comp.vue"])
+        write_file = _get_tool(tools, "write_file")
+
+        result = write_file("src/Comp.vue", "content")
+        assert result.startswith("File written.")
+        assert "error TS2304" in result
 
     def test_overwrites_existing_file(self, tmp_path):
         (tmp_path / "src").mkdir()

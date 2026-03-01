@@ -55,16 +55,20 @@ def make_tools(target_project: Path, allowed_paths: List[str]) -> List:
 
     @tool
     def write_file(path: str, content: str) -> str:
-        """Write content to a file in the project.
+        """Write content to a file in the project, then run TypeScript compilation.
 
         Only paths in the fixture's allowed_write_paths may be written.
+        Compilation runs automatically after every write — no separate
+        run_compilation call is needed.
 
         Args:
             path: Relative path to write (e.g. 'src/components/BuggyComponent.vue').
             content: Complete file content to write.
 
         Returns:
-            'OK' on success, or an error message starting with 'ERROR:'.
+            'File written.\\nCompilation succeeded.' on full success,
+            'File written.\\nCompilation errors:\\n{errors}' if TS errors remain,
+            or an error message starting with 'ERROR:' if the write itself failed.
         """
         if path not in allowed_write_set:
             return (
@@ -79,11 +83,37 @@ def make_tools(target_project: Path, allowed_paths: List[str]) -> List:
             # the written file is valid source code regardless.
             content = content.replace("\\n", "\n").replace("\\t", "\t")
             full.write_text(content)
-            return "OK"
         except ValueError:
             return f"ERROR: Path '{path}' is outside the project directory."
         except Exception as e:
             return f"ERROR: {e}"
+
+        # Auto-compile after every write so the model gets immediate feedback.
+        if not (resolved_root / "package.json").exists():
+            return "File written. (Compilation skipped: no package.json found.)"
+
+        try:
+            result = subprocess.run(
+                ["npm", "run", "type-check"],
+                cwd=resolved_root,
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+            if result.returncode == 0:
+                return "File written.\nCompilation succeeded."
+            combined = result.stdout + "\n" + result.stderr
+            error_lines = [
+                line.strip()
+                for line in combined.split("\n")
+                if "error TS" in line or " - error" in line
+            ]
+            errors = "\n".join(error_lines) if error_lines else combined.strip()
+            return f"File written.\nCompilation errors:\n{errors}"
+        except subprocess.TimeoutExpired:
+            return "File written.\nERROR: Compilation timed out after 60 seconds."
+        except Exception as e:
+            return f"File written.\nERROR: Compilation check failed: {e}"
 
     @tool
     def list_files(directory: str = ".") -> str:

@@ -273,12 +273,12 @@ class TestAgentTestRun:
 
     @patch("src.agent.ts_bugfix.test_runner.validator")
     @patch("src.agent.ts_bugfix.test_runner.run_agent")
-    def test_iterations_counts_run_compilation_calls(self, mock_run_agent, mock_validator, tmp_path):
-        """iterations = number of run_compilation entries in tool_call_log."""
+    def test_iterations_counts_write_and_compile_calls(self, mock_run_agent, mock_validator, tmp_path):
+        """iterations = write_file + run_compilation calls (write_file now auto-compiles)."""
         fixture_path = _make_fixture(tmp_path)
         log = [
             {"step": 1, "tool": "read_file", "args": {}, "result_summary": "..."},
-            {"step": 2, "tool": "write_file", "args": {}, "result_summary": "OK"},
+            {"step": 2, "tool": "write_file", "args": {}, "result_summary": "File written.\nCompilation errors:\n..."},
             {"step": 3, "tool": "run_compilation", "args": {}, "result_summary": "Compilation succeeded."},
         ]
         mock_run_agent.return_value = _make_agent_result(steps=3, tool_call_log=log)
@@ -289,7 +289,7 @@ class TestAgentTestRun:
         test = AgentTest(model="test-model", fixture_path=fixture_path)
         result = test.run(run_number=1)
 
-        assert result.iterations == 1
+        assert result.iterations == 2
 
     @patch("src.agent.ts_bugfix.test_runner.validator")
     @patch("src.agent.ts_bugfix.test_runner.run_agent")
