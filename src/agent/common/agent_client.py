@@ -78,6 +78,27 @@ def run_agent(
         max_steps=max_steps,
     )
 
+    # Inject JSON format rules into the system prompt so they appear in every API call.
+    # Small models (e.g. qwen2.5-coder:7b) tend to prepend reasoning text before the JSON
+    # block, which causes smolagents to fail parsing. Injecting this rule here (rather than
+    # in the task prompt) ensures it is present as the SYSTEM message at every step.
+    _FORMAT_REMINDER = (
+        "\n\n## CRITICAL FORMAT RULE\n"
+        "When calling a tool, output ONLY a valid JSON code block — no explanation, "
+        "no reasoning, no text before or after it.\n"
+        "```json\n"
+        '{"name": "tool_name", "arguments": {"param": "value"}}\n'
+        "```\n"
+        "JSON string rules:\n"
+        "- Newlines inside strings MUST be \\n (backslash + n), NOT literal line breaks\n"
+        '- Double quotes inside strings MUST be escaped as \\"\n'
+        "If you add any text outside the JSON block, the tool call will fail."
+    )
+    try:
+        agent.memory.system_prompt.system_prompt += _FORMAT_REMINDER
+    except Exception:
+        pass  # defensive: skip injection if memory is unavailable
+
     tool_call_log: List[Dict[str, Any]] = []
     errors: List[str] = []
     succeeded = False
