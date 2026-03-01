@@ -33,7 +33,11 @@ Requirements:
 - Use camelCase for all variable and field names
 
 Your goal is to make `run_compilation` succeed with no TypeScript errors.
-After writing the component, use `run_compilation` to verify it compiles cleanly.
+The workflow is: write the component with `write_file`, then run `run_compilation` to verify.
+If there are errors, fix them with another `write_file` call, then run `run_compilation` again.
+Only call `final_answer` after `run_compilation` has returned "Compilation succeeded." — never before.
+
+Important: use `write_file` to write the component code to the file. Do NOT put the component code in `final_answer`.
 
 ## Tool Call Format
 

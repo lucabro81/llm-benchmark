@@ -149,6 +149,46 @@ class TestWriteFileTool:
         write_file("src/Comp.vue", "new")
         assert (tmp_path / "src" / "Comp.vue").read_text() == "new"
 
+    def test_normalizes_literal_backslash_n_to_real_newline(self, tmp_path):
+        """Models sometimes over-escape: \\n in JSON → literal backslash+n after parse.
+        write_file must convert these to real newlines so the file is valid source code."""
+        (tmp_path / "src").mkdir()
+        tools = make_tools(tmp_path, ["src/Comp.vue"])
+        write_file = _get_tool(tools, "write_file")
+
+        # Simulate over-escaped content: literal backslash+n (2 chars)
+        over_escaped = "<script setup lang=\"ts\">\\nconst x = 1\\n</script>"
+        write_file("src/Comp.vue", over_escaped)
+
+        written = (tmp_path / "src" / "Comp.vue").read_text()
+        assert "\\n" not in written, "Literal backslash+n should have been replaced"
+        assert written.count("\n") == 2
+
+    def test_real_newlines_in_content_are_preserved(self, tmp_path):
+        """Content with real newlines (correctly encoded) must not be double-processed."""
+        (tmp_path / "src").mkdir()
+        tools = make_tools(tmp_path, ["src/Comp.vue"])
+        write_file = _get_tool(tools, "write_file")
+
+        correct = "<script setup lang=\"ts\">\nconst x = 1\n</script>"
+        write_file("src/Comp.vue", correct)
+
+        written = (tmp_path / "src" / "Comp.vue").read_text()
+        assert written == correct
+
+    def test_normalizes_literal_backslash_t_to_real_tab(self, tmp_path):
+        """Same over-escaping can happen with tabs."""
+        (tmp_path / "src").mkdir()
+        tools = make_tools(tmp_path, ["src/Comp.vue"])
+        write_file = _get_tool(tools, "write_file")
+
+        over_escaped = "line1\\tindented\\nline2"
+        write_file("src/Comp.vue", over_escaped)
+
+        written = (tmp_path / "src" / "Comp.vue").read_text()
+        assert "\\t" not in written
+        assert "\t" in written
+
 
 # ---------------------------------------------------------------------------
 # list_files

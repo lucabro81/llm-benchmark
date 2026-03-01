@@ -74,6 +74,10 @@ def make_tools(target_project: Path, allowed_paths: List[str]) -> List:
         try:
             full = _safe_resolve(path)
             full.parent.mkdir(parents=True, exist_ok=True)
+            # Defensive: some models over-escape JSON strings, producing literal
+            # backslash+n/t instead of real control characters. Normalize here so
+            # the written file is valid source code regardless.
+            content = content.replace("\\n", "\n").replace("\\t", "\t")
             full.write_text(content)
             return "OK"
         except ValueError:
