@@ -68,8 +68,9 @@ class AgentBenchmarkResult:
     errors: List[str]
 
     # ── agent-specific ──
-    iterations: int
-    max_iterations: int
+    steps: int            # individual tool-calling LLM turns
+    max_steps: int        # configured ceiling (max_steps in validation_spec.json)
+    iterations: int       # number of run_compilation calls (= fix-and-verify cycles)
     succeeded: bool
     tool_call_log: List[Dict[str, Any]] = field(default_factory=list)
 
@@ -138,7 +139,9 @@ class AgentTest:
         # The "original" state IS the buggy state — the fixture ships broken
         self.original_code = self.target_file.read_text()
 
-        self.max_iterations = self.validation_spec.get("max_iterations", 5)
+        self.max_steps = self.validation_spec.get(
+            "max_steps", self.validation_spec.get("max_iterations", 5)
+        )
         self.allowed_paths: List[str] = self.validation_spec.get(
             "allowed_write_paths", [target_file_rel]
         )
@@ -174,9 +177,12 @@ class AgentTest:
                 model=self.model,
                 task=self.prompt,
                 tools=tools,
-                max_iterations=self.max_iterations,
+                max_steps=self.max_steps,
             )
             errors.extend(agent_result.errors)
+            iterations = sum(
+                1 for e in agent_result.tool_call_log if e.get("tool") == "run_compilation"
+            )
 
             # 4. Read final file state
             output_code = ""
@@ -247,8 +253,9 @@ class AgentTest:
                 duration_sec=agent_result.duration_sec,
                 output_code=output_code,
                 errors=errors,
-                iterations=agent_result.iterations,
-                max_iterations=self.max_iterations,
+                steps=agent_result.steps,
+                max_steps=self.max_steps,
+                iterations=iterations,
                 succeeded=agent_result.succeeded,
                 tool_call_log=agent_result.tool_call_log,
             )
@@ -275,7 +282,7 @@ def format_run(result: AgentBenchmarkResult) -> None:
         f"{compile_icon} Compile  |  "
         f"[bold {score_color}]{result.final_score:.1f}/10[/bold {score_color}]  "
         f"[dim]{result.duration_sec:.1f}s  {speed_str}[/dim]  "
-        f"{success_icon} {result.iterations}/{result.max_iterations} steps"
+        f"{success_icon} {result.steps}/{result.max_steps} steps | {result.iterations} compile checks"
     )
     console.print(
         f"   Scoring:  "

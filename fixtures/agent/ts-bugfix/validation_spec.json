@@ -4,7 +4,7 @@
   "allowed_write_paths": [
     "src/components/BuggyComponent.vue"
   ],
-  "max_iterations": 5,
+  "max_steps": 5,
   "required_patterns": {
     "interfaces": ["ButtonProps"],
     "type_annotations": ["defineProps<ButtonProps>"],

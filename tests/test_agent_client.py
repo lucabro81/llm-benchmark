@@ -56,7 +56,7 @@ class TestAgentRunResult:
     def test_is_instantiable_with_required_fields(self):
         result = AgentRunResult(
             succeeded=True,
-            iterations=2,
+            steps=2,
             final_output="Done",
             tool_call_log=[],
             duration_sec=3.5,
@@ -64,13 +64,13 @@ class TestAgentRunResult:
             errors=[],
         )
         assert result.succeeded is True
-        assert result.iterations == 2
+        assert result.steps == 2
         assert result.duration_sec == 3.5
 
     def test_errors_defaults_to_empty_list(self):
         result = AgentRunResult(
             succeeded=True,
-            iterations=1,
+            steps=1,
             final_output="",
             tool_call_log=[],
             duration_sec=1.0,
@@ -92,7 +92,7 @@ class TestRunAgent:
         mock_agent.memory.steps = []
         mock_agent_cls.return_value = mock_agent
 
-        result = run_agent(model="test-model", task="Fix it", tools=[], max_iterations=5)
+        result = run_agent(model="test-model", task="Fix it", tools=[], max_steps=5)
 
         assert isinstance(result, AgentRunResult)
 
@@ -104,7 +104,7 @@ class TestRunAgent:
         mock_agent.memory.steps = []
         mock_agent_cls.return_value = mock_agent
 
-        result = run_agent(model="m", task="t", tools=[], max_iterations=5)
+        result = run_agent(model="m", task="t", tools=[], max_steps=5)
 
         assert result.succeeded is True
 
@@ -116,7 +116,7 @@ class TestRunAgent:
         mock_agent.memory.steps = []
         mock_agent_cls.return_value = mock_agent
 
-        result = run_agent(model="m", task="t", tools=[], max_iterations=5)
+        result = run_agent(model="m", task="t", tools=[], max_steps=5)
 
         assert result.succeeded is False
 
@@ -128,7 +128,7 @@ class TestRunAgent:
         mock_agent.memory.steps = []
         mock_agent_cls.return_value = mock_agent
 
-        result = run_agent(model="m", task="t", tools=[], max_iterations=5)
+        result = run_agent(model="m", task="t", tools=[], max_steps=5)
 
         assert result.succeeded is False
         assert len(result.errors) > 0
@@ -144,7 +144,7 @@ class TestRunAgent:
         ]
         mock_agent_cls.return_value = mock_agent
 
-        result = run_agent(model="m", task="t", tools=[], max_iterations=5)
+        result = run_agent(model="m", task="t", tools=[], max_steps=5)
 
         assert len(result.tool_call_log) == 2
         assert result.tool_call_log[0]["tool"] == "read_file"
@@ -154,7 +154,7 @@ class TestRunAgent:
 
     @patch("src.agent.common.agent_client.ToolCallingAgent")
     @patch("src.agent.common.agent_client.OpenAIServerModel")
-    def test_iterations_equals_number_of_steps(self, mock_model_cls, mock_agent_cls):
+    def test_steps_equals_number_of_tool_calling_turns(self, mock_model_cls, mock_agent_cls):
         mock_agent = MagicMock()
         mock_agent.run.return_value = _make_run_result("success")
         mock_agent.memory.steps = [
@@ -163,9 +163,9 @@ class TestRunAgent:
         ]
         mock_agent_cls.return_value = mock_agent
 
-        result = run_agent(model="m", task="t", tools=[], max_iterations=5)
+        result = run_agent(model="m", task="t", tools=[], max_steps=5)
 
-        assert result.iterations == 2
+        assert result.steps == 2
 
     @patch("src.agent.common.agent_client.ToolCallingAgent")
     @patch("src.agent.common.agent_client.OpenAIServerModel")
@@ -175,7 +175,7 @@ class TestRunAgent:
         mock_agent.memory.steps = []
         mock_agent_cls.return_value = mock_agent
 
-        result = run_agent(model="m", task="t", tools=[], max_iterations=5)
+        result = run_agent(model="m", task="t", tools=[], max_steps=5)
 
         assert result.duration_sec > 0
 
@@ -188,19 +188,19 @@ class TestRunAgent:
         mock_agent.memory.steps = []
         mock_agent_cls.return_value = mock_agent
 
-        result = run_agent(model="m", task="t", tools=[], max_iterations=5)
+        result = run_agent(model="m", task="t", tools=[], max_steps=5)
 
         assert result.tokens_per_sec >= 0.0
 
     @patch("src.agent.common.agent_client.ToolCallingAgent")
     @patch("src.agent.common.agent_client.OpenAIServerModel")
-    def test_passes_max_iterations_as_max_steps(self, mock_model_cls, mock_agent_cls):
+    def test_passes_max_steps_to_agent(self, mock_model_cls, mock_agent_cls):
         mock_agent = MagicMock()
         mock_agent.run.return_value = _make_run_result("success")
         mock_agent.memory.steps = []
         mock_agent_cls.return_value = mock_agent
 
-        run_agent(model="m", task="t", tools=[], max_iterations=3)
+        run_agent(model="m", task="t", tools=[], max_steps=3)
 
         _, agent_kwargs = mock_agent_cls.call_args
         assert agent_kwargs.get("max_steps") == 3
@@ -214,7 +214,7 @@ class TestRunAgent:
         mock_agent_cls.return_value = mock_agent
 
         dummy_tools = [MagicMock(), MagicMock()]
-        run_agent(model="m", task="t", tools=dummy_tools, max_iterations=5)
+        run_agent(model="m", task="t", tools=dummy_tools, max_steps=5)
 
         _, agent_kwargs = mock_agent_cls.call_args
         assert agent_kwargs.get("tools") == dummy_tools
@@ -228,7 +228,7 @@ class TestRunAgent:
         mock_agent_cls.return_value = mock_agent
 
         monkeypatch.setenv("OLLAMA_BASE_URL", "http://192.168.1.10:11434")
-        run_agent(model="m", task="t", tools=[], max_iterations=5)
+        run_agent(model="m", task="t", tools=[], max_steps=5)
 
         _, model_kwargs = mock_model_cls.call_args
         assert "192.168.1.10:11434" in model_kwargs.get("api_base", "")
@@ -241,7 +241,7 @@ class TestRunAgent:
         mock_agent.memory.steps = []
         mock_agent_cls.return_value = mock_agent
 
-        run_agent(model="m", task="Fix it", tools=[], max_iterations=5)
+        run_agent(model="m", task="Fix it", tools=[], max_steps=5)
 
         mock_agent.run.assert_called_once_with("Fix it", return_full_result=True)
 
@@ -255,7 +255,7 @@ class TestRunAgent:
         mock_agent.memory.steps = [_make_action_step("read_file", {}, long_obs)]
         mock_agent_cls.return_value = mock_agent
 
-        result = run_agent(model="m", task="t", tools=[], max_iterations=5)
+        result = run_agent(model="m", task="t", tools=[], max_steps=5)
 
         summary = result.tool_call_log[0]["result_summary"]
         assert len(summary) <= 250  # truncated
@@ -269,7 +269,7 @@ class TestRunAgent:
         mock_agent.memory = None  # accessing None.steps raises AttributeError
         mock_agent_cls.return_value = mock_agent
 
-        result = run_agent(model="m", task="t", tools=[], max_iterations=5)
+        result = run_agent(model="m", task="t", tools=[], max_steps=5)
 
         assert isinstance(result, AgentRunResult)
         assert len(result.errors) > 0

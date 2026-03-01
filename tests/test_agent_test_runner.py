@@ -27,7 +27,7 @@ FIXED_VUE = "<script setup lang='ts'>\nimport { computed } from 'vue'\ninterface
 DEFAULT_SPEC = {
     "target_file": "src/components/BuggyComponent.vue",
     "allowed_write_paths": ["src/components/BuggyComponent.vue"],
-    "max_iterations": 5,
+    "max_steps": 5,
     "required_patterns": {
         "interfaces": ["ButtonProps"],
         "type_annotations": ["defineProps<ButtonProps>"],
@@ -63,7 +63,7 @@ def _make_agent_result(**kwargs):
     """Build a SimpleNamespace mimicking AgentRunResult."""
     defaults = dict(
         succeeded=True,
-        iterations=3,
+        steps=3,
         final_output="Done",
         tool_call_log=[{"step": 1, "tool": "read_file", "args": {}, "result_summary": "content"}],
         duration_sec=5.0,
@@ -122,12 +122,14 @@ class TestAgentBenchmarkResult:
             duration_sec=5.0,
             output_code="...",
             errors=[],
-            iterations=3,
-            max_iterations=5,
+            steps=3,
+            max_steps=5,
+            iterations=1,
             succeeded=True,
             tool_call_log=[],
         )
-        assert result.iterations == 3
+        assert result.steps == 3
+        assert result.iterations == 1
         assert result.succeeded is True
         assert result.tool_call_log == []
 
@@ -138,11 +140,12 @@ class TestAgentBenchmarkResult:
             pattern_score=8.0, ast_missing=[], ast_checks={},
             naming_score=10.0, naming_violations=[], final_score=8.5,
             scoring_weights={}, tokens_per_sec=0.0, duration_sec=1.0,
-            output_code="", errors=[], iterations=2, max_iterations=5,
+            output_code="", errors=[], steps=2, max_steps=5, iterations=0,
             succeeded=True, tool_call_log=[],
         )
         import json
         dumped = json.dumps(result.__dict__)
+        assert "steps" in dumped
         assert "iterations" in dumped
         assert "succeeded" in dumped
         assert "tool_call_log" in dumped
@@ -154,12 +157,13 @@ class TestAgentBenchmarkResult:
             pattern_score=8.0, ast_missing=[], ast_checks={},
             naming_score=10.0, naming_violations=[], final_score=8.5,
             scoring_weights={}, tokens_per_sec=0.0, duration_sec=1.0,
-            output_code="", errors=[], iterations=2, max_iterations=5,
+            output_code="", errors=[], steps=2, max_steps=5, iterations=0,
             succeeded=True, tool_call_log=[{"step": 1, "tool": "read_file"}],
         )
         d = result.__dict__
+        assert "steps" in d
+        assert "max_steps" in d
         assert "iterations" in d
-        assert "max_iterations" in d
         assert "succeeded" in d
         assert "tool_call_log" in d
 
@@ -177,11 +181,11 @@ class TestAgentTestInit:
         assert test.validation_spec["target_file"] == "src/components/BuggyComponent.vue"
         assert test.fixture_name == "ts-bugfix"
 
-    def test_reads_max_iterations_from_spec(self, tmp_path):
+    def test_reads_max_steps_from_spec(self, tmp_path):
         fixture_path = _make_fixture(tmp_path)
         test = AgentTest(model="test-model", fixture_path=fixture_path)
 
-        assert test.max_iterations == 5
+        assert test.max_steps == 5
 
     def test_reads_allowed_paths_from_spec(self, tmp_path):
         fixture_path = _make_fixture(tmp_path)
@@ -254,9 +258,9 @@ class TestAgentTestRun:
 
     @patch("src.agent.ts_bugfix.test_runner.validator")
     @patch("src.agent.ts_bugfix.test_runner.run_agent")
-    def test_result_contains_iterations_and_succeeded(self, mock_run_agent, mock_validator, tmp_path):
+    def test_result_contains_steps_and_succeeded(self, mock_run_agent, mock_validator, tmp_path):
         fixture_path = _make_fixture(tmp_path)
-        mock_run_agent.return_value = _make_agent_result(iterations=3, succeeded=True)
+        mock_run_agent.return_value = _make_agent_result(steps=3, succeeded=True)
         mock_validator.validate_compilation.return_value = _make_compilation_result()
         mock_validator.validate_ast_structure.return_value = _make_ast_result()
         mock_validator.validate_naming.return_value = _make_naming_result()
@@ -264,8 +268,28 @@ class TestAgentTestRun:
         test = AgentTest(model="test-model", fixture_path=fixture_path)
         result = test.run(run_number=1)
 
-        assert result.iterations == 3
+        assert result.steps == 3
         assert result.succeeded is True
+
+    @patch("src.agent.ts_bugfix.test_runner.validator")
+    @patch("src.agent.ts_bugfix.test_runner.run_agent")
+    def test_iterations_counts_run_compilation_calls(self, mock_run_agent, mock_validator, tmp_path):
+        """iterations = number of run_compilation entries in tool_call_log."""
+        fixture_path = _make_fixture(tmp_path)
+        log = [
+            {"step": 1, "tool": "read_file", "args": {}, "result_summary": "..."},
+            {"step": 2, "tool": "write_file", "args": {}, "result_summary": "OK"},
+            {"step": 3, "tool": "run_compilation", "args": {}, "result_summary": "Compilation succeeded."},
+        ]
+        mock_run_agent.return_value = _make_agent_result(steps=3, tool_call_log=log)
+        mock_validator.validate_compilation.return_value = _make_compilation_result()
+        mock_validator.validate_ast_structure.return_value = _make_ast_result()
+        mock_validator.validate_naming.return_value = _make_naming_result()
+
+        test = AgentTest(model="test-model", fixture_path=fixture_path)
+        result = test.run(run_number=1)
+
+        assert result.iterations == 1
 
     @patch("src.agent.ts_bugfix.test_runner.validator")
     @patch("src.agent.ts_bugfix.test_runner.run_agent")

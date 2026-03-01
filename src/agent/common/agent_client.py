@@ -39,7 +39,7 @@ class AgentRunResult:
         errors: Any internal errors captured during the run.
     """
     succeeded: bool
-    iterations: int
+    steps: int
     final_output: str
     tool_call_log: List[Dict[str, Any]]
     duration_sec: float
@@ -51,7 +51,7 @@ def run_agent(
     model: str,
     task: str,
     tools: List,
-    max_iterations: int = 5,
+    max_steps: int = 5,
 ) -> AgentRunResult:
     """Execute the agent loop and return a structured result.
 
@@ -75,7 +75,7 @@ def run_agent(
     agent = ToolCallingAgent(
         tools=tools,
         model=llm,
-        max_steps=max_iterations,
+        max_steps=max_steps,
     )
 
     tool_call_log: List[Dict[str, Any]] = []
@@ -128,7 +128,7 @@ def run_agent(
 
     return AgentRunResult(
         succeeded=succeeded,
-        iterations=step_count,
+        steps=step_count,
         final_output=final_output,
         tool_call_log=tool_call_log,
         duration_sec=duration_sec,
