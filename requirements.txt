@@ -22,3 +22,4 @@ ollama>=0.4.0              # Python SDK for Ollama API
 python-dotenv>=1.0.0       # Environment variable management
 pytest>=8.0.0              # Testing framework
 pytest-mock>=3.12.0        # Mocking for tests
+smolagents>=1.0.0          # Agent framework (ToolCallingAgent + OpenAI-compatible backend)

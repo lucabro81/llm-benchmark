@@ -23,12 +23,14 @@ from src.refactoring.simple_component.test_runner import BenchmarkResult
 OUTPUT_DIR = Path("results")
 FIXTURES_BASE = Path("fixtures/refactoring")
 FIXTURES_CREATION = Path("fixtures/creation")
+FIXTURES_AGENT = Path("fixtures/agent")
 
 # Explicit mapping: fixture directory name → test runner module path
 _RUNNER_MAP = {
     "simple-component": "src.refactoring.simple_component.test_runner",
     "typed-emits-composable": "src.refactoring.typed_emits_composable.test_runner",
     "veevalidate-zod-form": "src.creation.veevalidate_zod_form.test_runner",
+    "ts-bugfix": "src.agent.ts_bugfix.test_runner",
 }
 
 console = Console()
@@ -94,6 +96,8 @@ def _get_runner_class(module) -> Type:
     """Return the test class from an imported runner module."""
     if hasattr(module, "RefactoringTest"):
         return module.RefactoringTest
+    if hasattr(module, "AgentTest"):
+        return module.AgentTest
     return module.CreationTest
 
 
@@ -279,9 +283,9 @@ def main() -> int:
     # Determine fixtures to run
     try:
         if args.fixture:
-            # Search in both fixtures/refactoring/ and fixtures/creation/
+            # Search in refactoring/, creation/, and agent/
             fixture_path = None
-            for base in (FIXTURES_BASE, FIXTURES_CREATION):
+            for base in (FIXTURES_BASE, FIXTURES_CREATION, FIXTURES_AGENT):
                 candidate = base / args.fixture
                 if candidate.exists() and (candidate / "validation_spec.json").exists():
                     fixture_path = candidate
@@ -302,6 +306,10 @@ def main() -> int:
             fixtures = discover_fixtures()
             try:
                 fixtures += discover_fixtures(FIXTURES_CREATION)
+            except FileNotFoundError:
+                pass
+            try:
+                fixtures += discover_fixtures(FIXTURES_AGENT)
             except FileNotFoundError:
                 pass
     except FileNotFoundError as e:
