@@ -3,13 +3,12 @@
 
 interface ButtonProps {
   label: string
-  count: string    // BUG: should be number
+  count: string
   disabled: boolean
 }
 
 const props = defineProps<ButtonProps>()
 
-// BUG: computed is not imported from 'vue'
 const doubled = computed(() => props.count * 2)
 </script>
 

@@ -23,7 +23,8 @@ def make_tools(target_project: Path, allowed_paths: List[str]) -> List:
     Returns:
         List of @tool-decorated callables ready to pass to ToolCallingAgent.
     """
-    resolved_root = target_project.resolve()
+    target_project = target_project.resolve()
+    resolved_root = target_project
     allowed_write_set = set(allowed_paths)
 
     def _safe_resolve(relative_path: str) -> Path:

@@ -103,18 +103,22 @@ def run_agent(
 
     step_count = 0
     try:
-        for step_idx, step in enumerate(agent.memory.steps):
-            step_count += 1
+        for step in agent.memory.steps:
             tool_calls = getattr(step, "tool_calls", None) or []
+            # Exclude planning steps (no tool_calls) and the final_answer step
+            real_calls = [tc for tc in tool_calls if getattr(tc, "name", "") != "final_answer"]
+            if not real_calls:
+                continue
+            step_count += 1
             observations = getattr(step, "observations", "") or ""
             result_summary = (
                 str(observations)[:200] + "..."
                 if len(str(observations)) > 200
                 else str(observations)
             )
-            for tc in tool_calls:
+            for tc in real_calls:
                 tool_call_log.append({
-                    "step": step_idx + 1,
+                    "step": step_count,
                     "tool": getattr(tc, "name", "unknown"),
                     "args": getattr(tc, "arguments", {}),
                     "result_summary": result_summary,
