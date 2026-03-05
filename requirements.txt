@@ -23,3 +23,4 @@ python-dotenv>=1.0.0       # Environment variable management
 pytest>=8.0.0              # Testing framework
 pytest-mock>=3.12.0        # Mocking for tests
 smolagents[openai]>=1.0.0  # Agent framework (ToolCallingAgent + OpenAI-compatible backend)
+rank-bm25>=0.2.2           # BM25 keyword search for RAG tool

@@ -32,6 +32,7 @@ _RUNNER_MAP = {
     "veevalidate-zod-form": "src.creation.veevalidate_zod_form.test_runner",
     "ts-bugfix": "src.agent.ts_bugfix.test_runner",
     "veevalidate-zod-form-agent": "src.agent.veevalidate_zod_form.test_runner",
+    "veevalidate-zod-form-nuxt-rag": "src.agent.veevalidate_zod_form_nuxt_rag.test_runner",
 }
 
 console = Console()
