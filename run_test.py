@@ -33,6 +33,10 @@ _RUNNER_MAP = {
     "ts-bugfix": "src.agent.ts_bugfix.test_runner",
     "veevalidate-zod-form-agent": "src.agent.veevalidate_zod_form.test_runner",
     "veevalidate-zod-form-nuxt-rag": "src.agent.veevalidate_zod_form_nuxt_rag.test_runner",
+    # nuxt-form diagnostic battery (A → B → C → D = nuxt-rag)
+    "nuxt-form-creation":      "src.creation.nuxt_form_creation.test_runner",
+    "nuxt-form-agent-guided":  "src.agent.nuxt_form_agent_guided.test_runner",
+    "nuxt-form-agent-rag":     "src.agent.nuxt_form_agent_rag.test_runner",
 }
 
 console = Console()
