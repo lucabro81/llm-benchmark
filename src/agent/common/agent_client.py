@@ -52,6 +52,7 @@ def run_agent(
     task: str,
     tools: List,
     max_steps: int = 5,
+    extra_system_prompt: str = "",
 ) -> AgentRunResult:
     """Execute the agent loop and return a structured result.
 
@@ -96,6 +97,8 @@ def run_agent(
     )
     try:
         agent.memory.system_prompt.system_prompt += _FORMAT_REMINDER
+        if extra_system_prompt:
+            agent.memory.system_prompt.system_prompt += extra_system_prompt
     except Exception:
         pass  # defensive: skip injection if memory is unavailable
 

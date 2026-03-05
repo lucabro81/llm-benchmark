@@ -271,11 +271,17 @@ class AgentTest:
             )
 
             # 3. Run agent
+            _RAG_REMINDER = (
+                "\n\n## RAG TOOL\n"
+                "If you are unsure about the API or component usage, "
+                "query_rag is available to look up code examples."
+            )
             agent_result = run_agent(
                 model=self.model,
                 task=self.prompt,
                 tools=tools,
                 max_steps=self.max_steps,
+                extra_system_prompt=_RAG_REMINDER,
             )
             errors.extend(agent_result.errors)
             iterations = sum(
