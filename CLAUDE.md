@@ -68,7 +68,11 @@ Red flags to report:
 │       ├── ts_bugfix/
 │       │   ├── test_runner.py     # AgentTest + AgentBenchmarkResult
 │       │   └── validator.py
-│       └── veevalidate_zod_form/
+│       ├── veevalidate_zod_form/
+│       │   ├── test_runner.py     # AgentTest + AgentBenchmarkResult
+│       │   └── validator.py
+│       └── veevalidate_zod_form_nuxt_rag/
+│           ├── rag.py             # QueryRagTool (BM25Plus over rag_docs/)
 │           ├── test_runner.py     # AgentTest + AgentBenchmarkResult
 │           └── validator.py
 │
@@ -95,8 +99,13 @@ Red flags to report:
 │       │   ├── target_project/    # Vue 3 project with intentionally broken component
 │       │   ├── prompt.md
 │       │   └── validation_spec.json
-│       └── veevalidate-zod-form-agent/
-│           ├── target_project/    # Vue 3 project with intentional TS error stub
+│       ├── veevalidate-zod-form-agent/
+│       │   ├── target_project/    # Vue 3 project with intentional TS error stub
+│       │   ├── prompt.md
+│       │   └── validation_spec.json
+│       └── veevalidate-zod-form-nuxt-rag/
+│           ├── target_project/    # Turborepo monorepo (apps/web + packages/elements)
+│           ├── rag_docs/          # 5 form example files (BM25-indexed)
 │           ├── prompt.md
 │           └── validation_spec.json
 │
@@ -180,16 +189,21 @@ New fixtures must be registered in `_RUNNER_MAP` in [run_test.py](run_test.py).
 
 ### Agent fixture
 1. Create `fixtures/agent/<fixture-name>/` with `prompt.md`, `validation_spec.json` (include `max_steps`), `target_project/`
-2. Run `npm install` in `target_project/`; ensure `npm run type-check` is configured
+2. Run `npm install` in `target_project/`; ensure `npm run type-check` (or equivalent) is configured
 3. Create `src/agent/<fixture_name>/` with `__init__.py`, `test_runner.py` (`AgentTest` + `AgentBenchmarkResult`), `validator.py`
 4. Register in [run_test.py](run_test.py) `_RUNNER_MAP`
 5. Write tests first (TDD)
+
+**RAG variant**: if the fixture needs a `query_rag` tool, also add:
+- `fixtures/agent/<fixture-name>/rag_docs/` — one file per pattern (code-only, BM25-indexed)
+- `src/agent/<fixture_name>/rag.py` — `QueryRagTool(Tool)` using `BM25Plus` (not BM25Okapi)
+- `compilation_cwd` and `compilation_command` in `validation_spec.json` if the project uses a non-standard compile command or working directory (e.g. Turborepo monorepo)
 
 ---
 
 ## Dependencies
 
-- Python 3.12+, `ollama>=0.4.0`, `rich>=13.0.0`, `smolagents[openai]>=1.0.0`
+- Python 3.12+, `ollama>=0.4.0`, `rich>=13.0.0`, `smolagents[openai]>=1.0.0`, `rank-bm25>=0.2.2`
 - Node.js 24.x
 - Ollama running with a loaded model
 - Per-fixture: `npm install` in each `target_project/`

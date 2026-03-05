@@ -37,6 +37,7 @@ npm install --prefix fixtures/refactoring/typed-emits-composable/target_project
 npm install --prefix fixtures/creation/veevalidate-zod-form/target_project
 npm install --prefix fixtures/agent/ts-bugfix/target_project
 npm install --prefix fixtures/agent/veevalidate-zod-form-agent/target_project
+npm install --prefix fixtures/agent/veevalidate-zod-form-nuxt-rag/target_project
 ```
 
 ## Configuration
@@ -61,6 +62,7 @@ python run_test.py --model qwen2.5-coder:7b-instruct-q8_0 --fixture simple-compo
 python run_test.py --model qwen2.5-coder:7b-instruct-q8_0 --fixture veevalidate-zod-form
 python run_test.py --model qwen2.5-coder:7b-instruct-q8_0 --fixture ts-bugfix
 python run_test.py --model qwen2.5-coder:7b-instruct-q8_0 --fixture veevalidate-zod-form-agent
+python run_test.py --model qwen2.5-coder:7b-instruct-q8_0 --fixture veevalidate-zod-form-nuxt-rag
 
 # Change number of runs
 python run_test.py --model qwen2.5-coder:7b-instruct-q8_0 --runs 5
@@ -94,6 +96,20 @@ Expected output: Zod schema + `useForm` + `toTypedSchema`, all 6 fields, error d
 
 Max score: **10.0/10** — scored on final state of the file after the agent loop completes.
 Additional metrics: steps used (out of `max_steps: 20`), write+compile iterations.
+
+#### `veevalidate-zod-form-nuxt-rag`
+Implement a complex registration form in a Turborepo monorepo (`apps/web` + `packages/elements` UI library) using a tool-calling agent with RAG access. The model consults a BM25-indexed library of form examples via `query_rag` to learn how to use the custom component library.
+
+Target form has 7 fields including conditional logic: `role → otherInfo` (visible only for "contributor") and `newsletter → frequency`.
+
+Tools available: `read_file`, `write_file`, `list_files`, `run_compilation`, `query_rag`.
+Compilation: `npm run check-types` from `apps/web/` (not the monorepo root).
+Two writable files: `RegistrationForm.vue` + `registration/types/index.ts`.
+
+Expected output: `<Form>` + `<FormFields>` + `<FormActions>` pattern, all 4 controlled component types (Input, RadioGroup, Checkbox, Textarea), Zod schema with `z.object(...)`, conditional fields with `v-if`, `lang="ts"`.
+
+Max score: **10.0/10** — scored on final compilation + pattern checks + naming.
+Additional metrics: steps used (out of `max_steps: 30`), write+compile iterations, `query_rag` calls.
 
 ### Refactoring
 
@@ -147,7 +163,7 @@ Pattern checks vary by fixture category:
 - All required field names present in the component
 - Error display (`errors.field` or `<ErrorMessage>`)
 
-**Agent** — same pipeline as the matching single-shot category (AST-based for ts-bugfix, regex-based for veevalidate-zod-form-agent), applied to the final state of the file after the agent loop completes. Additional metrics (not part of the score):
+**Agent** — same pipeline as the matching single-shot category (AST-based for ts-bugfix, regex-based for veevalidate-zod-form-agent and veevalidate-zod-form-nuxt-rag), applied to the final state of the file after the agent loop completes. Additional metrics (not part of the score):
 
 | Metric | Description |
 |--------|-------------|
@@ -184,9 +200,13 @@ llm-benchmark/
 │       ├── ts_bugfix/
 │       │   ├── test_runner.py     # AgentTest + AgentBenchmarkResult
 │       │   └── validator.py       # AST-based validation (same pipeline as refactoring)
-│       └── veevalidate_zod_form/
-│           ├── test_runner.py     # AgentTest + AgentBenchmarkResult
-│           └── validator.py       # Regex-based validation (same pipeline as creation)
+│       ├── veevalidate_zod_form/
+│       │   ├── test_runner.py     # AgentTest + AgentBenchmarkResult
+│       │   └── validator.py       # Regex-based validation (same pipeline as creation)
+│       └── veevalidate_zod_form_nuxt_rag/
+│           ├── rag.py             # QueryRagTool — BM25Plus over rag_docs/
+│           ├── test_runner.py     # AgentTest + AgentBenchmarkResult (custom tools + RAG)
+│           └── validator.py       # Regex-based validation (7 pattern checks, 0-10)
 │
 ├── fixtures/
 │   ├── refactoring/
@@ -208,10 +228,15 @@ llm-benchmark/
 │       │   ├── prompt.md          # Task prompt (no template substitution)
 │       │   ├── validation_spec.json  # includes max_steps
 │       │   └── target_project/    # Vue 3 project with broken component (npm install here)
-│       └── veevalidate-zod-form-agent/
+│       ├── veevalidate-zod-form-agent/
+│       │   ├── prompt.md
+│       │   ├── validation_spec.json  # includes max_steps
+│       │   └── target_project/    # Vue 3 project with intentional TS error stub (npm install here)
+│       └── veevalidate-zod-form-nuxt-rag/
 │           ├── prompt.md
-│           ├── validation_spec.json  # includes max_steps
-│           └── target_project/    # Vue 3 project with intentional TS error stub (npm install here)
+│           ├── validation_spec.json  # includes max_steps, compilation_cwd, compilation_command
+│           ├── rag_docs/          # 5 BM25-indexed form example files
+│           └── target_project/    # Turborepo monorepo (apps/web + packages/elements)
 │
 ├── scripts/
 │   └── parse_vue_ast.js           # Node.js AST parser (@vue/compiler-sfc + Babel)
@@ -226,7 +251,10 @@ llm-benchmark/
 │   ├── test_agent_tools.py
 │   ├── test_agent_client.py
 │   ├── test_agent_test_runner.py
-│   └── test_agent_veevalidate_test_runner.py
+│   ├── test_agent_veevalidate_test_runner.py
+│   ├── test_nuxt_rag_rag.py
+│   ├── test_nuxt_rag_validator.py
+│   └── test_nuxt_rag_test_runner.py
 │
 └── results/                       # Benchmark outputs (gitignored)
 ```
