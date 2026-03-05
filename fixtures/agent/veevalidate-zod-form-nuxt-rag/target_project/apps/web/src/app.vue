@@ -1,13 +1,9 @@
 <script setup lang="ts">
-import { LoginForm } from "./login/components";
-import type { LoginFormValues } from "./login/types";
-
-const onSubmit = async (values: LoginFormValues): Promise<LoginFormValues> => {
-  await new Promise(resolve => setTimeout(resolve, 2000));
-  return values;
-};
+import RegistrationForm from "./registration/components/RegistrationForm.vue";
 </script>
 
 <template>
-  <LoginForm :on-submit="onSubmit" />
+  <div class="flex min-h-screen items-center justify-center p-8">
+    <RegistrationForm />
+  </div>
 </template>
