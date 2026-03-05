@@ -1,0 +1,1 @@
+export { default as ControlledTextarea } from "./controlled-textarea.vue"
