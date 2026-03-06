@@ -79,11 +79,14 @@ Red flags to report:
 │       │   ├── test_runner.py     # AgentTest + AgentBenchmarkResult
 │       │   └── validator.py
 │       ├── nuxt_form_agent_guided/
-│       │   ├── test_runner.py     # AgentTest — tools: write_file + run_compilation ONLY
+│       │   ├── test_runner.py     # AgentTest — tools: write_file + run_compilation ONLY (Test B)
+│       │   └── validator.py
+│       ├── nuxt_form_agent_twofiles/
+│       │   ├── test_runner.py     # AgentTest — write_file + run_compilation, 2 files (Test C)
 │       │   └── validator.py
 │       └── nuxt_form_agent_rag/
 │           ├── rag.py             # QueryRagTool (rag_docs_path from validation_spec)
-│           ├── test_runner.py     # AgentTest — tools: write_file + run_compilation + query_rag
+│           ├── test_runner.py     # AgentTest — tools: write_file + run_compilation + query_rag (Test D)
 │           └── validator.py
 │
 ├── scripts/
@@ -116,15 +119,18 @@ Red flags to report:
 │       │   ├── target_project/    # Vue 3 project with intentional TS error stub
 │       │   ├── prompt.md
 │       │   └── validation_spec.json
-│       ├── veevalidate-zod-form-nuxt-rag/   # Test D — full agent (read/write/compile/RAG)
-│       │   ├── target_project/    # Turborepo monorepo (apps/web + packages/elements) — shared by A/B/C/D
-│       │   ├── rag_docs/          # 5 form example files (BM25-indexed) — shared by C/D
+│       ├── veevalidate-zod-form-nuxt-rag/   # Test E — full agent (read/write/compile/RAG)
+│       │   ├── target_project/    # Turborepo monorepo (apps/web + packages/elements) — shared by A/B/C/D/E
+│       │   ├── rag_docs/          # 5 form example files (BM25-indexed) — shared by D/E
 │       │   ├── prompt.md
 │       │   └── validation_spec.json
-│       ├── nuxt-form-agent-guided/    # Test B — agent with write+compile only (no read/RAG)
+│       ├── nuxt-form-agent-guided/    # Test B — write+compile only, 1 file
 │       │   ├── prompt.md
 │       │   └── validation_spec.json   # target_project_path → veevalidate-zod-form-nuxt-rag/target_project
-│       └── nuxt-form-agent-rag/       # Test C — agent with write+compile+RAG (no read)
+│       ├── nuxt-form-agent-twofiles/  # Test C — write+compile only, 2 files
+│       │   ├── prompt.md
+│       │   └── validation_spec.json   # target_project_path → veevalidate-zod-form-nuxt-rag/target_project
+│       └── nuxt-form-agent-rag/       # Test D — write+compile+RAG (no read)
 │           ├── prompt.md
 │           └── validation_spec.json   # target_project_path + rag_docs_path overrides
 │

@@ -66,9 +66,10 @@ python run_test.py --model qwen2.5-coder:7b-instruct-q8_0 --fixture ts-bugfix
 python run_test.py --model qwen2.5-coder:7b-instruct-q8_0 --fixture veevalidate-zod-form-agent
 python run_test.py --model qwen2.5-coder:7b-instruct-q8_0 --fixture veevalidate-zod-form-nuxt-rag
 
-# Nuxt-form diagnostic battery (A → B → C → D = veevalidate-zod-form-nuxt-rag)
+# Nuxt-form diagnostic battery (A → B → C → D → E)
 python run_test.py --model qwen2.5-coder:7b-instruct-q8_0 --fixture nuxt-form-creation
 python run_test.py --model qwen2.5-coder:7b-instruct-q8_0 --fixture nuxt-form-agent-guided
+python run_test.py --model qwen2.5-coder:7b-instruct-q8_0 --fixture nuxt-form-agent-twofiles
 python run_test.py --model qwen2.5-coder:7b-instruct-q8_0 --fixture nuxt-form-agent-rag
 
 # Change number of runs
@@ -110,16 +111,21 @@ Single-shot creation of the same registration form. All component API docs injec
 Max score: **10.0/10**. Shares `target_project` with Test D.
 
 #### `nuxt-form-agent-guided` (Test B)
-Agent with only `write_file` + `run_compilation` tools. Full API docs in the prompt — the model writes, compiles, and iterates using the TS error feedback, but cannot read or query RAG.
+Agent with only `write_file` + `run_compilation` tools. Full API docs in the prompt — the model writes, compiles, and iterates using the TS error feedback, but cannot read or query RAG. Same single-file task as Test A.
 
-Max score: **10.0/10** — `max_steps: 10`. Shares `target_project` with Test D.
+Max score: **10.0/10** — `max_steps: 10`. Shares `target_project` with Test E.
 
-#### `nuxt-form-agent-rag` (Test C)
+#### `nuxt-form-agent-twofiles` (Test C)
+Agent with only `write_file` + `run_compilation` tools. Full API docs in the prompt — same tool set as Test B, but the task now requires **two files in order**: `types/index.ts` (Zod schema + TS types) first, then `RegistrationForm.vue` importing from `@/registration/types`.
+
+Max score: **10.0/10** — `max_steps: 15`. Shares `target_project` with Test E.
+
+#### `nuxt-form-agent-rag` (Test D)
 Agent with `write_file`, `run_compilation`, and `query_rag` tools only. No docs in the prompt — the model must query RAG to discover the component API before writing.
 
-Max score: **10.0/10** — `max_steps: 20`. Shares `target_project` and `rag_docs` with Test D.
+Max score: **10.0/10** — `max_steps: 20`. Shares `target_project` and `rag_docs` with Test E.
 
-#### `veevalidate-zod-form-nuxt-rag` (Test D)
+#### `veevalidate-zod-form-nuxt-rag` (Test E)
 Implement a complex registration form in a Turborepo monorepo (`apps/web` + `packages/elements` UI library) using a full tool-calling agent. The model can read/list files, write, compile, and query a BM25 RAG index.
 
 Target form: 7 fields, conditional logic (`role → otherInfo`, `newsletter → frequency`).
@@ -128,7 +134,17 @@ Two writable files: `RegistrationForm.vue` + `registration/types/index.ts`.
 Compilation: `npm run check-types` from `apps/web/`.
 Max score: **10.0/10** — `max_steps: 30`.
 
-**Diagnostic battery rationale (A→B→C→D)**: each test adds exactly one variable. A baseline establishes single-shot capability; B adds iterative compilation feedback; C requires autonomous retrieval; D adds full filesystem exploration. Failure at a specific level pinpoints the model's capability boundary.
+**Diagnostic battery rationale (A→B→C→D→E)**: each test changes exactly one variable.
+
+| Test | Tools | Files | Docs | Variable |
+|------|-------|-------|------|----------|
+| A | — (single-shot) | 1 | inline | baseline |
+| B | write + compile | 1 | inline | iterative TS feedback |
+| C | write + compile | 2 | inline | two-file dependency chain |
+| D | write + compile + RAG | 2 | none | autonomous retrieval |
+| E | read + write + list + compile + RAG | 2 | none | filesystem exploration |
+
+Failure at a specific level pinpoints the model's capability boundary.
 
 ### Refactoring
 
@@ -230,11 +246,14 @@ llm-benchmark/
 │       │   ├── test_runner.py     # AgentTest + AgentBenchmarkResult (full tools + RAG)
 │       │   └── validator.py       # Regex-based validation (7 pattern checks, 0-10)
 │       ├── nuxt_form_agent_guided/
-│       │   ├── test_runner.py     # AgentTest — write_file + run_compilation only
+│       │   ├── test_runner.py     # AgentTest — write_file + run_compilation only (Test B)
+│       │   └── validator.py
+│       ├── nuxt_form_agent_twofiles/
+│       │   ├── test_runner.py     # AgentTest — write_file + run_compilation only, 2 files (Test C)
 │       │   └── validator.py
 │       └── nuxt_form_agent_rag/
 │           ├── rag.py             # QueryRagTool (rag_docs_path from validation_spec)
-│           ├── test_runner.py     # AgentTest — write_file + run_compilation + query_rag
+│           ├── test_runner.py     # AgentTest — write_file + run_compilation + query_rag (Test D)
 │           └── validator.py
 │
 ├── fixtures/
@@ -264,15 +283,18 @@ llm-benchmark/
 │       │   ├── prompt.md
 │       │   ├── validation_spec.json  # includes max_steps
 │       │   └── target_project/    # Vue 3 project with intentional TS error stub (npm install here)
-│       ├── veevalidate-zod-form-nuxt-rag/
+│       ├── veevalidate-zod-form-nuxt-rag/          # Test E — full agent
 │       │   ├── prompt.md
 │       │   ├── validation_spec.json  # includes max_steps, compilation_cwd, compilation_command
-│       │   ├── rag_docs/          # 5 BM25-indexed form example files (shared by nuxt-form-agent-rag)
-│       │   └── target_project/    # Turborepo monorepo (shared by nuxt-form A/B/C/D)
-│       ├── nuxt-form-agent-guided/
+│       │   ├── rag_docs/          # 5 BM25-indexed form example files (shared by D and E)
+│       │   └── target_project/    # Turborepo monorepo (shared by A/B/C/D/E)
+│       ├── nuxt-form-agent-guided/                # Test B — write+compile, 1 file
 │       │   ├── prompt.md
 │       │   └── validation_spec.json  # target_project_path override, max_steps: 10
-│       └── nuxt-form-agent-rag/
+│       ├── nuxt-form-agent-twofiles/              # Test C — write+compile, 2 files
+│       │   ├── prompt.md
+│       │   └── validation_spec.json  # target_project_path override, max_steps: 15
+│       └── nuxt-form-agent-rag/                   # Test D — write+compile+RAG
 │           ├── prompt.md
 │           └── validation_spec.json  # target_project_path + rag_docs_path overrides, max_steps: 20
 │
@@ -297,6 +319,8 @@ llm-benchmark/
 │   ├── test_nuxt_form_creation_runner.py
 │   ├── test_nuxt_form_agent_guided_validator.py
 │   ├── test_nuxt_form_agent_guided_runner.py
+│   ├── test_nuxt_form_agent_twofiles_validator.py
+│   ├── test_nuxt_form_agent_twofiles_runner.py
 │   ├── test_nuxt_form_agent_rag_validator.py
 │   └── test_nuxt_form_agent_rag_runner.py
 │
