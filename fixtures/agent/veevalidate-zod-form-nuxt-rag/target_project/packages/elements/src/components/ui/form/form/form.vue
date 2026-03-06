@@ -46,7 +46,7 @@ const props = defineProps<{
   /** An object containing the action needed to the buttons in the action slot. onSubmit is required for form submission */
   actions: ActionsForm<P>;
   /** The Zod schema for form validation */
-  formSchema: z.ZodObject<any>;
+  formSchema: z.ZodType<any>;
   /** Whether to validate on blur event */
   validateOnBlur?: boolean;
 }>();
