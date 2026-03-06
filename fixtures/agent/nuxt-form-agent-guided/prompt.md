@@ -2,13 +2,8 @@ You are implementing a Vue 3 registration form in a Turborepo monorepo.
 
 ## Task
 
-Implement TWO files **in this order**:
-
-1. `apps/web/src/registration/types/index.ts` — Zod schema + TypeScript type
-2. `apps/web/src/registration/components/RegistrationForm.vue` — Vue SFC using the `elements` package
-
-Write `types/index.ts` **first** so that RegistrationForm.vue can import from it.
-Use `write_file` to write each file. Writing a file automatically triggers TypeScript compilation — fix any errors reported before moving on.
+Implement `RegistrationForm.vue` at:
+`apps/web/src/registration/components/RegistrationForm.vue`
 
 ### Required fields
 
@@ -27,6 +22,17 @@ Use `write_file` to write each file. Writing a file automatically triggers TypeS
 Use Zod `.superRefine()` for cross-field rules:
 - `otherInfo` required when `role === "contributor"`
 - `frequency` required when `newsletter === true`
+
+## How to use your tools
+
+Use `write_file` to write the component:
+- Path: `apps/web/src/registration/components/RegistrationForm.vue`
+- Writing the file automatically triggers TypeScript compilation
+- Read any TS errors reported and fix them before considering the task complete
+
+Write a **single Vue SFC** file:
+- Use `<script setup lang="ts">`
+- Define the Zod schema and TypeScript types **inline** in the script block (no imports from local files)
 
 ---
 
