@@ -58,22 +58,32 @@ Red flags to report:
 │   │       ├── test_runner.py
 │   │       └── validator.py
 │   ├── creation/
-│   │   └── veevalidate_zod_form/
-│   │       ├── test_runner.py     # CreationTest + BenchmarkResult
+│   │   ├── veevalidate_zod_form/
+│   │   │   ├── test_runner.py     # CreationTest + BenchmarkResult
+│   │   │   └── validator.py
+│   │   └── nuxt_form_creation/
+│   │       ├── test_runner.py     # CreationTest (target_project_path override, monorepo compile)
 │   │       └── validator.py
 │   └── agent/
 │       ├── common/
 │       │   ├── tools.py           # make_tools() factory (read/write/list/compile)
-│       │   └── agent_client.py    # run_agent() → AgentRunResult
+│       │   └── agent_client.py    # run_agent() → AgentRunResult (extra_system_prompt param)
 │       ├── ts_bugfix/
 │       │   ├── test_runner.py     # AgentTest + AgentBenchmarkResult
 │       │   └── validator.py
 │       ├── veevalidate_zod_form/
 │       │   ├── test_runner.py     # AgentTest + AgentBenchmarkResult
 │       │   └── validator.py
-│       └── veevalidate_zod_form_nuxt_rag/
-│           ├── rag.py             # QueryRagTool (BM25Plus over rag_docs/)
-│           ├── test_runner.py     # AgentTest + AgentBenchmarkResult
+│       ├── veevalidate_zod_form_nuxt_rag/
+│       │   ├── rag.py             # QueryRagTool (BM25Plus over rag_docs/)
+│       │   ├── test_runner.py     # AgentTest + AgentBenchmarkResult
+│       │   └── validator.py
+│       ├── nuxt_form_agent_guided/
+│       │   ├── test_runner.py     # AgentTest — tools: write_file + run_compilation ONLY
+│       │   └── validator.py
+│       └── nuxt_form_agent_rag/
+│           ├── rag.py             # QueryRagTool (rag_docs_path from validation_spec)
+│           ├── test_runner.py     # AgentTest — tools: write_file + run_compilation + query_rag
 │           └── validator.py
 │
 ├── scripts/
@@ -90,10 +100,13 @@ Red flags to report:
 │   │       ├── prompt.md
 │   │       └── validation_spec.json
 │   ├── creation/
-│   │   └── veevalidate-zod-form/
-│   │       ├── target_project/
+│   │   ├── veevalidate-zod-form/
+│   │   │   ├── target_project/
+│   │   │   ├── prompt.md
+│   │   │   └── validation_spec.json
+│   │   └── nuxt-form-creation/        # Test A — single-shot, full context inline
 │   │       ├── prompt.md
-│   │       └── validation_spec.json
+│   │       └── validation_spec.json   # target_project_path → veevalidate-zod-form-nuxt-rag/target_project
 │   └── agent/
 │       ├── ts-bugfix/
 │       │   ├── target_project/    # Vue 3 project with intentionally broken component
@@ -103,11 +116,17 @@ Red flags to report:
 │       │   ├── target_project/    # Vue 3 project with intentional TS error stub
 │       │   ├── prompt.md
 │       │   └── validation_spec.json
-│       └── veevalidate-zod-form-nuxt-rag/
-│           ├── target_project/    # Turborepo monorepo (apps/web + packages/elements)
-│           ├── rag_docs/          # 5 form example files (BM25-indexed)
+│       ├── veevalidate-zod-form-nuxt-rag/   # Test D — full agent (read/write/compile/RAG)
+│       │   ├── target_project/    # Turborepo monorepo (apps/web + packages/elements) — shared by A/B/C/D
+│       │   ├── rag_docs/          # 5 form example files (BM25-indexed) — shared by C/D
+│       │   ├── prompt.md
+│       │   └── validation_spec.json
+│       ├── nuxt-form-agent-guided/    # Test B — agent with write+compile only (no read/RAG)
+│       │   ├── prompt.md
+│       │   └── validation_spec.json   # target_project_path → veevalidate-zod-form-nuxt-rag/target_project
+│       └── nuxt-form-agent-rag/       # Test C — agent with write+compile+RAG (no read)
 │           ├── prompt.md
-│           └── validation_spec.json
+│           └── validation_spec.json   # target_project_path + rag_docs_path overrides
 │
 ├── tests/
 ├── results/                       # gitignored, created at runtime
@@ -173,6 +192,12 @@ New fixtures must be registered in `_RUNNER_MAP` in [run_test.py](run_test.py).
 - **Graceful degradation**: AST/naming validation exceptions produce score=0 result, never crash the run loop.
 - **File restoration**: always happens in a `finally` block in `test_runner.py`.
 - **`OLLAMA_BASE_URL`** env var overrides the default Ollama host.
+- **`target_project_path`** in `validation_spec.json`: resolves relative to the fixture dir, allows multiple fixtures to share one physical `target_project/` (e.g. the nuxt-form A/B/C/D battery all share `veevalidate-zod-form-nuxt-rag/target_project`).
+- **`rag_docs_path`** in `validation_spec.json`: same mechanism for RAG docs path override (used by `nuxt-form-agent-rag` to reuse `veevalidate-zod-form-nuxt-rag/rag_docs`).
+- **`extra_system_prompt`** in `run_agent()`: appended to the smolagents system prompt after construction; used for soft tool-usage reminders (e.g. RAG reminder) without overriding FORMAT_REMINDER.
+- **FormFields slot**: `inject()` returns `T | undefined` by default. The `form-fields.vue` component uses `inject<FormContext>(...)!` (non-null assertion) so consumers can use `form.values.field` directly without `?.`. Models should NOT add `?.` inside `<FormFields>`.
+- **FormActions slot**: `form` prop is `FormContext | undefined` — use `form?.isSubmitting.value`.
+- **Controlled components** (`ControlledInput`, `ControlledRadioGroup`, etc.) receive `form` via `provide/inject` — do NOT pass `:form="form"` as a prop.
 
 ---
 
@@ -187,6 +212,8 @@ New fixtures must be registered in `_RUNNER_MAP` in [run_test.py](run_test.py).
 4. Register in [run_test.py](run_test.py) `_RUNNER_MAP`
 5. Write tests first (TDD)
 
+**Shared target_project**: to reuse an existing monorepo, set `target_project_path` in `validation_spec.json` (relative to fixture dir) instead of creating a new `target_project/`. No `npm install` needed.
+
 ### Agent fixture
 1. Create `fixtures/agent/<fixture-name>/` with `prompt.md`, `validation_spec.json` (include `max_steps`), `target_project/`
 2. Run `npm install` in `target_project/`; ensure `npm run type-check` (or equivalent) is configured
@@ -195,7 +222,7 @@ New fixtures must be registered in `_RUNNER_MAP` in [run_test.py](run_test.py).
 5. Write tests first (TDD)
 
 **RAG variant**: if the fixture needs a `query_rag` tool, also add:
-- `fixtures/agent/<fixture-name>/rag_docs/` — one file per pattern (code-only, BM25-indexed)
+- `fixtures/agent/<fixture-name>/rag_docs/` — one file per pattern (code-only, BM25-indexed); or set `rag_docs_path` in `validation_spec.json` to reuse existing docs
 - `src/agent/<fixture_name>/rag.py` — `QueryRagTool(Tool)` using `BM25Plus` (not BM25Okapi)
 - `compilation_cwd` and `compilation_command` in `validation_spec.json` if the project uses a non-standard compile command or working directory (e.g. Turborepo monorepo)
 
