@@ -368,4 +368,10 @@ def format_run(result: AgentBenchmarkResult) -> None:
         for err in result.errors[:3]:
             console.print(f"   [red]  ⚠ {err[:120]}[/red]")
 
+    if result.output_code:
+        lines = result.output_code.splitlines()
+        shown = min(60, len(lines))
+        console.print(f"[dim]--- Generated code ({len(lines)} lines, showing first {shown}) ---[/dim]")
+        console.print(f"[dim]{chr(10).join(lines[:shown])}[/dim]")
+
     console.print("[dim]──────────[/dim]\n")
