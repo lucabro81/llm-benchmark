@@ -32,8 +32,8 @@ import { ControlledMessage } from "../controlled-message";
  * ```
  */
 const form =
-  inject<FormContext<Record<string, unknown>, Record<string, unknown>>>("form");
-const resetGeneralError = inject<() => void>("resetGeneralError");
+  inject<FormContext<Record<string, unknown>, Record<string, unknown>>>("form")!;
+const resetGeneralError = inject<() => void>("resetGeneralError")!;
 </script>
 
 <template>
