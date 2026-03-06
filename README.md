@@ -104,15 +104,6 @@ Expected output: Zod schema + `useForm` + `toTypedSchema`, all 6 fields, error d
 Max score: **10.0/10** — scored on final state of the file after the agent loop completes.
 Additional metrics: steps used (out of `max_steps: 20`), write+compile iterations.
 
-#### `veevalidate-zod-form-nuxt-rag` (Test D)
-Implement a complex registration form in a Turborepo monorepo (`apps/web` + `packages/elements` UI library) using a full tool-calling agent. The model can read/list files, write, compile, and query a BM25 RAG index.
-
-Target form: 7 fields, conditional logic (`role → otherInfo`, `newsletter → frequency`).
-Tools: `read_file`, `write_file`, `list_files`, `run_compilation`, `query_rag`.
-Two writable files: `RegistrationForm.vue` + `registration/types/index.ts`.
-Compilation: `npm run check-types` from `apps/web/`.
-Max score: **10.0/10** — `max_steps: 30`.
-
 #### `nuxt-form-creation` (Test A)
 Single-shot creation of the same registration form. All component API docs injected inline in the prompt — no tools, no exploration, one response.
 
@@ -127,6 +118,15 @@ Max score: **10.0/10** — `max_steps: 10`. Shares `target_project` with Test D.
 Agent with `write_file`, `run_compilation`, and `query_rag` tools only. No docs in the prompt — the model must query RAG to discover the component API before writing.
 
 Max score: **10.0/10** — `max_steps: 20`. Shares `target_project` and `rag_docs` with Test D.
+
+#### `veevalidate-zod-form-nuxt-rag` (Test D)
+Implement a complex registration form in a Turborepo monorepo (`apps/web` + `packages/elements` UI library) using a full tool-calling agent. The model can read/list files, write, compile, and query a BM25 RAG index.
+
+Target form: 7 fields, conditional logic (`role → otherInfo`, `newsletter → frequency`).
+Tools: `read_file`, `write_file`, `list_files`, `run_compilation`, `query_rag`.
+Two writable files: `RegistrationForm.vue` + `registration/types/index.ts`.
+Compilation: `npm run check-types` from `apps/web/`.
+Max score: **10.0/10** — `max_steps: 30`.
 
 **Diagnostic battery rationale (A→B→C→D)**: each test adds exactly one variable. A baseline establishes single-shot capability; B adds iterative compilation feedback; C requires autonomous retrieval; D adds full filesystem exploration. Failure at a specific level pinpoints the model's capability boundary.
 
