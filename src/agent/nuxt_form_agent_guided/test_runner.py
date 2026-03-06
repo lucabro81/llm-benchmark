@@ -370,8 +370,7 @@ def format_run(result: AgentBenchmarkResult) -> None:
 
     if result.output_code:
         lines = result.output_code.splitlines()
-        shown = min(60, len(lines))
-        console.print(f"[dim]--- Generated code ({len(lines)} lines, showing first {shown}) ---[/dim]")
-        console.print(f"[dim]{chr(10).join(lines[:shown])}[/dim]")
+        console.print(f"[dim]--- Generated code ({len(lines)} lines) ---[/dim]")
+        console.print(f"[dim]{result.output_code}[/dim]")
 
     console.print("[dim]──────────[/dim]\n")
