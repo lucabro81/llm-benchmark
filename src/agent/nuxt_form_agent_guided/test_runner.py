@@ -203,7 +203,7 @@ class AgentTest:
         self._compilation_cwd = self.target_project / compilation_cwd_rel
         self._compilation_command = self.validation_spec.get("compilation_command", "check-types")
 
-    def run(self, run_number: int = 1) -> AgentBenchmarkResult:
+    def run(self, run_number: int = 1, prompt_log_path: "Path | None" = None) -> AgentBenchmarkResult:
         """Execute a single agent test run."""
         timestamp = datetime.now().isoformat()
         errors: List[str] = []
@@ -228,6 +228,7 @@ class AgentTest:
                 task=self.prompt,
                 tools=tools,
                 max_steps=self.max_steps,
+                prompt_log_path=prompt_log_path,
             )
             errors.extend(agent_result.errors)
             iterations = sum(

@@ -15,9 +15,11 @@ smolagents API (verified against source):
 - ActionStep.observations: str (concatenated tool results)
 """
 
+import json
 import time
 from dataclasses import dataclass, field
-from typing import Any, Dict, List
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 from smolagents import ToolCallingAgent
 from smolagents.models import OpenAIServerModel
@@ -87,12 +89,53 @@ def _make_prune_callback():
     return _prune
 
 
+def _make_prompt_logger_callback(log_path: Path):
+    """Return a step_callback that logs the full message list sent to the model at each step.
+
+    Writes a JSONL file where each line is:
+      {"step": N, "messages": [...], "n_messages": M, "approx_chars": K}
+
+    Uses agent.memory.write_memory_to_messages() — the same call smolagents makes
+    internally before each API request — so the log reflects exactly what the model sees.
+    """
+    step_counter = [0]
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+
+    def _log(memory_step, agent=None):
+        if agent is None:
+            return
+        step_counter[0] += 1
+        try:
+            messages = agent.memory.write_memory_to_messages()
+            serializable = [
+                {"role": m.get("role", ""), "content": m.get("content", "")}
+                if isinstance(m, dict)
+                else {"role": getattr(m, "role", ""), "content": str(getattr(m, "content", ""))}
+                for m in messages
+            ]
+            total_chars = sum(len(str(m.get("content", ""))) for m in serializable)
+            entry = {
+                "step": step_counter[0],
+                "n_messages": len(serializable),
+                "approx_chars": total_chars,
+                "messages": serializable,
+            }
+            with log_path.open("a", encoding="utf-8") as f:
+                f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+        except Exception as exc:
+            with log_path.open("a", encoding="utf-8") as f:
+                f.write(json.dumps({"step": step_counter[0], "error": str(exc)}) + "\n")
+
+    return _log
+
+
 def run_agent(
     model: str,
     task: str,
     tools: List,
     max_steps: int = 5,
     extra_system_prompt: str = "",
+    prompt_log_path: Optional[Path] = None,
 ) -> AgentRunResult:
     """Execute the agent loop and return a structured result.
 
@@ -113,11 +156,15 @@ def run_agent(
         api_key="ollama",
     )
 
+    step_callbacks = [_make_prune_callback()]
+    if prompt_log_path is not None:
+        step_callbacks.append(_make_prompt_logger_callback(prompt_log_path))
+
     agent = ToolCallingAgent(
         tools=tools,
         model=llm,
         max_steps=max_steps,
-        step_callbacks=[_make_prune_callback()],
+        step_callbacks=step_callbacks,
     )
 
     # Inject JSON format rules into the system prompt so they appear in every API call.

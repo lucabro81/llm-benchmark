@@ -201,18 +201,9 @@ def run_fixture(
     fixture_path: Path,
     runs: int,
     runner_module,
+    log_prompts: bool = False,
 ) -> Optional[List[BenchmarkResult]]:
-    """Run benchmark for a single fixture.
-
-    Args:
-        model: Ollama model name
-        fixture_path: Path to fixture directory
-        runs: Number of runs to execute
-        runner_module: Imported runner module (exposes test class and format_run)
-
-    Returns:
-        List of BenchmarkResult, or None if fixture failed to load
-    """
+    """Run benchmark for a single fixture."""
     runner_class = _get_runner_class(runner_module)
     try:
         test = runner_class(model=model, fixture_path=fixture_path)
@@ -224,7 +215,15 @@ def run_fixture(
     results = []
     for i in range(runs):
         console.print(f"[dim]── Run {i + 1}/{runs} ──[/dim]")
-        result = test.run(run_number=i + 1)
+        run_kwargs = {"run_number": i + 1}
+        if log_prompts and hasattr(test, "run") and "prompt_log_path" in test.run.__code__.co_varnames:
+            model_safe = model.replace(":", "_").replace(".", "-")
+            OUTPUT_DIR.mkdir(exist_ok=True)
+            run_kwargs["prompt_log_path"] = (
+                OUTPUT_DIR / f"{model_safe}_{fixture_path.name}_run{i+1}_prompts.jsonl"
+            )
+            console.print(f"[dim]  prompt log → {run_kwargs['prompt_log_path']}[/dim]")
+        result = test.run(**run_kwargs)
         results.append(result)
         runner_module.format_run(result)
 
@@ -264,6 +263,12 @@ def parse_arguments() -> argparse.Namespace:
         default=3,
         metavar="N",
         help="Number of runs per fixture (default: 3)",
+    )
+    parser.add_argument(
+        "--log-prompts",
+        action="store_true",
+        default=False,
+        help="Log full message list sent to the model at each step (JSONL in results/)",
     )
     return parser.parse_args()
 
@@ -317,7 +322,7 @@ def main() -> int:
             had_errors = True
             continue
 
-        results = run_fixture(args.model, fixture_path, args.runs, runner_module)
+        results = run_fixture(args.model, fixture_path, args.runs, runner_module, log_prompts=args.log_prompts)
 
         if results is None:
             had_errors = True
