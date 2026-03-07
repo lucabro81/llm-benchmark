@@ -106,7 +106,7 @@ def _make_prompt_logger_callback(log_path: Path):
             return
         step_counter[0] += 1
         try:
-            messages = agent.memory.write_memory_to_messages()
+            messages = agent.write_memory_to_messages()
             serializable = [
                 {"role": m.get("role", ""), "content": m.get("content", "")}
                 if isinstance(m, dict)
