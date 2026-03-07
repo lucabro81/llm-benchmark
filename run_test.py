@@ -40,7 +40,7 @@ console = Console()
 # Fixture discovery
 # ---------------------------------------------------------------------------
 
-def discover_fixtures(base_dir: Path = FIXTURES_BASE) -> List[Path]:
+def discover_fixtures(base_dir: Path = TASKS_DIR) -> List[Path]:
     """Return sorted list of valid fixture paths in base_dir.
 
     A valid fixture must contain a validation_spec.json file.
