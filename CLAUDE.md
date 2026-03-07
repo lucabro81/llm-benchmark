@@ -6,7 +6,7 @@
 
 ## Objective
 
-Benchmark LLMs locally via Ollama in controlled Vue.js project environments. The tool provides test fixtures (Vue 3 refactoring scenarios), executes LLM tasks, validates compilation and pattern conformance, and collects metrics (scores, tokens/sec, duration).
+Benchmark LLMs locally via Ollama against a diagnostic battery of 5 tasks (A→E) targeting a shared Nuxt Turborepo monorepo. Each task changes exactly one variable vs the previous, isolating the model's capability boundary. The tool executes tasks, validates TypeScript compilation and pattern conformance, and collects metrics (scores, tokens/sec, duration, steps).
 
 ---
 
@@ -42,97 +42,60 @@ Red flags to report:
 ```
 ~/Projects/llm-benchmark/
 ├── venv/
-├── requirements.txt               # ollama, rich, smolagents[openai]
+├── requirements.txt               # ollama, rich, smolagents[openai], rank-bm25
 ├── CLAUDE.md
-├── specs.md
 ├── README.md
 │
 ├── src/
 │   ├── common/
 │   │   └── ollama_client.py       # Shared Ollama API wrapper
-│   ├── refactoring/
-│   │   ├── simple_component/
-│   │   │   ├── test_runner.py     # RefactoringTest + BenchmarkResult
-│   │   │   └── validator.py
-│   │   └── typed_emits_composable/
-│   │       ├── test_runner.py
-│   │       └── validator.py
 │   ├── creation/
-│   │   ├── veevalidate_zod_form/
-│   │   │   ├── test_runner.py     # CreationTest + BenchmarkResult
-│   │   │   └── validator.py
-│   │   └── nuxt_form_creation/
-│   │       ├── test_runner.py     # CreationTest (target_project_path override, monorepo compile)
-│   │       └── validator.py
+│   │   └── nuxt_form_oneshot/
+│   │       ├── test_runner.py     # CreationTest + BenchmarkResult (Test A)
+│   │       └── validator.py       # Regex-based validation
 │   └── agent/
 │       ├── common/
 │       │   ├── tools.py           # make_tools() factory (read/write/list/compile)
 │       │   └── agent_client.py    # run_agent() → AgentRunResult (extra_system_prompt param)
-│       ├── ts_bugfix/
-│       │   ├── test_runner.py     # AgentTest + AgentBenchmarkResult
-│       │   └── validator.py
-│       ├── veevalidate_zod_form/
-│       │   ├── test_runner.py     # AgentTest + AgentBenchmarkResult
-│       │   └── validator.py
-│       ├── veevalidate_zod_form_nuxt_rag/
-│       │   ├── rag.py             # QueryRagTool (BM25Plus over rag_docs/)
-│       │   ├── test_runner.py     # AgentTest + AgentBenchmarkResult
-│       │   └── validator.py
 │       ├── nuxt_form_agent_guided/
-│       │   ├── test_runner.py     # AgentTest — tools: write_file + run_compilation ONLY (Test B)
+│       │   ├── test_runner.py     # AgentTest — write_file + run_compilation ONLY (Test B)
 │       │   └── validator.py
 │       ├── nuxt_form_agent_twofiles/
 │       │   ├── test_runner.py     # AgentTest — write_file + run_compilation, 2 files (Test C)
 │       │   └── validator.py
-│       └── nuxt_form_agent_rag/
-│           ├── rag.py             # QueryRagTool (rag_docs_path from validation_spec)
-│           ├── test_runner.py     # AgentTest — tools: write_file + run_compilation + query_rag (Test D)
+│       ├── nuxt_form_agent_rag/
+│       │   ├── rag.py             # QueryRagTool (rag_docs_path from validation_spec)
+│       │   ├── test_runner.py     # AgentTest — write_file + run_compilation + query_rag (Test D)
+│       │   └── validator.py
+│       └── nuxt_form_agent_full/
+│           ├── rag.py             # QueryRagTool (BM25Plus over shared rag_docs)
+│           ├── test_runner.py     # AgentTest — full tools + RAG (Test E)
 │           └── validator.py
 │
 ├── scripts/
 │   └── parse_vue_ast.js           # Node.js AST parser (@vue/compiler-sfc + Babel)
 │
 ├── fixtures/
-│   ├── refactoring/
-│   │   ├── simple-component/
-│   │   │   ├── target_project/    # Complete Vue 3 project (npm install done)
-│   │   │   ├── prompt.md
-│   │   │   └── validation_spec.json
-│   │   └── typed-emits-composable/
-│   │       ├── target_project/    # Complete Vue 3 project (npm install done)
-│   │       ├── prompt.md
-│   │       └── validation_spec.json
-│   ├── creation/
-│   │   ├── veevalidate-zod-form/
-│   │   │   ├── target_project/
-│   │   │   ├── prompt.md
-│   │   │   └── validation_spec.json
-│   │   └── nuxt-form-creation/        # Test A — single-shot, full context inline
-│   │       ├── prompt.md
-│   │       └── validation_spec.json   # target_project_path → veevalidate-zod-form-nuxt-rag/target_project
-│   └── agent/
-│       ├── ts-bugfix/
-│       │   ├── target_project/    # Vue 3 project with intentionally broken component
-│       │   ├── prompt.md
-│       │   └── validation_spec.json
-│       ├── veevalidate-zod-form-agent/
-│       │   ├── target_project/    # Vue 3 project with intentional TS error stub
-│       │   ├── prompt.md
-│       │   └── validation_spec.json
-│       ├── veevalidate-zod-form-nuxt-rag/   # Test E — full agent (read/write/compile/RAG)
-│       │   ├── target_project/    # Turborepo monorepo (apps/web + packages/elements) — shared by A/B/C/D/E
-│       │   ├── rag_docs/          # 5 form example files (BM25-indexed) — shared by D/E
-│       │   ├── prompt.md
-│       │   └── validation_spec.json
-│       ├── nuxt-form-agent-guided/    # Test B — write+compile only, 1 file
-│       │   ├── prompt.md
-│       │   └── validation_spec.json   # target_project_path → veevalidate-zod-form-nuxt-rag/target_project
-│       ├── nuxt-form-agent-twofiles/  # Test C — write+compile only, 2 files
-│       │   ├── prompt.md
-│       │   └── validation_spec.json   # target_project_path → veevalidate-zod-form-nuxt-rag/target_project
-│       └── nuxt-form-agent-rag/       # Test D — write+compile+RAG (no read)
-│           ├── prompt.md
-│           └── validation_spec.json   # target_project_path + rag_docs_path overrides
+│   └── _shared/
+│       ├── turborepo-nuxt-vue-elements/   # Turborepo monorepo (apps/web + packages/elements)
+│       └── rag-docs-vue-elements-form/    # 5 BM25-indexed form example files (shared by D and E)
+│
+├── tasks/                         # One directory per task (flat)
+│   ├── nuxt-form-oneshot/         # Test A — single-shot, full context inline
+│   │   ├── prompt.md
+│   │   └── validation_spec.json   # target_project_path → ../../fixtures/_shared/turborepo-nuxt-vue-elements
+│   ├── nuxt-form-agent-guided/    # Test B — write+compile, 1 file
+│   │   ├── prompt.md
+│   │   └── validation_spec.json   # target_project_path, max_steps: 10
+│   ├── nuxt-form-agent-twofiles/  # Test C — write+compile, 2 files
+│   │   ├── prompt.md
+│   │   └── validation_spec.json   # target_project_path, max_steps: 15
+│   ├── nuxt-form-agent-rag/       # Test D — write+compile+RAG (no read)
+│   │   ├── prompt.md
+│   │   └── validation_spec.json   # target_project_path, rag_docs_path, max_steps: 20
+│   └── nuxt-form-agent-full/      # Test E — full agent (read/write/list/compile/RAG)
+│       ├── prompt.md
+│       └── validation_spec.json   # target_project_path, rag_docs_path, max_steps: 30
 │
 ├── tests/
 ├── results/                       # gitignored, created at runtime
@@ -148,34 +111,34 @@ Red flags to report:
 ```
 LLM Output
     ↓
-[1] TypeScript Compilation (vue-tsc via npm run type-check)
+[1] TypeScript Compilation (vue-tsc via npm run check-types from apps/web/)
     ↓
-[2] AST Pattern Matching (Node.js: @vue/compiler-sfc + Babel)
+[2] Pattern Matching (Python regex on component source)
     ↓
-[3] Naming Convention Check (Python regex on interface declarations)
+[3] Naming Convention Check (Python regex on variable declarations)
     ↓
 Composite Score (0–10)
 ```
 
-Scoring weights come from each fixture's `validation_spec.json` (default: compilation 50%, pattern 40%, naming 10%).
+Scoring weights come from each task's `validation_spec.json` (default: compilation 50%, pattern 40%, naming 10%).
 
-### Fixture categories
+### Task categories
 
-**refactoring** and **creation** — single-shot: one prompt → one response → validation.
-- `RefactoringTest` / `CreationTest` in each fixture's `test_runner.py`
-- Validation: TypeScript compilation + AST/regex pattern checks + naming conventions
+**Single-shot** (Test A) — one prompt → one response → validation.
+- `CreationTest` in `src/creation/nuxt_form_oneshot/test_runner.py`
+- Validation: TypeScript compilation + regex pattern checks + naming conventions
 - Score: 0–10 composite
 
-**agent** — multi-turn: the model calls tools (read/write/compile) in a loop, receives feedback, and iterates.
-- `AgentTest` in `src/agent/<fixture>/test_runner.py`
+**Agent** (Tests B–E) — multi-turn: the model calls tools (read/write/compile) in a loop, receives feedback, and iterates.
+- `AgentTest` in `src/agent/<module>/test_runner.py`
 - Uses smolagents `ToolCallingAgent` + `OpenAIServerModel` → Ollama `/v1`
 - `max_steps` (from `validation_spec.json`) is the hard cap via smolagents
 - `iterations` (count of `write_file` + `run_compilation` calls) is an observational metric
 - JSON format rules injected into the smolagents system prompt at each step to help small models
 
-### Per-fixture layout
+### Per-task layout
 
-Each fixture has its own `test_runner.py` and `validator.py`. Duplication is intentional — fixture-specific logic diverges enough to make shared abstractions premature.
+Each task has its own `test_runner.py` and `validator.py` in `src/`. Duplication is intentional — task-specific logic diverges enough to make shared abstractions premature.
 
 Each `test_runner.py` exposes `format_run(result) -> None` for per-run console output. No display logic lives in `run_test.py`.
 
@@ -185,52 +148,49 @@ Each `test_runner.py` exposes `format_run(result) -> None` for per-run console o
 python run_test.py --model <model> [--fixture <name>] [--runs <n>]
 ```
 
-`_get_runner_class()` checks for `RefactoringTest` first, then `AgentTest`, then `CreationTest`.
+`_get_runner_class()` checks for `AgentTest` first, then `CreationTest`.
 
-New fixtures must be registered in `_RUNNER_MAP` in [run_test.py](run_test.py).
+New tasks must be registered in `_RUNNER_MAP` in [run_test.py](run_test.py).
 
 ---
 
 ## Key Technical Notes
 
-- **AST parser**: `@vue/compiler-sfc` + Babel does not support TypeScript call signature syntax in emit interfaces. Use object-type syntax (`'event': [payload]`) — NOT call signatures (`('event': [payload]): void`).
-- **`validate_naming()`**: supports both `interface_suffixes` (list, takes precedence) and `props_interface_suffix` (legacy string) in `naming_conventions`.
 - **Graceful degradation**: AST/naming validation exceptions produce score=0 result, never crash the run loop.
 - **File restoration**: always happens in a `finally` block in `test_runner.py`.
 - **`OLLAMA_BASE_URL`** env var overrides the default Ollama host.
-- **`target_project_path`** in `validation_spec.json`: resolves relative to the fixture dir, allows multiple fixtures to share one physical `target_project/` (e.g. the nuxt-form A/B/C/D battery all share `veevalidate-zod-form-nuxt-rag/target_project`).
-- **`rag_docs_path`** in `validation_spec.json`: same mechanism for RAG docs path override (used by `nuxt-form-agent-rag` to reuse `veevalidate-zod-form-nuxt-rag/rag_docs`).
+- **`target_project_path`** in `validation_spec.json`: resolves relative to the task dir. All tasks point to `../../fixtures/_shared/turborepo-nuxt-vue-elements`.
+- **`rag_docs_path`** in `validation_spec.json`: same mechanism for RAG docs path override. Tasks D and E point to `../../fixtures/_shared/rag-docs-vue-elements-form`.
 - **`extra_system_prompt`** in `run_agent()`: appended to the smolagents system prompt after construction; used for soft tool-usage reminders (e.g. RAG reminder) without overriding FORMAT_REMINDER.
+- **`compilation_cwd`** and **`compilation_command`** in `validation_spec.json`: used for the Turborepo monorepo where `npm run check-types` must run from `apps/web/`.
 - **FormFields slot**: `inject()` returns `T | undefined` by default. The `form-fields.vue` component uses `inject<FormContext>(...)!` (non-null assertion) so consumers can use `form.values.field` directly without `?.`. Models should NOT add `?.` inside `<FormFields>`.
 - **FormActions slot**: `form` prop is `FormContext | undefined` — use `form?.isSubmitting.value`.
 - **Controlled components** (`ControlledInput`, `ControlledRadioGroup`, etc.) receive `form` via `provide/inject` — do NOT pass `:form="form"` as a prop.
+- **BM25 RAG**: use `BM25Plus` (not `BM25Okapi`) to avoid negative IDF on small corpora.
+- **`form_component` check**: uses `<Form(?=[\s\n>])` to avoid matching `<FormWrapper` etc. as false positives.
 
 ---
 
-## Adding a New Fixture
+## Adding a New Task
 
-> **Naming convention**: fixture directories use kebab-case (`my-fixture`), Python modules use snake_case (`my_fixture`). The mapping is explicit in `_RUNNER_MAP`.
+> **Naming convention**: task directories use kebab-case (`my-task`), Python modules use snake_case (`my_task`). The mapping is explicit in `_RUNNER_MAP`.
 
-### Refactoring / Creation fixture
-1. Create `fixtures/<category>/<fixture-name>/` with `prompt.md`, `validation_spec.json`, `target_project/`
-2. Run `npm install` in `target_project/`
-3. Create `src/<category>/<fixture_name>/` with `__init__.py`, `test_runner.py`, `validator.py`
-4. Register in [run_test.py](run_test.py) `_RUNNER_MAP`
-5. Write tests first (TDD)
+### Single-shot task
+1. Create `tasks/<task-name>/` with `prompt.md`, `validation_spec.json` (`target_project_path` relative to task dir)
+2. Create `src/creation/<task_name>/` with `__init__.py`, `test_runner.py`, `validator.py`
+3. Register in [run_test.py](run_test.py) `_RUNNER_MAP`
+4. Write tests first (TDD)
 
-**Shared target_project**: to reuse an existing monorepo, set `target_project_path` in `validation_spec.json` (relative to fixture dir) instead of creating a new `target_project/`. No `npm install` needed.
+### Agent task
+1. Create `tasks/<task-name>/` with `prompt.md`, `validation_spec.json` (include `max_steps`, `target_project_path`)
+2. Create `src/agent/<task_name>/` with `__init__.py`, `test_runner.py` (`AgentTest` + `AgentBenchmarkResult`), `validator.py`
+3. Register in [run_test.py](run_test.py) `_RUNNER_MAP`
+4. Write tests first (TDD)
 
-### Agent fixture
-1. Create `fixtures/agent/<fixture-name>/` with `prompt.md`, `validation_spec.json` (include `max_steps`), `target_project/`
-2. Run `npm install` in `target_project/`; ensure `npm run type-check` (or equivalent) is configured
-3. Create `src/agent/<fixture_name>/` with `__init__.py`, `test_runner.py` (`AgentTest` + `AgentBenchmarkResult`), `validator.py`
-4. Register in [run_test.py](run_test.py) `_RUNNER_MAP`
-5. Write tests first (TDD)
-
-**RAG variant**: if the fixture needs a `query_rag` tool, also add:
-- `fixtures/agent/<fixture-name>/rag_docs/` — one file per pattern (code-only, BM25-indexed); or set `rag_docs_path` in `validation_spec.json` to reuse existing docs
-- `src/agent/<fixture_name>/rag.py` — `QueryRagTool(Tool)` using `BM25Plus` (not BM25Okapi)
-- `compilation_cwd` and `compilation_command` in `validation_spec.json` if the project uses a non-standard compile command or working directory (e.g. Turborepo monorepo)
+**RAG variant**: if the task needs a `query_rag` tool, also add:
+- `rag_docs_path` in `validation_spec.json` (point to `../../fixtures/_shared/rag-docs-vue-elements-form` or a new docs dir)
+- `src/agent/<task_name>/rag.py` — `QueryRagTool(Tool)` using `BM25Plus` (not BM25Okapi)
+- `compilation_cwd` and `compilation_command` in `validation_spec.json` if non-standard
 
 ---
 
@@ -239,4 +199,4 @@ New fixtures must be registered in `_RUNNER_MAP` in [run_test.py](run_test.py).
 - Python 3.12+, `ollama>=0.4.0`, `rich>=13.0.0`, `smolagents[openai]>=1.0.0`, `rank-bm25>=0.2.2`
 - Node.js 24.x
 - Ollama running with a loaded model
-- Per-fixture: `npm install` in each `target_project/`
+- Shared monorepo: `npm install --prefix fixtures/_shared/turborepo-nuxt-vue-elements`
