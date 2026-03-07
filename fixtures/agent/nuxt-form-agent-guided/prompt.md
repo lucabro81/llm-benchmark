@@ -457,3 +457,18 @@ const actions = {
 </template>
 
 ```
+
+Rules for valid JSON strings:
+- Newlines inside strings MUST be written as `\n` (backslash + n), NOT as actual line breaks
+- Double quotes inside strings MUST be escaped as `\"`
+- Backtick characters do NOT need escaping
+
+WRONG — text before the JSON block will be rejected:
+```
+Here is my implementation... I will now write the component.
+```json
+{ "name": "write_file", ... }
+```
+```
+
+CORRECT — the JSON code block is the entire response, nothing else.
