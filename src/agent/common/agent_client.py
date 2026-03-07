@@ -69,13 +69,15 @@ def _make_prune_callback():
         # Find index of the most recent run_compilation step
         last_compile_idx = None
         for i, step in enumerate(steps):
-            if step.tool_calls and any(tc.name == "run_compilation" for tc in step.tool_calls):
+            tool_calls = getattr(step, "tool_calls", None) or []
+            if any(tc.name == "run_compilation" for tc in tool_calls):
                 last_compile_idx = i
 
         for i, step in enumerate(steps):
-            if not step.tool_calls:
+            tool_calls = getattr(step, "tool_calls", None) or []
+            if not tool_calls:
                 continue
-            for tc in step.tool_calls:
+            for tc in tool_calls:
                 if tc.name == "write_file":
                     path = tc.arguments.get("path", "unknown") if isinstance(tc.arguments, dict) else "unknown"
                     step.observations = f"Wrote file {path}."

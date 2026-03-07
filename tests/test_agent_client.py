@@ -352,6 +352,14 @@ class TestPruneCallback:
         cb = _make_prune_callback()
         cb(MagicMock(), agent=None)  # must not raise
 
+    def test_no_crash_on_task_step_without_tool_calls_attr(self):
+        """TaskStep objects don't have tool_calls attribute — must not raise AttributeError."""
+        from unittest.mock import NonCallableMock
+        task_step = NonCallableMock(spec=[])  # no attributes at all — simulates TaskStep
+        agent = self._make_agent([task_step])
+        cb = _make_prune_callback()
+        cb(MagicMock(), agent=agent)  # must not raise
+
     def test_other_tools_untouched(self):
         step = self._make_step("read_file", {"path": "foo.vue"}, "file contents here")
         agent = self._make_agent([step])
