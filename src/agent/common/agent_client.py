@@ -68,10 +68,13 @@ def _make_prune_callback():
             return
         steps = agent.memory.steps
 
-        # Find index of the most recent run_compilation step
+        # Find indices of the most recent write_file and run_compilation steps
+        last_write_idx = None
         last_compile_idx = None
         for i, step in enumerate(steps):
             tool_calls = getattr(step, "tool_calls", None) or []
+            if any(tc.name == "write_file" for tc in tool_calls):
+                last_write_idx = i
             if any(tc.name == "run_compilation" for tc in tool_calls):
                 last_compile_idx = i
 
@@ -81,12 +84,14 @@ def _make_prune_callback():
                 continue
             for tc in tool_calls:
                 if tc.name == "write_file":
-                    path = tc.arguments.get("path", "unknown") if isinstance(tc.arguments, dict) else "unknown"
-                    step.observations = f"Wrote file {path}."
-                    # Also prune the content argument — the full file stays in context
-                    # as a tool-call message and grows linearly; replace with a placeholder.
+                    # Always prune the content argument (large file text in tool-call message)
                     if isinstance(tc.arguments, dict) and "content" in tc.arguments:
-                        tc.arguments["content"] = f"(file content pruned — see wrote observation)"
+                        tc.arguments["content"] = "(file content pruned — see wrote observation)"
+                    # Prune observations only for older write_file steps;
+                    # keep the latest one so the model (and prompt log) can see TS errors.
+                    if i != last_write_idx:
+                        path = tc.arguments.get("path", "unknown") if isinstance(tc.arguments, dict) else "unknown"
+                        step.observations = f"Wrote file {path}."
                 elif tc.name == "run_compilation" and i != last_compile_idx:
                     step.observations = "(see latest compilation result)"
 
