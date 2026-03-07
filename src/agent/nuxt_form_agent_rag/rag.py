@@ -1,6 +1,6 @@
 """BM25-based RAG tool for the nuxt-form-agent-rag fixture.
 
-Identical to veevalidate_zod_form_nuxt_rag/rag.py but accepts rag_docs_path
+Identical to nuxt_form_agent_full/rag.py but accepts rag_docs_path
 as a constructor parameter so it can be pointed to any docs directory
 (e.g. the shared rag_docs from the nuxt-rag fixture).
 """

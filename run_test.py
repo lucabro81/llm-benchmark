@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""CLI runner for LLM benchmark - Phase 1 (Prompt-Only Baseline).
+"""CLI runner for LLM benchmark.
 
 Usage:
     python run_test.py --model <model> [--fixture <name>] [--runs <n>]
 
 Arguments:
-    --model    (required) Ollama model name (e.g., qwen2.5-coder:7b-instruct-q8_0)
-    --fixture  (optional) Fixture name under fixtures/refactoring/. Runs ALL if omitted.
-    --runs     (optional) Number of runs per fixture (default: 3)
+    --model    (required) Ollama model name (e.g., qwen2.5-coder:14b-instruct-q8_0)
+    --fixture  (optional) Task name under tasks/. Runs ALL if omitted.
+    --runs     (optional) Number of runs per task (default: 3)
 """
 
 import argparse
@@ -18,26 +18,19 @@ from typing import List, Optional, Type
 
 from rich.console import Console
 
-from src.refactoring.simple_component.test_runner import BenchmarkResult
+from src.creation.nuxt_form_oneshot.test_runner import BenchmarkResult
 
 OUTPUT_DIR = Path("results")
-FIXTURES_BASE = Path("fixtures/refactoring")
-FIXTURES_CREATION = Path("fixtures/creation")
-FIXTURES_AGENT = Path("fixtures/agent")
+TASKS_DIR = Path("tasks")
 
-# Explicit mapping: fixture directory name → test runner module path
+# Explicit mapping: task directory name → test runner module path
+# nuxt-form diagnostic battery (A → B → C → D → E)
 _RUNNER_MAP = {
-    "simple-component": "src.refactoring.simple_component.test_runner",
-    "typed-emits-composable": "src.refactoring.typed_emits_composable.test_runner",
-    "veevalidate-zod-form": "src.creation.veevalidate_zod_form.test_runner",
-    "ts-bugfix": "src.agent.ts_bugfix.test_runner",
-    "veevalidate-zod-form-agent": "src.agent.veevalidate_zod_form.test_runner",
-    "veevalidate-zod-form-nuxt-rag": "src.agent.veevalidate_zod_form_nuxt_rag.test_runner",
-    # nuxt-form diagnostic battery (A → B → C → D = nuxt-rag)
-    "nuxt-form-creation":        "src.creation.nuxt_form_creation.test_runner",
+    "nuxt-form-oneshot":         "src.creation.nuxt_form_oneshot.test_runner",
     "nuxt-form-agent-guided":    "src.agent.nuxt_form_agent_guided.test_runner",
     "nuxt-form-agent-twofiles":  "src.agent.nuxt_form_agent_twofiles.test_runner",
     "nuxt-form-agent-rag":       "src.agent.nuxt_form_agent_rag.test_runner",
+    "nuxt-form-agent-full":      "src.agent.nuxt_form_agent_full.test_runner",
 }
 
 console = Console()
@@ -287,38 +280,24 @@ def main() -> int:
     """
     args = parse_arguments()
 
-    # Determine fixtures to run
+    # Determine tasks to run
     try:
         if args.fixture:
-            # Search in refactoring/, creation/, and agent/
-            fixture_path = None
-            for base in (FIXTURES_BASE, FIXTURES_CREATION, FIXTURES_AGENT):
-                candidate = base / args.fixture
-                if candidate.exists() and (candidate / "validation_spec.json").exists():
-                    fixture_path = candidate
-                    break
-            if fixture_path is None:
-                console.print(f"[red]✗ Fixture not found: '{args.fixture}'[/red]")
+            candidate = TASKS_DIR / args.fixture
+            if candidate.exists() and (candidate / "validation_spec.json").exists():
+                fixtures = [candidate]
+            else:
+                console.print(f"[red]✗ Task not found: '{args.fixture}'[/red]")
                 try:
-                    available = discover_fixtures()
-                    available += discover_fixtures(FIXTURES_CREATION)
-                    console.print("[yellow]  Available fixtures:[/yellow]")
+                    available = discover_fixtures(TASKS_DIR)
+                    console.print("[yellow]  Available tasks:[/yellow]")
                     for f in available:
                         console.print(f"[yellow]    - {f.name}[/yellow]")
                 except FileNotFoundError:
                     pass
                 return 1
-            fixtures = [fixture_path]
         else:
-            fixtures = discover_fixtures()
-            try:
-                fixtures += discover_fixtures(FIXTURES_CREATION)
-            except FileNotFoundError:
-                pass
-            try:
-                fixtures += discover_fixtures(FIXTURES_AGENT)
-            except FileNotFoundError:
-                pass
+            fixtures = discover_fixtures(TASKS_DIR)
     except FileNotFoundError as e:
         console.print(f"[red]✗ {e}[/red]")
         return 1

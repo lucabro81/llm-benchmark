@@ -1,0 +1,28 @@
+{
+  "target_project_path": "../../fixtures/_shared/turborepo-nuxt-vue-elements",
+  "target_file": "apps/web/src/registration/components/RegistrationForm.vue",
+  "compilation_cwd": "apps/web",
+  "compilation_command": "check-types",
+  "required_patterns": {
+    "script_lang": "ts",
+    "form_component": "<Form",
+    "controlled_components": [
+      "ControlledInput",
+      "ControlledRadioGroup",
+      "ControlledCheckbox",
+      "ControlledTextarea"
+    ],
+    "conditional_rendering": "v-if",
+    "zod_schema": "z.object",
+    "required_fields": ["username", "email", "role", "bio"],
+    "conditional_fields": ["newsletter", "frequency", "otherInfo"]
+  },
+  "naming_conventions": {
+    "variables": "camelCase"
+  },
+  "scoring": {
+    "compilation": 0.5,
+    "pattern_match": 0.4,
+    "naming": 0.1
+  }
+}
