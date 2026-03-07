@@ -83,6 +83,10 @@ def _make_prune_callback():
                 if tc.name == "write_file":
                     path = tc.arguments.get("path", "unknown") if isinstance(tc.arguments, dict) else "unknown"
                     step.observations = f"Wrote file {path}."
+                    # Also prune the content argument — the full file stays in context
+                    # as a tool-call message and grows linearly; replace with a placeholder.
+                    if isinstance(tc.arguments, dict) and "content" in tc.arguments:
+                        tc.arguments["content"] = f"(file content pruned — see wrote observation)"
                 elif tc.name == "run_compilation" and i != last_compile_idx:
                     step.observations = "(see latest compilation result)"
 
