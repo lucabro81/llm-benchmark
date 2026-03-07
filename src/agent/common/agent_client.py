@@ -87,11 +87,21 @@ def _make_prune_callback():
                     # Always prune the content argument (large file text in tool-call message)
                     if isinstance(tc.arguments, dict) and "content" in tc.arguments:
                         tc.arguments["content"] = "(file content pruned — see wrote observation)"
-                    # Prune observations only for older write_file steps;
-                    # keep the latest one so the model (and prompt log) can see TS errors.
                     if i != last_write_idx:
                         path = tc.arguments.get("path", "unknown") if isinstance(tc.arguments, dict) else "unknown"
+                        # Prune observations for older write_file steps
                         step.observations = f"Wrote file {path}."
+                        # Prune model_output (raw assistant message) — this is the main
+                        # source of context growth: smolagents serialises the raw LLM
+                        # response string (which contains the full file JSON) as the
+                        # assistant turn, regardless of tc.arguments pruning above.
+                        if getattr(step, "model_output", None):
+                            step.model_output = f"(write_file call pruned)"
+                        if getattr(step, "model_output_message", None):
+                            try:
+                                step.model_output_message.content = f"(write_file call pruned)"
+                            except Exception:
+                                pass
                 elif tc.name == "run_compilation" and i != last_compile_idx:
                     step.observations = "(see latest compilation result)"
 
