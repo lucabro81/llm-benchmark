@@ -21,7 +21,6 @@ import pytest
 from src.agent.common.agent_client import (
     AgentRunResult,
     _make_observations_prune_callback,
-    _prune_messages,
     run_agent,
 )
 
@@ -90,7 +89,7 @@ class TestAgentRunResult:
 
 class TestRunAgent:
     @patch("src.agent.common.agent_client.ToolCallingAgent")
-    @patch("src.agent.common.agent_client.ContextPruningModel")
+    @patch("src.agent.common.agent_client.OpenAIServerModel")
     def test_returns_agent_run_result(self, mock_model_cls, mock_agent_cls):
         mock_agent = MagicMock()
         mock_agent.run.return_value = _make_run_result("success")
@@ -102,7 +101,7 @@ class TestRunAgent:
         assert isinstance(result, AgentRunResult)
 
     @patch("src.agent.common.agent_client.ToolCallingAgent")
-    @patch("src.agent.common.agent_client.ContextPruningModel")
+    @patch("src.agent.common.agent_client.OpenAIServerModel")
     def test_succeeded_true_when_state_is_success(self, mock_model_cls, mock_agent_cls):
         mock_agent = MagicMock()
         mock_agent.run.return_value = _make_run_result("success")
@@ -114,7 +113,7 @@ class TestRunAgent:
         assert result.succeeded is True
 
     @patch("src.agent.common.agent_client.ToolCallingAgent")
-    @patch("src.agent.common.agent_client.ContextPruningModel")
+    @patch("src.agent.common.agent_client.OpenAIServerModel")
     def test_succeeded_false_when_state_is_max_steps_error(self, mock_model_cls, mock_agent_cls):
         mock_agent = MagicMock()
         mock_agent.run.return_value = _make_run_result("max_steps_error")
@@ -126,7 +125,7 @@ class TestRunAgent:
         assert result.succeeded is False
 
     @patch("src.agent.common.agent_client.ToolCallingAgent")
-    @patch("src.agent.common.agent_client.ContextPruningModel")
+    @patch("src.agent.common.agent_client.OpenAIServerModel")
     def test_succeeded_false_on_unexpected_exception(self, mock_model_cls, mock_agent_cls):
         mock_agent = MagicMock()
         mock_agent.run.side_effect = RuntimeError("connection refused")
@@ -139,7 +138,7 @@ class TestRunAgent:
         assert len(result.errors) > 0
 
     @patch("src.agent.common.agent_client.ToolCallingAgent")
-    @patch("src.agent.common.agent_client.ContextPruningModel")
+    @patch("src.agent.common.agent_client.OpenAIServerModel")
     def test_tool_call_log_populated_from_memory_steps(self, mock_model_cls, mock_agent_cls):
         mock_agent = MagicMock()
         mock_agent.run.return_value = _make_run_result("success")
@@ -158,7 +157,7 @@ class TestRunAgent:
         assert result.tool_call_log[1]["step"] == 2
 
     @patch("src.agent.common.agent_client.ToolCallingAgent")
-    @patch("src.agent.common.agent_client.ContextPruningModel")
+    @patch("src.agent.common.agent_client.OpenAIServerModel")
     def test_steps_equals_number_of_tool_calling_turns(self, mock_model_cls, mock_agent_cls):
         mock_agent = MagicMock()
         mock_agent.run.return_value = _make_run_result("success")
@@ -173,7 +172,7 @@ class TestRunAgent:
         assert result.steps == 2
 
     @patch("src.agent.common.agent_client.ToolCallingAgent")
-    @patch("src.agent.common.agent_client.ContextPruningModel")
+    @patch("src.agent.common.agent_client.OpenAIServerModel")
     def test_duration_sec_is_positive(self, mock_model_cls, mock_agent_cls):
         mock_agent = MagicMock()
         mock_agent.run.return_value = _make_run_result("success")
@@ -185,7 +184,7 @@ class TestRunAgent:
         assert result.duration_sec > 0
 
     @patch("src.agent.common.agent_client.ToolCallingAgent")
-    @patch("src.agent.common.agent_client.ContextPruningModel")
+    @patch("src.agent.common.agent_client.OpenAIServerModel")
     def test_tokens_per_sec_computed_from_token_usage(self, mock_model_cls, mock_agent_cls):
         """tokens_per_sec = output_tokens / duration_sec (non-zero when tokens available)."""
         mock_agent = MagicMock()
@@ -198,7 +197,7 @@ class TestRunAgent:
         assert result.tokens_per_sec >= 0.0
 
     @patch("src.agent.common.agent_client.ToolCallingAgent")
-    @patch("src.agent.common.agent_client.ContextPruningModel")
+    @patch("src.agent.common.agent_client.OpenAIServerModel")
     def test_passes_max_steps_to_agent(self, mock_model_cls, mock_agent_cls):
         mock_agent = MagicMock()
         mock_agent.run.return_value = _make_run_result("success")
@@ -211,7 +210,7 @@ class TestRunAgent:
         assert agent_kwargs.get("max_steps") == 3
 
     @patch("src.agent.common.agent_client.ToolCallingAgent")
-    @patch("src.agent.common.agent_client.ContextPruningModel")
+    @patch("src.agent.common.agent_client.OpenAIServerModel")
     def test_passes_tools_to_agent(self, mock_model_cls, mock_agent_cls):
         mock_agent = MagicMock()
         mock_agent.run.return_value = _make_run_result("success")
@@ -225,7 +224,7 @@ class TestRunAgent:
         assert agent_kwargs.get("tools") == dummy_tools
 
     @patch("src.agent.common.agent_client.ToolCallingAgent")
-    @patch("src.agent.common.agent_client.ContextPruningModel")
+    @patch("src.agent.common.agent_client.OpenAIServerModel")
     def test_uses_ollama_base_url_env_var(self, mock_model_cls, mock_agent_cls, monkeypatch):
         mock_agent = MagicMock()
         mock_agent.run.return_value = _make_run_result("success")
@@ -239,7 +238,7 @@ class TestRunAgent:
         assert "192.168.1.10:11434" in model_kwargs.get("api_base", "")
 
     @patch("src.agent.common.agent_client.ToolCallingAgent")
-    @patch("src.agent.common.agent_client.ContextPruningModel")
+    @patch("src.agent.common.agent_client.OpenAIServerModel")
     def test_calls_run_with_return_full_result_true(self, mock_model_cls, mock_agent_cls):
         mock_agent = MagicMock()
         mock_agent.run.return_value = _make_run_result("success")
@@ -251,7 +250,7 @@ class TestRunAgent:
         mock_agent.run.assert_called_once_with("Fix it", return_full_result=True)
 
     @patch("src.agent.common.agent_client.ToolCallingAgent")
-    @patch("src.agent.common.agent_client.ContextPruningModel")
+    @patch("src.agent.common.agent_client.OpenAIServerModel")
     def test_tool_call_log_result_summary_truncated(self, mock_model_cls, mock_agent_cls):
         """Long observations should be truncated in the log summary."""
         long_obs = "x" * 500
@@ -266,7 +265,7 @@ class TestRunAgent:
         assert len(summary) <= 250  # truncated
 
     @patch("src.agent.common.agent_client.ToolCallingAgent")
-    @patch("src.agent.common.agent_client.ContextPruningModel")
+    @patch("src.agent.common.agent_client.OpenAIServerModel")
     def test_log_extraction_error_does_not_crash(self, mock_model_cls, mock_agent_cls):
         """If agent.memory is unavailable, result should still be returned with an error logged."""
         mock_agent = MagicMock()
@@ -280,7 +279,7 @@ class TestRunAgent:
         assert len(result.errors) > 0
 
     @patch("src.agent.common.agent_client.ToolCallingAgent")
-    @patch("src.agent.common.agent_client.ContextPruningModel")
+    @patch("src.agent.common.agent_client.OpenAIServerModel")
     def test_step_callbacks_passed_to_agent(self, mock_model_cls, mock_agent_cls):
         """ToolCallingAgent must receive step_callbacks for history pruning."""
         mock_agent = MagicMock()
@@ -371,52 +370,3 @@ class TestObservationsPruneCallback:
         cb = _make_observations_prune_callback()
         cb(MagicMock(), agent=agent)
         assert step.observations == "file contents here"
-
-
-# ---------------------------------------------------------------------------
-# _prune_messages
-# ---------------------------------------------------------------------------
-
-class TestPruneMessages:
-    """Tests for _prune_messages — the ContextPruningModel message filter."""
-
-    def _msg(self, role, content):
-        return {"role": role, "content": content}
-
-    def _write_file_assistant(self, file_content="<template>big vue file</template>"):
-        """Build a realistic assistant message containing a write_file JSON call."""
-        return self._msg(
-            "assistant",
-            f'{{"name": "write_file", "arguments": {{"path": "Foo.vue", "content": "{file_content}"}}}}',
-        )
-
-    def test_single_write_file_kept_intact(self):
-        """The only (= last) write_file assistant message is never pruned."""
-        msg = self._write_file_assistant("big vue content")
-        result = _prune_messages([msg])
-        assert "big vue content" in result[0]["content"]
-
-    def test_older_write_file_content_pruned(self):
-        old = self._write_file_assistant("old content")
-        latest = self._write_file_assistant("new content")
-        result = _prune_messages([old, latest])
-        assert "old content" not in result[0]["content"]
-        assert "new content" in result[1]["content"]
-
-    def test_non_write_file_messages_untouched(self):
-        system = self._msg("system", "You are an expert.")
-        user = self._msg("user", "Do the task.")
-        result = _prune_messages([system, user])
-        assert result[0]["content"] == "You are an expert."
-        assert result[1]["content"] == "Do the task."
-
-    def test_original_list_not_mutated(self):
-        old = self._write_file_assistant("original content")
-        latest = self._write_file_assistant("latest content")
-        original = [old, latest]
-        _prune_messages(original)
-        # original list and dicts must be unchanged
-        assert "original content" in original[0]["content"]
-
-    def test_empty_list_returns_empty(self):
-        assert _prune_messages([]) == []

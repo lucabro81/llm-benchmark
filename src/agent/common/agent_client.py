@@ -1,7 +1,7 @@
 """smolagents wrapper for agent benchmark runs.
 
 Provides run_agent() which:
-- Creates ContextPruningModel (subclass of OpenAIServerModel) pointing at Ollama's /v1 endpoint
+- Creates OpenAIServerModel pointing at Ollama's /v1 endpoint
 - Runs a ToolCallingAgent with the provided tools
 - Collects step logs from agent.memory.steps for inspectability
 - Returns AgentRunResult with metrics and tool call history
@@ -16,128 +16,62 @@ smolagents API (verified against source):
 """
 
 import json
-import re
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from smolagents import ToolCallingAgent
-from smolagents.models import ChatMessage, OpenAIServerModel
+from smolagents.models import OpenAIServerModel
 
 from src.common.ollama_client import get_ollama_base_url
 
-# Sentinel used to replace pruned write_file content in outgoing messages.
-_PRUNED_CONTENT = "(file content pruned)"
 
-# Matches a write_file JSON tool call block anywhere in a message string,
-# capturing the "content" value so it can be replaced.
-# Handles both "content": "..." and 'content': '...' forms produced by smolagents.
-_WRITE_FILE_CONTENT_RE = re.compile(
-    r'("name"\s*:\s*"write_file".*?"content"\s*:\s*")[^"]*(")',
-    re.DOTALL,
-)
+@dataclass
+class AgentRunResult:
+    """Result of a single agent execution loop.
 
-
-def _prune_messages(messages: list) -> list:
-    """Return a shallow-copied message list with write_file content redacted.
-
-    Operates on the outgoing message list just before it reaches the API,
-    so smolagents' internal memory is never mutated.
-
-    Pruning rules (applied to each message independently):
-    - assistant / tool-call messages whose text contains a write_file JSON block:
-      the "content" value is replaced with _PRUNED_CONTENT.
-    - All other messages are passed through unchanged.
-
-    Only the most recent write_file assistant message keeps its full content
-    so the model can reference the latest written file if needed.  All earlier
-    occurrences are pruned.
+    Attributes:
+        succeeded: True if agent finished before max_iterations (state == "success").
+        steps: Number of agent steps taken (write_file + run_compilation calls).
+        final_output: Agent's final answer string, or empty string on failure.
+        tool_call_log: [{step, tool, args, result_summary}] for inspectability.
+        duration_sec: Wall-clock time for the full agent loop.
+        tokens_per_sec: output_tokens / duration_sec (0.0 if unavailable).
+        errors: Any internal errors captured during the run.
     """
-    def _get_text(msg) -> str:
-        if isinstance(msg, dict):
-            c = msg.get("content", "")
-        else:
-            c = getattr(msg, "content", "")
-        if isinstance(c, list):
-            return " ".join(
-                item.get("text", "") if isinstance(item, dict) else str(item)
-                for item in c
-            )
-        return str(c) if c else ""
-
-    def _replace_content(text: str) -> str:
-        return _WRITE_FILE_CONTENT_RE.sub(
-            lambda m: m.group(1) + _PRUNED_CONTENT + m.group(2),
-            text,
-        )
-
-    def _has_write_file(text: str) -> bool:
-        return '"name"' in text and '"write_file"' in text and '"content"' in text
-
-    # Find the last assistant/tool-call message that contains a write_file call.
-    last_write_idx = None
-    for i, msg in enumerate(messages):
-        role = msg.get("role", "") if isinstance(msg, dict) else getattr(msg, "role", "")
-        if role in ("assistant", "tool-call") and _has_write_file(_get_text(msg)):
-            last_write_idx = i
-
-    pruned = []
-    for i, msg in enumerate(messages):
-        role = msg.get("role", "") if isinstance(msg, dict) else getattr(msg, "role", "")
-        if (
-            role in ("assistant", "tool-call")
-            and i != last_write_idx
-            and _has_write_file(_get_text(msg))
-        ):
-            text = _get_text(msg)
-            new_text = _replace_content(text)
-            if isinstance(msg, dict):
-                msg = {**msg, "content": new_text}
-            else:
-                # ChatMessage is a dataclass — create a copy with updated content
-                msg = ChatMessage(role=msg.role, content=new_text,
-                                  tool_calls=getattr(msg, "tool_calls", None))
-        pruned.append(msg)
-    return pruned
-
-
-class ContextPruningModel(OpenAIServerModel):
-    """OpenAIServerModel subclass that prunes large write_file payloads before each API call.
-
-    Overrides generate() — the single entry point for all LLM requests in
-    smolagents — so that context pruning happens at the boundary between the
-    agent and the wire, without touching smolagents' internal memory.
-
-    This is the correct extension point: smolagents is designed to be subclassed
-    (all model classes inherit from a common base), and generate() is documented
-    as the method to override for custom model behaviour.
-    """
-
-    def generate(self, messages, **kwargs) -> ChatMessage:
-        return super().generate(_prune_messages(messages), **kwargs)
+    succeeded: bool
+    steps: int
+    final_output: str
+    tool_call_log: List[Dict[str, Any]]
+    duration_sec: float
+    tokens_per_sec: float
+    errors: List[str] = field(default_factory=list)
 
 
 def _make_observations_prune_callback():
-    """Return a step_callback that prunes stale tool observations from agent memory.
+    """Return a step_callback that prunes stale run_compilation observations.
 
     Fires after each step via ToolCallingAgent step_callbacks — the official
     hook for post-step memory management — and mutates only ActionStep.observations,
     which is a plain public dataclass field designed to be updated.
 
-    Pruning rules:
+    Pruning rule:
     - run_compilation: only the most recent step's observations are kept; older
       ones become "(see latest compilation result)" so the model is not confused
       by superseded errors.
-    - All other tools (write_file, read_file, list_files, query_rag) are left
-      untouched: write_file content pruning is handled by ContextPruningModel.
+    - All other tools are left untouched.
+
+    Note on context growth: the assistant message (raw LLM output containing the
+    written file) grows linearly per step. For the tasks in this benchmark
+    (max_steps 10–30, models with 32k–128k context), this is acceptable and the
+    tests pass reliably.
     """
     def _prune(memory_step, agent=None):
         if agent is None:
             return
         steps = agent.memory.steps
 
-        # Find index of the most recent run_compilation step
         last_compile_idx = None
         for i, step in enumerate(steps):
             tool_calls = getattr(step, "tool_calls", None) or []
@@ -156,13 +90,14 @@ def _make_observations_prune_callback():
 
 
 def _make_prompt_logger_callback(log_path: Path):
-    """Return a step_callback that logs the full message list sent to the model at each step.
+    """Return a step_callback that logs the message list as smolagents builds it.
 
     Writes a JSONL file where each line is:
       {"step": N, "messages": [...], "n_messages": M, "approx_chars": K}
 
-    Calls agent.write_memory_to_messages() and then applies the same _prune_messages()
-    filter used by ContextPruningModel, so the log reflects exactly what the model sees.
+    Calls agent.write_memory_to_messages() directly — no filtering applied —
+    so the log reflects exactly what smolagents passes to the model at the
+    next step (after observations pruning by _make_observations_prune_callback).
     """
     step_counter = [0]
     log_path.parent.mkdir(parents=True, exist_ok=True)
@@ -172,8 +107,7 @@ def _make_prompt_logger_callback(log_path: Path):
             return
         step_counter[0] += 1
         try:
-            raw_messages = agent.write_memory_to_messages()
-            messages = _prune_messages(raw_messages)
+            messages = agent.write_memory_to_messages()
             serializable = [
                 {"role": m.get("role", ""), "content": m.get("content", "")}
                 if isinstance(m, dict)
@@ -203,7 +137,7 @@ def run_agent(
     max_steps: int = 5,
     extra_system_prompt: str = "",
     prompt_log_path: Optional[Path] = None,
-) -> "AgentRunResult":
+) -> AgentRunResult:
     """Execute the agent loop and return a structured result.
 
     Args:
@@ -219,7 +153,7 @@ def run_agent(
     """
     base_url = get_ollama_base_url()
 
-    llm = ContextPruningModel(
+    llm = OpenAIServerModel(
         model_id=model,
         api_base=f"{base_url}/v1",
         api_key="ollama",
@@ -316,25 +250,3 @@ def run_agent(
         tokens_per_sec=tokens_per_sec,
         errors=errors,
     )
-
-
-@dataclass
-class AgentRunResult:
-    """Result of a single agent execution loop.
-
-    Attributes:
-        succeeded: True if agent finished before max_iterations (state == "success").
-        steps: Number of agent steps taken (write_file + run_compilation calls).
-        final_output: Agent's final answer string, or empty string on failure.
-        tool_call_log: [{step, tool, args, result_summary}] for inspectability.
-        duration_sec: Wall-clock time for the full agent loop.
-        tokens_per_sec: output_tokens / duration_sec (0.0 if unavailable).
-        errors: Any internal errors captured during the run.
-    """
-    succeeded: bool
-    steps: int
-    final_output: str
-    tool_call_log: List[Dict[str, Any]]
-    duration_sec: float
-    tokens_per_sec: float
-    errors: List[str] = field(default_factory=list)
