@@ -18,7 +18,12 @@ from unittest.mock import MagicMock, call, patch
 
 import pytest
 
-from src.agent.common.agent_client import AgentRunResult, _make_prune_callback, run_agent
+from src.agent.common.agent_client import (
+    AgentRunResult,
+    _make_observations_prune_callback,
+    _prune_messages,
+    run_agent,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -85,7 +90,7 @@ class TestAgentRunResult:
 
 class TestRunAgent:
     @patch("src.agent.common.agent_client.ToolCallingAgent")
-    @patch("src.agent.common.agent_client.OpenAIServerModel")
+    @patch("src.agent.common.agent_client.ContextPruningModel")
     def test_returns_agent_run_result(self, mock_model_cls, mock_agent_cls):
         mock_agent = MagicMock()
         mock_agent.run.return_value = _make_run_result("success")
@@ -97,7 +102,7 @@ class TestRunAgent:
         assert isinstance(result, AgentRunResult)
 
     @patch("src.agent.common.agent_client.ToolCallingAgent")
-    @patch("src.agent.common.agent_client.OpenAIServerModel")
+    @patch("src.agent.common.agent_client.ContextPruningModel")
     def test_succeeded_true_when_state_is_success(self, mock_model_cls, mock_agent_cls):
         mock_agent = MagicMock()
         mock_agent.run.return_value = _make_run_result("success")
@@ -109,7 +114,7 @@ class TestRunAgent:
         assert result.succeeded is True
 
     @patch("src.agent.common.agent_client.ToolCallingAgent")
-    @patch("src.agent.common.agent_client.OpenAIServerModel")
+    @patch("src.agent.common.agent_client.ContextPruningModel")
     def test_succeeded_false_when_state_is_max_steps_error(self, mock_model_cls, mock_agent_cls):
         mock_agent = MagicMock()
         mock_agent.run.return_value = _make_run_result("max_steps_error")
@@ -121,7 +126,7 @@ class TestRunAgent:
         assert result.succeeded is False
 
     @patch("src.agent.common.agent_client.ToolCallingAgent")
-    @patch("src.agent.common.agent_client.OpenAIServerModel")
+    @patch("src.agent.common.agent_client.ContextPruningModel")
     def test_succeeded_false_on_unexpected_exception(self, mock_model_cls, mock_agent_cls):
         mock_agent = MagicMock()
         mock_agent.run.side_effect = RuntimeError("connection refused")
@@ -134,7 +139,7 @@ class TestRunAgent:
         assert len(result.errors) > 0
 
     @patch("src.agent.common.agent_client.ToolCallingAgent")
-    @patch("src.agent.common.agent_client.OpenAIServerModel")
+    @patch("src.agent.common.agent_client.ContextPruningModel")
     def test_tool_call_log_populated_from_memory_steps(self, mock_model_cls, mock_agent_cls):
         mock_agent = MagicMock()
         mock_agent.run.return_value = _make_run_result("success")
@@ -153,7 +158,7 @@ class TestRunAgent:
         assert result.tool_call_log[1]["step"] == 2
 
     @patch("src.agent.common.agent_client.ToolCallingAgent")
-    @patch("src.agent.common.agent_client.OpenAIServerModel")
+    @patch("src.agent.common.agent_client.ContextPruningModel")
     def test_steps_equals_number_of_tool_calling_turns(self, mock_model_cls, mock_agent_cls):
         mock_agent = MagicMock()
         mock_agent.run.return_value = _make_run_result("success")
@@ -168,7 +173,7 @@ class TestRunAgent:
         assert result.steps == 2
 
     @patch("src.agent.common.agent_client.ToolCallingAgent")
-    @patch("src.agent.common.agent_client.OpenAIServerModel")
+    @patch("src.agent.common.agent_client.ContextPruningModel")
     def test_duration_sec_is_positive(self, mock_model_cls, mock_agent_cls):
         mock_agent = MagicMock()
         mock_agent.run.return_value = _make_run_result("success")
@@ -180,7 +185,7 @@ class TestRunAgent:
         assert result.duration_sec > 0
 
     @patch("src.agent.common.agent_client.ToolCallingAgent")
-    @patch("src.agent.common.agent_client.OpenAIServerModel")
+    @patch("src.agent.common.agent_client.ContextPruningModel")
     def test_tokens_per_sec_computed_from_token_usage(self, mock_model_cls, mock_agent_cls):
         """tokens_per_sec = output_tokens / duration_sec (non-zero when tokens available)."""
         mock_agent = MagicMock()
@@ -193,7 +198,7 @@ class TestRunAgent:
         assert result.tokens_per_sec >= 0.0
 
     @patch("src.agent.common.agent_client.ToolCallingAgent")
-    @patch("src.agent.common.agent_client.OpenAIServerModel")
+    @patch("src.agent.common.agent_client.ContextPruningModel")
     def test_passes_max_steps_to_agent(self, mock_model_cls, mock_agent_cls):
         mock_agent = MagicMock()
         mock_agent.run.return_value = _make_run_result("success")
@@ -206,7 +211,7 @@ class TestRunAgent:
         assert agent_kwargs.get("max_steps") == 3
 
     @patch("src.agent.common.agent_client.ToolCallingAgent")
-    @patch("src.agent.common.agent_client.OpenAIServerModel")
+    @patch("src.agent.common.agent_client.ContextPruningModel")
     def test_passes_tools_to_agent(self, mock_model_cls, mock_agent_cls):
         mock_agent = MagicMock()
         mock_agent.run.return_value = _make_run_result("success")
@@ -220,7 +225,7 @@ class TestRunAgent:
         assert agent_kwargs.get("tools") == dummy_tools
 
     @patch("src.agent.common.agent_client.ToolCallingAgent")
-    @patch("src.agent.common.agent_client.OpenAIServerModel")
+    @patch("src.agent.common.agent_client.ContextPruningModel")
     def test_uses_ollama_base_url_env_var(self, mock_model_cls, mock_agent_cls, monkeypatch):
         mock_agent = MagicMock()
         mock_agent.run.return_value = _make_run_result("success")
@@ -234,7 +239,7 @@ class TestRunAgent:
         assert "192.168.1.10:11434" in model_kwargs.get("api_base", "")
 
     @patch("src.agent.common.agent_client.ToolCallingAgent")
-    @patch("src.agent.common.agent_client.OpenAIServerModel")
+    @patch("src.agent.common.agent_client.ContextPruningModel")
     def test_calls_run_with_return_full_result_true(self, mock_model_cls, mock_agent_cls):
         mock_agent = MagicMock()
         mock_agent.run.return_value = _make_run_result("success")
@@ -246,7 +251,7 @@ class TestRunAgent:
         mock_agent.run.assert_called_once_with("Fix it", return_full_result=True)
 
     @patch("src.agent.common.agent_client.ToolCallingAgent")
-    @patch("src.agent.common.agent_client.OpenAIServerModel")
+    @patch("src.agent.common.agent_client.ContextPruningModel")
     def test_tool_call_log_result_summary_truncated(self, mock_model_cls, mock_agent_cls):
         """Long observations should be truncated in the log summary."""
         long_obs = "x" * 500
@@ -261,7 +266,7 @@ class TestRunAgent:
         assert len(summary) <= 250  # truncated
 
     @patch("src.agent.common.agent_client.ToolCallingAgent")
-    @patch("src.agent.common.agent_client.OpenAIServerModel")
+    @patch("src.agent.common.agent_client.ContextPruningModel")
     def test_log_extraction_error_does_not_crash(self, mock_model_cls, mock_agent_cls):
         """If agent.memory is unavailable, result should still be returned with an error logged."""
         mock_agent = MagicMock()
@@ -275,7 +280,7 @@ class TestRunAgent:
         assert len(result.errors) > 0
 
     @patch("src.agent.common.agent_client.ToolCallingAgent")
-    @patch("src.agent.common.agent_client.OpenAIServerModel")
+    @patch("src.agent.common.agent_client.ContextPruningModel")
     def test_step_callbacks_passed_to_agent(self, mock_model_cls, mock_agent_cls):
         """ToolCallingAgent must receive step_callbacks for history pruning."""
         mock_agent = MagicMock()
@@ -291,10 +296,16 @@ class TestRunAgent:
 
 
 # ---------------------------------------------------------------------------
-# _make_prune_callback
+# _make_observations_prune_callback
 # ---------------------------------------------------------------------------
 
-class TestPruneCallback:
+class TestObservationsPruneCallback:
+    """Tests for _make_observations_prune_callback.
+
+    This callback only manages run_compilation observations.
+    write_file content pruning is handled by ContextPruningModel._prune_messages().
+    """
+
     def _make_step(self, tool_name, arguments, observations):
         step = MagicMock()
         tc = MagicMock()
@@ -309,24 +320,10 @@ class TestPruneCallback:
         agent.memory.steps = steps
         return agent
 
-    def test_write_file_observation_replaced(self):
-        step = self._make_step("write_file", {"path": "apps/web/src/Foo.vue"}, "big code here")
-        agent = self._make_agent([step])
-        cb = _make_prune_callback()
-        cb(MagicMock(), agent=agent)
-        assert step.observations == "Wrote file apps/web/src/Foo.vue."
-
-    def test_write_file_unknown_path_fallback(self):
-        step = self._make_step("write_file", "not-a-dict", "big code here")
-        agent = self._make_agent([step])
-        cb = _make_prune_callback()
-        cb(MagicMock(), agent=agent)
-        assert step.observations == "Wrote file unknown."
-
     def test_last_run_compilation_observation_kept(self):
         step = self._make_step("run_compilation", {}, "error TS2345: important error")
         agent = self._make_agent([step])
-        cb = _make_prune_callback()
+        cb = _make_observations_prune_callback()
         cb(MagicMock(), agent=agent)
         assert step.observations == "error TS2345: important error"
 
@@ -334,22 +331,30 @@ class TestPruneCallback:
         old = self._make_step("run_compilation", {}, "old error")
         last = self._make_step("run_compilation", {}, "latest error")
         agent = self._make_agent([old, last])
-        cb = _make_prune_callback()
+        cb = _make_observations_prune_callback()
         cb(MagicMock(), agent=agent)
         assert old.observations == "(see latest compilation result)"
         assert last.observations == "latest error"
+
+    def test_write_file_observations_untouched(self):
+        """write_file observations are NOT managed by this callback."""
+        step = self._make_step("write_file", {"path": "Foo.vue"}, "big code here")
+        agent = self._make_agent([step])
+        cb = _make_observations_prune_callback()
+        cb(MagicMock(), agent=agent)
+        assert step.observations == "big code here"
 
     def test_steps_without_tool_calls_untouched(self):
         step = MagicMock()
         step.tool_calls = None
         step.observations = "some planning text"
         agent = self._make_agent([step])
-        cb = _make_prune_callback()
+        cb = _make_observations_prune_callback()
         cb(MagicMock(), agent=agent)
         assert step.observations == "some planning text"
 
     def test_no_crash_if_agent_is_none(self):
-        cb = _make_prune_callback()
+        cb = _make_observations_prune_callback()
         cb(MagicMock(), agent=None)  # must not raise
 
     def test_no_crash_on_task_step_without_tool_calls_attr(self):
@@ -357,21 +362,61 @@ class TestPruneCallback:
         from unittest.mock import NonCallableMock
         task_step = NonCallableMock(spec=[])  # no attributes at all — simulates TaskStep
         agent = self._make_agent([task_step])
-        cb = _make_prune_callback()
+        cb = _make_observations_prune_callback()
         cb(MagicMock(), agent=agent)  # must not raise
 
     def test_other_tools_untouched(self):
         step = self._make_step("read_file", {"path": "foo.vue"}, "file contents here")
         agent = self._make_agent([step])
-        cb = _make_prune_callback()
+        cb = _make_observations_prune_callback()
         cb(MagicMock(), agent=agent)
         assert step.observations == "file contents here"
 
-    def test_multiple_write_files_all_replaced(self):
-        s1 = self._make_step("write_file", {"path": "a.vue"}, "code a")
-        s2 = self._make_step("write_file", {"path": "b.ts"}, "code b")
-        agent = self._make_agent([s1, s2])
-        cb = _make_prune_callback()
-        cb(MagicMock(), agent=agent)
-        assert s1.observations == "Wrote file a.vue."
-        assert s2.observations == "Wrote file b.ts."
+
+# ---------------------------------------------------------------------------
+# _prune_messages
+# ---------------------------------------------------------------------------
+
+class TestPruneMessages:
+    """Tests for _prune_messages — the ContextPruningModel message filter."""
+
+    def _msg(self, role, content):
+        return {"role": role, "content": content}
+
+    def _write_file_assistant(self, file_content="<template>big vue file</template>"):
+        """Build a realistic assistant message containing a write_file JSON call."""
+        return self._msg(
+            "assistant",
+            f'{{"name": "write_file", "arguments": {{"path": "Foo.vue", "content": "{file_content}"}}}}',
+        )
+
+    def test_single_write_file_kept_intact(self):
+        """The only (= last) write_file assistant message is never pruned."""
+        msg = self._write_file_assistant("big vue content")
+        result = _prune_messages([msg])
+        assert "big vue content" in result[0]["content"]
+
+    def test_older_write_file_content_pruned(self):
+        old = self._write_file_assistant("old content")
+        latest = self._write_file_assistant("new content")
+        result = _prune_messages([old, latest])
+        assert "old content" not in result[0]["content"]
+        assert "new content" in result[1]["content"]
+
+    def test_non_write_file_messages_untouched(self):
+        system = self._msg("system", "You are an expert.")
+        user = self._msg("user", "Do the task.")
+        result = _prune_messages([system, user])
+        assert result[0]["content"] == "You are an expert."
+        assert result[1]["content"] == "Do the task."
+
+    def test_original_list_not_mutated(self):
+        old = self._write_file_assistant("original content")
+        latest = self._write_file_assistant("latest content")
+        original = [old, latest]
+        _prune_messages(original)
+        # original list and dicts must be unchanged
+        assert "original content" in original[0]["content"]
+
+    def test_empty_list_returns_empty(self):
+        assert _prune_messages([]) == []

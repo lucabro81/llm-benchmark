@@ -1,7 +1,7 @@
 """smolagents wrapper for agent benchmark runs.
 
 Provides run_agent() which:
-- Creates OpenAIServerModel pointing at Ollama's /v1 endpoint
+- Creates ContextPruningModel (subclass of OpenAIServerModel) pointing at Ollama's /v1 endpoint
 - Runs a ToolCallingAgent with the provided tools
 - Collects step logs from agent.memory.steps for inspectability
 - Returns AgentRunResult with metrics and tool call history
@@ -16,65 +16,131 @@ smolagents API (verified against source):
 """
 
 import json
+import re
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from smolagents import ToolCallingAgent
-from smolagents.models import OpenAIServerModel
+from smolagents.models import ChatMessage, OpenAIServerModel
 
 from src.common.ollama_client import get_ollama_base_url
 
+# Sentinel used to replace pruned write_file content in outgoing messages.
+_PRUNED_CONTENT = "(file content pruned)"
 
-@dataclass
-class AgentRunResult:
-    """Result of a single agent execution loop.
+# Matches a write_file JSON tool call block anywhere in a message string,
+# capturing the "content" value so it can be replaced.
+# Handles both "content": "..." and 'content': '...' forms produced by smolagents.
+_WRITE_FILE_CONTENT_RE = re.compile(
+    r'("name"\s*:\s*"write_file".*?"content"\s*:\s*")[^"]*(")',
+    re.DOTALL,
+)
 
-    Attributes:
-        succeeded: True if agent finished before max_iterations (state == "success").
-        iterations: Number of agent steps taken.
-        final_output: Agent's final answer string, or empty string on failure.
-        tool_call_log: [{step, tool, args, result_summary}] for inspectability.
-        duration_sec: Wall-clock time for the full agent loop.
-        tokens_per_sec: output_tokens / duration_sec (0.0 if unavailable).
-        errors: Any internal errors captured during the run.
+
+def _prune_messages(messages: list) -> list:
+    """Return a shallow-copied message list with write_file content redacted.
+
+    Operates on the outgoing message list just before it reaches the API,
+    so smolagents' internal memory is never mutated.
+
+    Pruning rules (applied to each message independently):
+    - assistant / tool-call messages whose text contains a write_file JSON block:
+      the "content" value is replaced with _PRUNED_CONTENT.
+    - All other messages are passed through unchanged.
+
+    Only the most recent write_file assistant message keeps its full content
+    so the model can reference the latest written file if needed.  All earlier
+    occurrences are pruned.
     """
-    succeeded: bool
-    steps: int
-    final_output: str
-    tool_call_log: List[Dict[str, Any]]
-    duration_sec: float
-    tokens_per_sec: float
-    errors: List[str] = field(default_factory=list)
+    def _get_text(msg) -> str:
+        if isinstance(msg, dict):
+            c = msg.get("content", "")
+        else:
+            c = getattr(msg, "content", "")
+        if isinstance(c, list):
+            return " ".join(
+                item.get("text", "") if isinstance(item, dict) else str(item)
+                for item in c
+            )
+        return str(c) if c else ""
+
+    def _replace_content(text: str) -> str:
+        return _WRITE_FILE_CONTENT_RE.sub(
+            lambda m: m.group(1) + _PRUNED_CONTENT + m.group(2),
+            text,
+        )
+
+    def _has_write_file(text: str) -> bool:
+        return '"name"' in text and '"write_file"' in text and '"content"' in text
+
+    # Find the last assistant/tool-call message that contains a write_file call.
+    last_write_idx = None
+    for i, msg in enumerate(messages):
+        role = msg.get("role", "") if isinstance(msg, dict) else getattr(msg, "role", "")
+        if role in ("assistant", "tool-call") and _has_write_file(_get_text(msg)):
+            last_write_idx = i
+
+    pruned = []
+    for i, msg in enumerate(messages):
+        role = msg.get("role", "") if isinstance(msg, dict) else getattr(msg, "role", "")
+        if (
+            role in ("assistant", "tool-call")
+            and i != last_write_idx
+            and _has_write_file(_get_text(msg))
+        ):
+            text = _get_text(msg)
+            new_text = _replace_content(text)
+            if isinstance(msg, dict):
+                msg = {**msg, "content": new_text}
+            else:
+                # ChatMessage is a dataclass — create a copy with updated content
+                msg = ChatMessage(role=msg.role, content=new_text,
+                                  tool_calls=getattr(msg, "tool_calls", None))
+        pruned.append(msg)
+    return pruned
 
 
-def _make_prune_callback():
-    """Return a step_callback that prunes old tool observations from agent history.
+class ContextPruningModel(OpenAIServerModel):
+    """OpenAIServerModel subclass that prunes large write_file payloads before each API call.
 
-    Fires after each step (via ToolCallingAgent step_callbacks) and mutates
-    agent.memory.steps in-place so that write_memory_to_messages() at the next
-    step sees a leaner context:
+    Overrides generate() — the single entry point for all LLM requests in
+    smolagents — so that context pruning happens at the boundary between the
+    agent and the wire, without touching smolagents' internal memory.
 
-    - write_file: observations replaced with "Wrote file <path>." — removes the
-      full file code from the context, keeping only the intent.
+    This is the correct extension point: smolagents is designed to be subclassed
+    (all model classes inherit from a common base), and generate() is documented
+    as the method to override for custom model behaviour.
+    """
+
+    def generate(self, messages, **kwargs) -> ChatMessage:
+        return super().generate(_prune_messages(messages), **kwargs)
+
+
+def _make_observations_prune_callback():
+    """Return a step_callback that prunes stale tool observations from agent memory.
+
+    Fires after each step via ToolCallingAgent step_callbacks — the official
+    hook for post-step memory management — and mutates only ActionStep.observations,
+    which is a plain public dataclass field designed to be updated.
+
+    Pruning rules:
     - run_compilation: only the most recent step's observations are kept; older
-      ones are replaced with "(see latest compilation result)" — the model only
-      needs the latest error to iterate.
-    - All other tools (read_file, list_files, query_rag) are left untouched.
+      ones become "(see latest compilation result)" so the model is not confused
+      by superseded errors.
+    - All other tools (write_file, read_file, list_files, query_rag) are left
+      untouched: write_file content pruning is handled by ContextPruningModel.
     """
     def _prune(memory_step, agent=None):
         if agent is None:
             return
         steps = agent.memory.steps
 
-        # Find indices of the most recent write_file and run_compilation steps
-        last_write_idx = None
+        # Find index of the most recent run_compilation step
         last_compile_idx = None
         for i, step in enumerate(steps):
             tool_calls = getattr(step, "tool_calls", None) or []
-            if any(tc.name == "write_file" for tc in tool_calls):
-                last_write_idx = i
             if any(tc.name == "run_compilation" for tc in tool_calls):
                 last_compile_idx = i
 
@@ -83,26 +149,7 @@ def _make_prune_callback():
             if not tool_calls:
                 continue
             for tc in tool_calls:
-                if tc.name == "write_file":
-                    # Always prune the content argument (large file text in tool-call message)
-                    if isinstance(tc.arguments, dict) and "content" in tc.arguments:
-                        tc.arguments["content"] = "(file content pruned — see wrote observation)"
-                    if i != last_write_idx:
-                        path = tc.arguments.get("path", "unknown") if isinstance(tc.arguments, dict) else "unknown"
-                        # Prune observations for older write_file steps
-                        step.observations = f"Wrote file {path}."
-                        # Prune model_output (raw assistant message) — this is the main
-                        # source of context growth: smolagents serialises the raw LLM
-                        # response string (which contains the full file JSON) as the
-                        # assistant turn, regardless of tc.arguments pruning above.
-                        if getattr(step, "model_output", None):
-                            step.model_output = f"(write_file call pruned)"
-                        if getattr(step, "model_output_message", None):
-                            try:
-                                step.model_output_message.content = f"(write_file call pruned)"
-                            except Exception:
-                                pass
-                elif tc.name == "run_compilation" and i != last_compile_idx:
+                if tc.name == "run_compilation" and i != last_compile_idx:
                     step.observations = "(see latest compilation result)"
 
     return _prune
@@ -114,8 +161,8 @@ def _make_prompt_logger_callback(log_path: Path):
     Writes a JSONL file where each line is:
       {"step": N, "messages": [...], "n_messages": M, "approx_chars": K}
 
-    Uses agent.memory.write_memory_to_messages() — the same call smolagents makes
-    internally before each API request — so the log reflects exactly what the model sees.
+    Calls agent.write_memory_to_messages() and then applies the same _prune_messages()
+    filter used by ContextPruningModel, so the log reflects exactly what the model sees.
     """
     step_counter = [0]
     log_path.parent.mkdir(parents=True, exist_ok=True)
@@ -125,7 +172,8 @@ def _make_prompt_logger_callback(log_path: Path):
             return
         step_counter[0] += 1
         try:
-            messages = agent.write_memory_to_messages()
+            raw_messages = agent.write_memory_to_messages()
+            messages = _prune_messages(raw_messages)
             serializable = [
                 {"role": m.get("role", ""), "content": m.get("content", "")}
                 if isinstance(m, dict)
@@ -155,27 +203,29 @@ def run_agent(
     max_steps: int = 5,
     extra_system_prompt: str = "",
     prompt_log_path: Optional[Path] = None,
-) -> AgentRunResult:
+) -> "AgentRunResult":
     """Execute the agent loop and return a structured result.
 
     Args:
         model: Ollama model name (e.g. 'qwen2.5-coder:7b-instruct-q8_0').
         task: Task description string to run as the agent's goal.
         tools: List of @tool-decorated callables (from make_tools()).
-        max_iterations: Maximum number of agent steps before forced stop.
+        max_steps: Maximum number of agent steps before forced stop.
+        extra_system_prompt: Appended to the smolagents system prompt.
+        prompt_log_path: If set, write per-step message logs to this JSONL file.
 
     Returns:
         AgentRunResult with step log, success flag, timing, and token metrics.
     """
     base_url = get_ollama_base_url()
 
-    llm = OpenAIServerModel(
+    llm = ContextPruningModel(
         model_id=model,
         api_base=f"{base_url}/v1",
         api_key="ollama",
     )
 
-    step_callbacks = [_make_prune_callback()]
+    step_callbacks = [_make_observations_prune_callback()]
     if prompt_log_path is not None:
         step_callbacks.append(_make_prompt_logger_callback(prompt_log_path))
 
@@ -266,3 +316,25 @@ def run_agent(
         tokens_per_sec=tokens_per_sec,
         errors=errors,
     )
+
+
+@dataclass
+class AgentRunResult:
+    """Result of a single agent execution loop.
+
+    Attributes:
+        succeeded: True if agent finished before max_iterations (state == "success").
+        steps: Number of agent steps taken (write_file + run_compilation calls).
+        final_output: Agent's final answer string, or empty string on failure.
+        tool_call_log: [{step, tool, args, result_summary}] for inspectability.
+        duration_sec: Wall-clock time for the full agent loop.
+        tokens_per_sec: output_tokens / duration_sec (0.0 if unavailable).
+        errors: Any internal errors captured during the run.
+    """
+    succeeded: bool
+    steps: int
+    final_output: str
+    tool_call_log: List[Dict[str, Any]]
+    duration_sec: float
+    tokens_per_sec: float
+    errors: List[str] = field(default_factory=list)
