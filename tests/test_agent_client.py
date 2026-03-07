@@ -18,7 +18,7 @@ from unittest.mock import MagicMock, call, patch
 
 import pytest
 
-from src.agent.common.agent_client import AgentRunResult, run_agent
+from src.agent.common.agent_client import AgentRunResult, _make_prune_callback, run_agent
 
 
 # ---------------------------------------------------------------------------
@@ -273,3 +273,97 @@ class TestRunAgent:
 
         assert isinstance(result, AgentRunResult)
         assert len(result.errors) > 0
+
+    @patch("src.agent.common.agent_client.ToolCallingAgent")
+    @patch("src.agent.common.agent_client.OpenAIServerModel")
+    def test_step_callbacks_passed_to_agent(self, mock_model_cls, mock_agent_cls):
+        """ToolCallingAgent must receive step_callbacks for history pruning."""
+        mock_agent = MagicMock()
+        mock_agent.run.return_value = _make_run_result("success")
+        mock_agent.memory.steps = []
+        mock_agent_cls.return_value = mock_agent
+
+        run_agent(model="m", task="t", tools=[], max_steps=5)
+
+        _, agent_kwargs = mock_agent_cls.call_args
+        assert "step_callbacks" in agent_kwargs
+        assert len(agent_kwargs["step_callbacks"]) > 0
+
+
+# ---------------------------------------------------------------------------
+# _make_prune_callback
+# ---------------------------------------------------------------------------
+
+class TestPruneCallback:
+    def _make_step(self, tool_name, arguments, observations):
+        step = MagicMock()
+        tc = MagicMock()
+        tc.name = tool_name
+        tc.arguments = arguments
+        step.tool_calls = [tc]
+        step.observations = observations
+        return step
+
+    def _make_agent(self, steps):
+        agent = MagicMock()
+        agent.memory.steps = steps
+        return agent
+
+    def test_write_file_observation_replaced(self):
+        step = self._make_step("write_file", {"path": "apps/web/src/Foo.vue"}, "big code here")
+        agent = self._make_agent([step])
+        cb = _make_prune_callback()
+        cb(MagicMock(), agent=agent)
+        assert step.observations == "Wrote file apps/web/src/Foo.vue."
+
+    def test_write_file_unknown_path_fallback(self):
+        step = self._make_step("write_file", "not-a-dict", "big code here")
+        agent = self._make_agent([step])
+        cb = _make_prune_callback()
+        cb(MagicMock(), agent=agent)
+        assert step.observations == "Wrote file unknown."
+
+    def test_last_run_compilation_observation_kept(self):
+        step = self._make_step("run_compilation", {}, "error TS2345: important error")
+        agent = self._make_agent([step])
+        cb = _make_prune_callback()
+        cb(MagicMock(), agent=agent)
+        assert step.observations == "error TS2345: important error"
+
+    def test_old_run_compilation_observations_replaced(self):
+        old = self._make_step("run_compilation", {}, "old error")
+        last = self._make_step("run_compilation", {}, "latest error")
+        agent = self._make_agent([old, last])
+        cb = _make_prune_callback()
+        cb(MagicMock(), agent=agent)
+        assert old.observations == "(see latest compilation result)"
+        assert last.observations == "latest error"
+
+    def test_steps_without_tool_calls_untouched(self):
+        step = MagicMock()
+        step.tool_calls = None
+        step.observations = "some planning text"
+        agent = self._make_agent([step])
+        cb = _make_prune_callback()
+        cb(MagicMock(), agent=agent)
+        assert step.observations == "some planning text"
+
+    def test_no_crash_if_agent_is_none(self):
+        cb = _make_prune_callback()
+        cb(MagicMock(), agent=None)  # must not raise
+
+    def test_other_tools_untouched(self):
+        step = self._make_step("read_file", {"path": "foo.vue"}, "file contents here")
+        agent = self._make_agent([step])
+        cb = _make_prune_callback()
+        cb(MagicMock(), agent=agent)
+        assert step.observations == "file contents here"
+
+    def test_multiple_write_files_all_replaced(self):
+        s1 = self._make_step("write_file", {"path": "a.vue"}, "code a")
+        s2 = self._make_step("write_file", {"path": "b.ts"}, "code b")
+        agent = self._make_agent([s1, s2])
+        cb = _make_prune_callback()
+        cb(MagicMock(), agent=agent)
+        assert s1.observations == "Wrote file a.vue."
+        assert s2.observations == "Wrote file b.ts."

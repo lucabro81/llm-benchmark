@@ -47,6 +47,44 @@ class AgentRunResult:
     errors: List[str] = field(default_factory=list)
 
 
+def _make_prune_callback():
+    """Return a step_callback that prunes old tool observations from agent history.
+
+    Fires after each step (via ToolCallingAgent step_callbacks) and mutates
+    agent.memory.steps in-place so that write_memory_to_messages() at the next
+    step sees a leaner context:
+
+    - write_file: observations replaced with "Wrote file <path>." — removes the
+      full file code from the context, keeping only the intent.
+    - run_compilation: only the most recent step's observations are kept; older
+      ones are replaced with "(see latest compilation result)" — the model only
+      needs the latest error to iterate.
+    - All other tools (read_file, list_files, query_rag) are left untouched.
+    """
+    def _prune(memory_step, agent=None):
+        if agent is None:
+            return
+        steps = agent.memory.steps
+
+        # Find index of the most recent run_compilation step
+        last_compile_idx = None
+        for i, step in enumerate(steps):
+            if step.tool_calls and any(tc.name == "run_compilation" for tc in step.tool_calls):
+                last_compile_idx = i
+
+        for i, step in enumerate(steps):
+            if not step.tool_calls:
+                continue
+            for tc in step.tool_calls:
+                if tc.name == "write_file":
+                    path = tc.arguments.get("path", "unknown") if isinstance(tc.arguments, dict) else "unknown"
+                    step.observations = f"Wrote file {path}."
+                elif tc.name == "run_compilation" and i != last_compile_idx:
+                    step.observations = "(see latest compilation result)"
+
+    return _prune
+
+
 def run_agent(
     model: str,
     task: str,
@@ -77,6 +115,7 @@ def run_agent(
         tools=tools,
         model=llm,
         max_steps=max_steps,
+        step_callbacks=[_make_prune_callback()],
     )
 
     # Inject JSON format rules into the system prompt so they appear in every API call.
