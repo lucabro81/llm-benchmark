@@ -21,6 +21,7 @@ import pytest
 from src.agent.common.agent_client import (
     AgentRunResult,
     _make_observations_prune_callback,
+    _make_step_data_callback,
     run_agent,
 )
 
@@ -292,6 +293,209 @@ class TestRunAgent:
         _, agent_kwargs = mock_agent_cls.call_args
         assert "step_callbacks" in agent_kwargs
         assert len(agent_kwargs["step_callbacks"]) > 0
+
+
+# ---------------------------------------------------------------------------
+# _make_observations_prune_callback
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# _make_step_data_callback
+# ---------------------------------------------------------------------------
+
+class TestStepDataCallback:
+    def _make_agent(self, steps, messages=None):
+        agent = MagicMock()
+        agent.memory.steps = steps
+        agent.write_memory_to_messages.return_value = messages or [
+            {"role": "system", "content": "system prompt"},
+            {"role": "user", "content": "user message"},
+        ]
+        return agent
+
+    def test_appends_one_entry_per_callback_call(self):
+        step_data = []
+        cb = _make_step_data_callback(step_data, run_start=0.0)
+        cb(MagicMock(), agent=self._make_agent([]))
+        cb(MagicMock(), agent=self._make_agent([]))
+        assert len(step_data) == 2
+
+    def test_entry_has_duration_sec(self):
+        step_data = []
+        cb = _make_step_data_callback(step_data, run_start=0.0)
+        cb(MagicMock(), agent=self._make_agent([]))
+        assert "duration_sec" in step_data[0]
+        assert step_data[0]["duration_sec"] >= 0.0
+
+    def test_entry_has_context_chars(self):
+        step_data = []
+        cb = _make_step_data_callback(step_data, run_start=0.0)
+        agent = self._make_agent([], messages=[{"role": "user", "content": "hello"}])
+        cb(MagicMock(), agent=agent)
+        assert "context_chars" in step_data[0]
+        assert step_data[0]["context_chars"] == 5  # len("hello")
+
+    def test_no_crash_if_agent_is_none(self):
+        step_data = []
+        cb = _make_step_data_callback(step_data, run_start=0.0)
+        cb(MagicMock(), agent=None)  # must not raise
+        assert len(step_data) == 0
+
+    def test_no_crash_if_write_memory_raises(self):
+        step_data = []
+        cb = _make_step_data_callback(step_data, run_start=0.0)
+        agent = MagicMock()
+        agent.write_memory_to_messages.side_effect = RuntimeError("boom")
+        cb(MagicMock(), agent=agent)
+        assert len(step_data) == 1
+        assert step_data[0]["context_chars"] == 0
+
+
+# ---------------------------------------------------------------------------
+# AgentRunResult — new per-step fields in tool_call_log
+# ---------------------------------------------------------------------------
+
+class TestToolCallLogEnrichment:
+    def _run_with_steps(self, steps, mock_agent_cls, mock_model_cls):
+        mock_agent = MagicMock()
+        mock_agent.run.return_value = _make_run_result("success")
+        mock_agent.memory.steps = steps
+        mock_agent.write_memory_to_messages.return_value = [{"role": "user", "content": "ctx"}]
+        mock_agent_cls.return_value = mock_agent
+        return run_agent(model="m", task="t", tools=[], max_steps=5)
+
+    @patch("src.agent.common.agent_client.ToolCallingAgent")
+    @patch("src.agent.common.agent_client.OpenAIServerModel")
+    def test_tool_call_log_entry_has_compile_passed_true_for_write_file_success(
+        self, mock_model_cls, mock_agent_cls
+    ):
+        step = _make_action_step("write_file", {"path": "x.vue"}, "File written.\nCompilation succeeded.")
+        result = self._run_with_steps([step], mock_agent_cls, mock_model_cls)
+        assert result.tool_call_log[0]["compile_passed"] is True
+
+    @patch("src.agent.common.agent_client.ToolCallingAgent")
+    @patch("src.agent.common.agent_client.OpenAIServerModel")
+    def test_tool_call_log_entry_has_compile_passed_false_for_compile_errors(
+        self, mock_model_cls, mock_agent_cls
+    ):
+        step = _make_action_step("run_compilation", {}, "error TS2345: bad type")
+        result = self._run_with_steps([step], mock_agent_cls, mock_model_cls)
+        assert result.tool_call_log[0]["compile_passed"] is False
+
+    @patch("src.agent.common.agent_client.ToolCallingAgent")
+    @patch("src.agent.common.agent_client.OpenAIServerModel")
+    def test_tool_call_log_entry_compile_passed_none_for_read_file(
+        self, mock_model_cls, mock_agent_cls
+    ):
+        step = _make_action_step("read_file", {"path": "x.vue"}, "file contents")
+        result = self._run_with_steps([step], mock_agent_cls, mock_model_cls)
+        assert result.tool_call_log[0]["compile_passed"] is None
+
+    @patch("src.agent.common.agent_client.ToolCallingAgent")
+    @patch("src.agent.common.agent_client.OpenAIServerModel")
+    def test_tool_call_log_entry_has_duration_sec(self, mock_model_cls, mock_agent_cls):
+        step = _make_action_step("write_file", {}, "File written.\nCompilation succeeded.")
+        result = self._run_with_steps([step], mock_agent_cls, mock_model_cls)
+        assert "duration_sec" in result.tool_call_log[0]
+        assert result.tool_call_log[0]["duration_sec"] >= 0.0
+
+    @patch("src.agent.common.agent_client.ToolCallingAgent")
+    @patch("src.agent.common.agent_client.OpenAIServerModel")
+    def test_tool_call_log_entry_has_context_chars(self, mock_model_cls, mock_agent_cls):
+        step = _make_action_step("write_file", {}, "File written.\nCompilation succeeded.")
+        result = self._run_with_steps([step], mock_agent_cls, mock_model_cls)
+        assert "context_chars" in result.tool_call_log[0]
+        assert isinstance(result.tool_call_log[0]["context_chars"], int)
+
+
+# ---------------------------------------------------------------------------
+# AgentRunResult — new aggregate fields
+# ---------------------------------------------------------------------------
+
+class TestAgentRunResultAggregates:
+    def _run(self, steps, mock_agent_cls, mock_model_cls, run_result=None):
+        mock_agent = MagicMock()
+        mock_agent.run.return_value = run_result or _make_run_result("success", output_tokens=100, input_tokens=400)
+        mock_agent.memory.steps = steps
+        mock_agent.write_memory_to_messages.return_value = [{"role": "user", "content": "x"}]
+        mock_agent_cls.return_value = mock_agent
+        return run_agent(model="m", task="t", tools=[], max_steps=5)
+
+    @patch("src.agent.common.agent_client.ToolCallingAgent")
+    @patch("src.agent.common.agent_client.OpenAIServerModel")
+    def test_total_input_tokens(self, mock_model_cls, mock_agent_cls):
+        result = self._run([], mock_agent_cls, mock_model_cls, _make_run_result("success", input_tokens=400))
+        assert result.total_input_tokens == 400
+
+    @patch("src.agent.common.agent_client.ToolCallingAgent")
+    @patch("src.agent.common.agent_client.OpenAIServerModel")
+    def test_total_output_tokens(self, mock_model_cls, mock_agent_cls):
+        result = self._run([], mock_agent_cls, mock_model_cls, _make_run_result("success", output_tokens=150))
+        assert result.total_output_tokens == 150
+
+    @patch("src.agent.common.agent_client.ToolCallingAgent")
+    @patch("src.agent.common.agent_client.OpenAIServerModel")
+    def test_first_compile_success_step_none_when_no_compile(self, mock_model_cls, mock_agent_cls):
+        result = self._run([], mock_agent_cls, mock_model_cls)
+        assert result.first_compile_success_step is None
+
+    @patch("src.agent.common.agent_client.ToolCallingAgent")
+    @patch("src.agent.common.agent_client.OpenAIServerModel")
+    def test_first_compile_success_step_set_on_first_success(self, mock_model_cls, mock_agent_cls):
+        steps = [
+            _make_action_step("write_file", {}, "File written.\nCompilation errors:\nerror TS1"),
+            _make_action_step("write_file", {}, "File written.\nCompilation succeeded."),
+        ]
+        result = self._run(steps, mock_agent_cls, mock_model_cls)
+        assert result.first_compile_success_step == 2
+
+    @patch("src.agent.common.agent_client.ToolCallingAgent")
+    @patch("src.agent.common.agent_client.OpenAIServerModel")
+    def test_compile_error_recovery_count(self, mock_model_cls, mock_agent_cls):
+        steps = [
+            _make_action_step("write_file", {}, "File written.\nCompilation errors:\nerror TS1"),
+            _make_action_step("write_file", {}, "File written.\nCompilation succeeded."),
+            _make_action_step("run_compilation", {}, "error TS2"),
+            _make_action_step("run_compilation", {}, "Compilation succeeded."),
+        ]
+        result = self._run(steps, mock_agent_cls, mock_model_cls)
+        assert result.compile_error_recovery_count == 2
+
+    @patch("src.agent.common.agent_client.ToolCallingAgent")
+    @patch("src.agent.common.agent_client.OpenAIServerModel")
+    def test_rag_queries_count(self, mock_model_cls, mock_agent_cls):
+        steps = [
+            _make_action_step("query_rag", {"query": "how to use Form"}, "result text"),
+            _make_action_step("write_file", {}, "File written.\nCompilation succeeded."),
+        ]
+        result = self._run(steps, mock_agent_cls, mock_model_cls)
+        assert result.rag_queries_count == 1
+
+    @patch("src.agent.common.agent_client.ToolCallingAgent")
+    @patch("src.agent.common.agent_client.OpenAIServerModel")
+    def test_read_file_count(self, mock_model_cls, mock_agent_cls):
+        steps = [
+            _make_action_step("read_file", {"path": "a.vue"}, "content"),
+            _make_action_step("read_file", {"path": "b.vue"}, "content"),
+        ]
+        result = self._run(steps, mock_agent_cls, mock_model_cls)
+        assert result.read_file_count == 2
+
+    @patch("src.agent.common.agent_client.ToolCallingAgent")
+    @patch("src.agent.common.agent_client.OpenAIServerModel")
+    def test_list_files_count(self, mock_model_cls, mock_agent_cls):
+        steps = [_make_action_step("list_files", {"directory": "."}, "file1\nfile2")]
+        result = self._run(steps, mock_agent_cls, mock_model_cls)
+        assert result.list_files_count == 1
+
+    @patch("src.agent.common.agent_client.ToolCallingAgent")
+    @patch("src.agent.common.agent_client.OpenAIServerModel")
+    def test_counts_zero_when_tools_not_used(self, mock_model_cls, mock_agent_cls):
+        steps = [_make_action_step("write_file", {}, "File written.\nCompilation succeeded.")]
+        result = self._run(steps, mock_agent_cls, mock_model_cls)
+        assert result.rag_queries_count == 0
+        assert result.read_file_count == 0
+        assert result.list_files_count == 0
 
 
 # ---------------------------------------------------------------------------

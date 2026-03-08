@@ -13,6 +13,7 @@ Arguments:
 import argparse
 import json
 import sys
+import time
 from pathlib import Path
 from typing import List, Optional, Type
 
@@ -172,21 +173,102 @@ def show_overall_summary(all_results: List[BenchmarkResult], fixture_count: int)
 # Results saving
 # ---------------------------------------------------------------------------
 
-def save_results(results: List[BenchmarkResult], model: str, fixture_name: str) -> Path:
-    """Save results for one fixture to a JSON file.
+def _is_agent_result(result) -> bool:
+    """Return True if result is an agent benchmark result (has tool_call_log)."""
+    return hasattr(result, "tool_call_log")
+
+
+def _save_agent_results(
+    results: list,
+    model: str,
+    fixture_name: str,
+    requested_runs: int,
+    agent_output_dir: Optional[Path] = None,
+) -> Path:
+    """Save agent results to a folder with summary.json + steps.jsonl.
+
+    Folder name: {model_safe}__{fixture}__{n_runs}runs__{unix_ts}
 
     Args:
-        results: List of BenchmarkResult for all runs of this fixture
-        model: Model name (used in filename)
-        fixture_name: Fixture name (used in filename)
+        results: List of AgentBenchmarkResult
+        model: Model name
+        fixture_name: Fixture name
+        requested_runs: Number of runs requested (from --runs)
+        agent_output_dir: Pre-created output folder (e.g. from run_fixture for
+            prompt log co-location). If None, a new folder is created.
 
     Returns:
-        Path to saved JSON file
+        Path to the output folder.
     """
+    OUTPUT_DIR.mkdir(exist_ok=True)
+    if agent_output_dir is None:
+        model_safe = model.replace(":", "_").replace(".", "-")
+        unix_ts = int(time.time())
+        agent_output_dir = OUTPUT_DIR / f"{model_safe}__{fixture_name}__{requested_runs}runs__{unix_ts}"
+    agent_output_dir.mkdir(parents=True, exist_ok=True)
+
+    # summary.json — metadata + full run results (including tool_call_log with args)
+    summary = {
+        "model": model,
+        "fixture": fixture_name,
+        "n_runs": requested_runs,
+        "runs": [r.__dict__ for r in results],
+    }
+    with (agent_output_dir / "summary.json").open("w", encoding="utf-8") as f:
+        json.dump(summary, f, indent=2)
+
+    # steps.jsonl — compact per-step data across all runs (no args)
+    with (agent_output_dir / "steps.jsonl").open("w", encoding="utf-8") as f:
+        for result in results:
+            run_num = result.run_number
+            for entry in result.tool_call_log:
+                step_entry = {
+                    "run": run_num,
+                    "step": entry.get("step"),
+                    "tool": entry.get("tool"),
+                    "compile_passed": entry.get("compile_passed"),
+                    "duration_sec": entry.get("duration_sec"),
+                    "context_chars": entry.get("context_chars"),
+                    "result_summary": entry.get("result_summary"),
+                }
+                f.write(json.dumps(step_entry) + "\n")
+
+    return agent_output_dir
+
+
+def save_results(
+    results: List[BenchmarkResult],
+    model: str,
+    fixture_name: str,
+    requested_runs: Optional[int] = None,
+    agent_output_dir: Optional[Path] = None,
+) -> Path:
+    """Save results for one fixture.
+
+    For single-shot tests: writes a JSON file (array of run results).
+    For agent tests: writes a folder with summary.json + steps.jsonl.
+
+    Args:
+        results: List of results for all runs of this fixture
+        model: Model name (used in filename/folder name)
+        fixture_name: Fixture name (used in filename/folder name)
+        requested_runs: Number of runs requested (--runs N). Defaults to len(results).
+        agent_output_dir: Pre-created folder for agent output (optional; used when
+            prompt logs were already written there during the run).
+
+    Returns:
+        Path to saved JSON file (single-shot) or folder (agent).
+    """
+    n_runs = requested_runs if requested_runs is not None else len(results)
+
+    if results and _is_agent_result(results[0]):
+        return _save_agent_results(results, model, fixture_name, n_runs, agent_output_dir)
+
+    # Single-shot: original flat JSON file
     OUTPUT_DIR.mkdir(exist_ok=True)
     timestamp = results[0].timestamp.replace(":", "-")
     model_safe = model.replace(":", "_").replace(".", "-")
-    output_file = OUTPUT_DIR / f"{model_safe}_{fixture_name}_{timestamp}.json"
+    output_file = OUTPUT_DIR / f"{model_safe}__{fixture_name}__{timestamp}.json"
     with open(output_file, "w") as f:
         json.dump([r.__dict__ for r in results], f, indent=2)
     return output_file
@@ -202,8 +284,19 @@ def run_fixture(
     runs: int,
     runner_module,
     log_prompts: bool = False,
+    agent_output_dir: Optional[Path] = None,
 ) -> Optional[List[BenchmarkResult]]:
-    """Run benchmark for a single fixture."""
+    """Run benchmark for a single fixture.
+
+    Args:
+        model: Ollama model name.
+        fixture_path: Path to the task directory.
+        runs: Number of runs to execute.
+        runner_module: Imported runner module.
+        log_prompts: If True, write per-step prompt logs to prompts.jsonl.
+        agent_output_dir: For agent tests — pre-created output folder where
+            prompts.jsonl will be written (all runs share the same file).
+    """
     runner_class = _get_runner_class(runner_module)
     try:
         test = runner_class(model=model, fixture_path=fixture_path)
@@ -212,17 +305,30 @@ def run_fixture(
         console.print("[yellow]  → Skipping this fixture[/yellow]")
         return None
 
+    is_agent = hasattr(runner_module, "AgentTest")
+
     results = []
     for i in range(runs):
         console.print(f"[dim]── Run {i + 1}/{runs} ──[/dim]")
         run_kwargs = {"run_number": i + 1}
-        if log_prompts and hasattr(test, "run") and "prompt_log_path" in test.run.__code__.co_varnames:
-            model_safe = model.replace(":", "_").replace(".", "-")
-            OUTPUT_DIR.mkdir(exist_ok=True)
-            run_kwargs["prompt_log_path"] = (
-                OUTPUT_DIR / f"{model_safe}_{fixture_path.name}_run{i+1}_prompts.jsonl"
-            )
-            console.print(f"[dim]  prompt log → {run_kwargs['prompt_log_path']}[/dim]")
+
+        if log_prompts and is_agent and agent_output_dir is not None:
+            # All runs append to the same prompts.jsonl inside the output folder.
+            prompt_log = agent_output_dir / "prompts.jsonl"
+            if hasattr(test, "run") and "prompt_log_path" in test.run.__code__.co_varnames:
+                run_kwargs["prompt_log_path"] = prompt_log
+                if i == 0:
+                    console.print(f"[dim]  prompt log → {prompt_log}[/dim]")
+        elif log_prompts and not is_agent:
+            # Single-shot: legacy per-run log
+            if hasattr(test, "run") and "prompt_log_path" in test.run.__code__.co_varnames:
+                model_safe = model.replace(":", "_").replace(".", "-")
+                OUTPUT_DIR.mkdir(exist_ok=True)
+                run_kwargs["prompt_log_path"] = (
+                    OUTPUT_DIR / f"{model_safe}__{fixture_path.name}__run{i+1}__prompts.jsonl"
+                )
+                console.print(f"[dim]  prompt log → {run_kwargs['prompt_log_path']}[/dim]")
+
         result = test.run(**run_kwargs)
         results.append(result)
         runner_module.format_run(result)
@@ -322,13 +428,39 @@ def main() -> int:
             had_errors = True
             continue
 
-        results = run_fixture(args.model, fixture_path, args.runs, runner_module, log_prompts=args.log_prompts)
+        # Pre-create output folder for agent tests so prompt_log_path is co-located.
+        is_agent = hasattr(runner_module, "AgentTest")
+        agent_out_dir: Optional[Path] = None
+        if is_agent:
+            model_safe = args.model.replace(":", "_").replace(".", "-")
+            unix_ts = int(time.time())
+            agent_out_dir = (
+                OUTPUT_DIR
+                / f"{model_safe}__{fixture_path.name}__{args.runs}runs__{unix_ts}"
+            )
+            OUTPUT_DIR.mkdir(exist_ok=True)
+            agent_out_dir.mkdir(parents=True, exist_ok=True)
+
+        results = run_fixture(
+            args.model,
+            fixture_path,
+            args.runs,
+            runner_module,
+            log_prompts=args.log_prompts,
+            agent_output_dir=agent_out_dir,
+        )
 
         if results is None:
             had_errors = True
             continue
 
-        output_file = save_results(results, args.model, fixture_path.name)
+        output_file = save_results(
+            results,
+            args.model,
+            fixture_path.name,
+            requested_runs=args.runs,
+            agent_output_dir=agent_out_dir,
+        )
         console.print(f"\n[green]✓ Results saved to {output_file}[/green]")
 
         show_fixture_summary(results, fixture_path.name)

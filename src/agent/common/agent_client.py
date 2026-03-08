@@ -26,6 +26,9 @@ from smolagents.models import OpenAIServerModel
 
 from src.common.ollama_client import get_ollama_base_url
 
+# Tools whose observations indicate compilation outcome.
+_COMPILE_TOOLS = {"write_file", "run_compilation"}
+
 
 @dataclass
 class AgentRunResult:
@@ -35,10 +38,20 @@ class AgentRunResult:
         succeeded: True if agent finished before max_iterations (state == "success").
         steps: Number of agent steps taken (write_file + run_compilation calls).
         final_output: Agent's final answer string, or empty string on failure.
-        tool_call_log: [{step, tool, args, result_summary}] for inspectability.
+        tool_call_log: Per-step entries with tool, args, result_summary, compile_passed,
+            duration_sec, context_chars.
         duration_sec: Wall-clock time for the full agent loop.
         tokens_per_sec: output_tokens / duration_sec (0.0 if unavailable).
         errors: Any internal errors captured during the run.
+        total_input_tokens: Total input tokens across all LLM calls.
+        total_output_tokens: Total output tokens across all LLM calls.
+        first_compile_success_step: Step number of the first successful compilation,
+            or None if compilation never succeeded.
+        compile_error_recovery_count: Number of times compilation went from
+            failure to success across consecutive compile steps.
+        rag_queries_count: Number of query_rag tool calls (0 for non-RAG tests).
+        read_file_count: Number of read_file tool calls (0 for non-full tests).
+        list_files_count: Number of list_files tool calls (0 for non-full tests).
     """
     succeeded: bool
     steps: int
@@ -47,6 +60,13 @@ class AgentRunResult:
     duration_sec: float
     tokens_per_sec: float
     errors: List[str] = field(default_factory=list)
+    total_input_tokens: int = 0
+    total_output_tokens: int = 0
+    first_compile_success_step: Optional[int] = None
+    compile_error_recovery_count: int = 0
+    rag_queries_count: int = 0
+    read_file_count: int = 0
+    list_files_count: int = 0
 
 
 def _make_observations_prune_callback():
@@ -87,6 +107,48 @@ def _make_observations_prune_callback():
                     step.observations = "(see latest compilation result)"
 
     return _prune
+
+
+def _make_step_data_callback(step_data: List[Dict[str, Any]], run_start: float):
+    """Return a step_callback that captures per-step timing and context size.
+
+    Appends one entry per step to step_data:
+        {"duration_sec": float, "context_chars": int}
+
+    duration_sec is the wall-clock time elapsed since the previous step
+    (or since run_start for the first step).
+
+    context_chars is the total character count of all messages that smolagents
+    would send to the model at the next step (after pruning).
+
+    Args:
+        step_data: Shared list to append entries to.
+        run_start: time.time() value recorded at the start of the agent run.
+    """
+    last_time = [run_start]
+
+    def _capture(memory_step, agent=None):
+        if agent is None:
+            return
+        now = time.time()
+        duration = round(now - last_time[0], 3)
+        last_time[0] = now
+
+        context_chars = 0
+        try:
+            messages = agent.write_memory_to_messages()
+            for m in messages:
+                if isinstance(m, dict):
+                    content = m.get("content", "")
+                else:
+                    content = getattr(m, "content", "")
+                context_chars += len(str(content))
+        except Exception:
+            pass
+
+        step_data.append({"duration_sec": duration, "context_chars": context_chars})
+
+    return _capture
 
 
 def _make_prompt_logger_callback(log_path: Path):
@@ -130,6 +192,16 @@ def _make_prompt_logger_callback(log_path: Path):
     return _log
 
 
+def _compile_passed_from_observations(tool_name: str, observations: str) -> Optional[bool]:
+    """Derive compile_passed from a tool's observation string.
+
+    Returns True/False for compile tools, None for all others.
+    """
+    if tool_name not in _COMPILE_TOOLS:
+        return None
+    return "Compilation succeeded." in observations and "Compilation errors:" not in observations
+
+
 def run_agent(
     model: str,
     task: str,
@@ -159,7 +231,13 @@ def run_agent(
         api_key="ollama",
     )
 
-    step_callbacks = [_make_observations_prune_callback()]
+    start_time = time.time()
+    step_data: List[Dict[str, Any]] = []
+
+    step_callbacks = [
+        _make_observations_prune_callback(),
+        _make_step_data_callback(step_data, run_start=start_time),
+    ]
     if prompt_log_path is not None:
         step_callbacks.append(_make_prompt_logger_callback(prompt_log_path))
 
@@ -197,49 +275,85 @@ def run_agent(
     errors: List[str] = []
     succeeded = False
     final_output = ""
-    output_tokens = 0
-    start_time = time.time()
+    total_output_tokens = 0
+    total_input_tokens = 0
+    run_result = None
 
     try:
         run_result = agent.run(task, return_full_result=True)
         succeeded = run_result.state == "success"
         final_output = str(run_result.output) if run_result.output else ""
         try:
-            output_tokens = run_result.token_usage.output_tokens or 0
+            total_output_tokens = run_result.token_usage.output_tokens or 0
+            total_input_tokens = run_result.token_usage.input_tokens or 0
         except Exception:
-            output_tokens = 0
+            pass
     except Exception as e:
         errors.append(f"Agent run error: {e}")
         succeeded = False
     finally:
         duration_sec = time.time() - start_time
 
-    tokens_per_sec = output_tokens / duration_sec if duration_sec > 0 and output_tokens > 0 else 0.0
+    tokens_per_sec = (
+        total_output_tokens / duration_sec
+        if duration_sec > 0 and total_output_tokens > 0
+        else 0.0
+    )
 
     step_count = 0
     try:
-        for step in agent.memory.steps:
+        for i, step in enumerate(agent.memory.steps):
             tool_calls = getattr(step, "tool_calls", None) or []
             # Exclude planning steps (no tool_calls) and the final_answer step
             real_calls = [tc for tc in tool_calls if getattr(tc, "name", "") != "final_answer"]
             if not real_calls:
                 continue
             step_count += 1
+
             observations = getattr(step, "observations", "") or ""
-            result_summary = (
-                str(observations)[:200] + "..."
-                if len(str(observations)) > 200
-                else str(observations)
-            )
+            obs_str = str(observations)
+            result_summary = obs_str[:200] + "..." if len(obs_str) > 200 else obs_str
+
+            # Per-step timing and context from step_data (index matches real step order).
+            # step_data is indexed by callback invocation order, not by step_count,
+            # because TaskStep (planning) steps also trigger the callback.
+            # We use i (raw index into memory.steps) to align with step_data entries.
+            sd = step_data[i] if i < len(step_data) else {}
+            step_duration = sd.get("duration_sec", 0.0)
+            context_chars = sd.get("context_chars", 0)
+
             for tc in real_calls:
+                tool_name = getattr(tc, "name", "unknown")
+                compile_passed = _compile_passed_from_observations(tool_name, obs_str)
                 tool_call_log.append({
                     "step": step_count,
-                    "tool": getattr(tc, "name", "unknown"),
+                    "tool": tool_name,
                     "args": getattr(tc, "arguments", {}),
                     "result_summary": result_summary,
+                    "compile_passed": compile_passed,
+                    "duration_sec": step_duration,
+                    "context_chars": context_chars,
                 })
     except Exception as e:
         errors.append(f"Log extraction error: {e}")
+
+    # Derive aggregate metrics from tool_call_log.
+    first_compile_success_step: Optional[int] = None
+    compile_error_recovery_count = 0
+    prev_compile_passed: Optional[bool] = None
+
+    for entry in tool_call_log:
+        cp = entry.get("compile_passed")
+        if cp is not None:
+            if cp and first_compile_success_step is None:
+                first_compile_success_step = entry["step"]
+            if cp and prev_compile_passed is False:
+                compile_error_recovery_count += 1
+            prev_compile_passed = cp
+
+    rag_queries_count = sum(1 for e in tool_call_log if e.get("tool") == "query_rag")
+    read_file_count = sum(1 for e in tool_call_log if e.get("tool") == "read_file")
+    list_files_count = sum(1 for e in tool_call_log if e.get("tool") == "list_files")
 
     return AgentRunResult(
         succeeded=succeeded,
@@ -249,4 +363,11 @@ def run_agent(
         duration_sec=duration_sec,
         tokens_per_sec=tokens_per_sec,
         errors=errors,
+        total_input_tokens=total_input_tokens,
+        total_output_tokens=total_output_tokens,
+        first_compile_success_step=first_compile_success_step,
+        compile_error_recovery_count=compile_error_recovery_count,
+        rag_queries_count=rag_queries_count,
+        read_file_count=read_file_count,
+        list_files_count=list_files_count,
     )

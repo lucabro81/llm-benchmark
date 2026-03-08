@@ -72,6 +72,9 @@ def _make_agent_result(**kwargs):
             {"step": 2, "tool": "write_file", "args": {}, "result_summary": "written"},
         ],
         duration_sec=12.0, tokens_per_sec=20.0, errors=[],
+        total_input_tokens=500, total_output_tokens=200,
+        first_compile_success_step=2, compile_error_recovery_count=0,
+        rag_queries_count=1, read_file_count=0, list_files_count=0,
     )
     defaults.update(kwargs)
     return SimpleNamespace(**defaults)

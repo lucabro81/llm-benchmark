@@ -13,7 +13,7 @@ import subprocess
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from rich.console import Console
 from smolagents import tool
@@ -60,6 +60,13 @@ class AgentBenchmarkResult:
     iterations: int
     succeeded: bool
     tool_call_log: List[Dict[str, Any]] = field(default_factory=list)
+    total_input_tokens: int = 0
+    total_output_tokens: int = 0
+    first_compile_success_step: Optional[int] = None
+    compile_error_recovery_count: int = 0
+    rag_queries_count: int = 0
+    read_file_count: int = 0
+    list_files_count: int = 0
 
 
 def _make_tools(
@@ -250,7 +257,7 @@ class AgentTest:
         self._compilation_cwd = self.target_project / compilation_cwd_rel
         self._compilation_command = self.validation_spec.get("compilation_command", "check-types")
 
-    def run(self, run_number: int = 1) -> AgentBenchmarkResult:
+    def run(self, run_number: int = 1, prompt_log_path: "Optional[Path]" = None) -> AgentBenchmarkResult:
         """Execute a single agent test run."""
         timestamp = datetime.now().isoformat()
         errors: List[str] = []
@@ -282,6 +289,7 @@ class AgentTest:
                 tools=tools,
                 max_steps=self.max_steps,
                 extra_system_prompt=_RAG_REMINDER,
+                prompt_log_path=prompt_log_path,
             )
             errors.extend(agent_result.errors)
             iterations = sum(
@@ -369,6 +377,13 @@ class AgentTest:
                 iterations=iterations,
                 succeeded=agent_result.succeeded,
                 tool_call_log=agent_result.tool_call_log,
+                total_input_tokens=agent_result.total_input_tokens,
+                total_output_tokens=agent_result.total_output_tokens,
+                first_compile_success_step=agent_result.first_compile_success_step,
+                compile_error_recovery_count=agent_result.compile_error_recovery_count,
+                rag_queries_count=agent_result.rag_queries_count,
+                read_file_count=agent_result.read_file_count,
+                list_files_count=agent_result.list_files_count,
             )
 
         finally:

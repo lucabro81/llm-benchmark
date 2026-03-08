@@ -10,7 +10,9 @@ the default parameter of discover_fixtures referenced a deleted constant.
 import json
 import sys
 import types
+from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any, Dict, List
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -25,6 +27,41 @@ from run_test import (
     save_results,
 )
 from src.creation.nuxt_form_oneshot.test_runner import BenchmarkResult
+
+
+# ---------------------------------------------------------------------------
+# Minimal AgentBenchmarkResult for save_results agent tests
+# ---------------------------------------------------------------------------
+
+@dataclass
+class _FakeAgentResult:
+    """Minimal stand-in for AgentBenchmarkResult used in save_results tests."""
+    model: str = "m"
+    fixture: str = "f"
+    timestamp: str = "2024-01-01T00:00:00"
+    run_number: int = 1
+    compiles: bool = True
+    compilation_errors: List[str] = field(default_factory=list)
+    compilation_warnings: List[str] = field(default_factory=list)
+    pattern_score: float = 8.0
+    ast_missing: List[str] = field(default_factory=list)
+    ast_checks: dict = field(default_factory=dict)
+    naming_score: float = 8.0
+    naming_violations: List[str] = field(default_factory=list)
+    final_score: float = 7.0
+    scoring_weights: dict = field(default_factory=dict)
+    tokens_per_sec: float = 30.0
+    duration_sec: float = 10.0
+    output_code: str = ""
+    errors: List[str] = field(default_factory=list)
+    steps: int = 2
+    max_steps: int = 10
+    iterations: int = 2
+    succeeded: bool = True
+    tool_call_log: List[Dict[str, Any]] = field(default_factory=lambda: [
+        {"step": 1, "tool": "write_file", "compile_passed": False, "duration_sec": 3.1, "context_chars": 800, "result_summary": "errors"},
+        {"step": 2, "tool": "write_file", "compile_passed": True, "duration_sec": 2.8, "context_chars": 900, "result_summary": "ok"},
+    ])
 
 
 # ---------------------------------------------------------------------------
@@ -216,6 +253,119 @@ class TestSaveResults:
         path = save_results([result], "model", "fixture")
         data = json.loads(path.read_text())
         assert data[0]["final_score"] == 9.5
+
+
+# ---------------------------------------------------------------------------
+# save_results — agent mode (folder output)
+# ---------------------------------------------------------------------------
+
+class TestSaveAgentResults:
+    def _make_agent_results(self, n=2):
+        return [_FakeAgentResult(run_number=i + 1) for i in range(n)]
+
+    def test_agent_save_creates_folder_not_file(self, tmp_path, monkeypatch):
+        import run_test
+        monkeypatch.setattr(run_test, "OUTPUT_DIR", tmp_path)
+        results = self._make_agent_results()
+        out = save_results(results, "mymodel", "nuxt-form-agent-guided", requested_runs=2)
+        assert out.is_dir()
+
+    def test_agent_folder_name_contains_model_fixture_runs(self, tmp_path, monkeypatch):
+        import run_test
+        monkeypatch.setattr(run_test, "OUTPUT_DIR", tmp_path)
+        results = self._make_agent_results(3)
+        out = save_results(results, "mymodel:7b", "nuxt-form-agent-guided", requested_runs=3)
+        assert "mymodel" in out.name
+        assert "nuxt-form-agent-guided" in out.name
+        assert "3runs" in out.name
+
+    def test_agent_folder_name_no_colon(self, tmp_path, monkeypatch):
+        import run_test
+        monkeypatch.setattr(run_test, "OUTPUT_DIR", tmp_path)
+        results = self._make_agent_results()
+        out = save_results(results, "model:7b", "fixture", requested_runs=2)
+        assert ":" not in out.name
+
+    def test_agent_save_creates_summary_json(self, tmp_path, monkeypatch):
+        import run_test
+        monkeypatch.setattr(run_test, "OUTPUT_DIR", tmp_path)
+        results = self._make_agent_results()
+        out = save_results(results, "m", "f", requested_runs=2)
+        assert (out / "summary.json").exists()
+
+    def test_agent_save_creates_steps_jsonl(self, tmp_path, monkeypatch):
+        import run_test
+        monkeypatch.setattr(run_test, "OUTPUT_DIR", tmp_path)
+        results = self._make_agent_results()
+        out = save_results(results, "m", "f", requested_runs=2)
+        assert (out / "steps.jsonl").exists()
+
+    def test_summary_json_has_n_runs_and_runs_array(self, tmp_path, monkeypatch):
+        import run_test
+        monkeypatch.setattr(run_test, "OUTPUT_DIR", tmp_path)
+        results = self._make_agent_results(2)
+        out = save_results(results, "m", "f", requested_runs=2)
+        data = json.loads((out / "summary.json").read_text())
+        assert data["n_runs"] == 2
+        assert isinstance(data["runs"], list)
+        assert len(data["runs"]) == 2
+
+    def test_steps_jsonl_has_one_line_per_tool_call_per_run(self, tmp_path, monkeypatch):
+        import run_test
+        monkeypatch.setattr(run_test, "OUTPUT_DIR", tmp_path)
+        # Each _FakeAgentResult has 2 tool_call_log entries, 2 runs = 4 lines
+        results = self._make_agent_results(2)
+        out = save_results(results, "m", "f", requested_runs=2)
+        lines = [l for l in (out / "steps.jsonl").read_text().splitlines() if l.strip()]
+        assert len(lines) == 4
+
+    def test_steps_jsonl_entries_have_run_field(self, tmp_path, monkeypatch):
+        import run_test
+        monkeypatch.setattr(run_test, "OUTPUT_DIR", tmp_path)
+        results = self._make_agent_results(1)
+        out = save_results(results, "m", "f", requested_runs=1)
+        lines = (out / "steps.jsonl").read_text().splitlines()
+        entry = json.loads(lines[0])
+        assert "run" in entry
+
+    def test_steps_jsonl_entries_have_step_tool_compile_passed(self, tmp_path, monkeypatch):
+        import run_test
+        monkeypatch.setattr(run_test, "OUTPUT_DIR", tmp_path)
+        results = self._make_agent_results(1)
+        out = save_results(results, "m", "f", requested_runs=1)
+        lines = (out / "steps.jsonl").read_text().splitlines()
+        entry = json.loads(lines[0])
+        assert "step" in entry
+        assert "tool" in entry
+        assert "compile_passed" in entry
+
+    def test_steps_jsonl_no_args_content(self, tmp_path, monkeypatch):
+        """steps.jsonl must not include args (could contain full file content)."""
+        import run_test
+        monkeypatch.setattr(run_test, "OUTPUT_DIR", tmp_path)
+        results = self._make_agent_results(1)
+        out = save_results(results, "m", "f", requested_runs=1)
+        lines = (out / "steps.jsonl").read_text().splitlines()
+        for line in lines:
+            assert "args" not in json.loads(line)
+
+    def test_existing_agent_output_dir_used_if_provided(self, tmp_path, monkeypatch):
+        """If agent_output_dir is given, use it (for prompt_log co-location)."""
+        import run_test
+        monkeypatch.setattr(run_test, "OUTPUT_DIR", tmp_path)
+        preset_dir = tmp_path / "preset_dir"
+        results = self._make_agent_results(1)
+        out = save_results(results, "m", "f", requested_runs=1, agent_output_dir=preset_dir)
+        assert out == preset_dir
+        assert (preset_dir / "summary.json").exists()
+
+    def test_single_shot_still_returns_json_file(self, tmp_path, monkeypatch):
+        import run_test
+        monkeypatch.setattr(run_test, "OUTPUT_DIR", tmp_path)
+        result = make_result()
+        path = save_results([result], "m", "single-shot")
+        assert path.is_file()
+        assert path.suffix == ".json"
 
 
 # ---------------------------------------------------------------------------
