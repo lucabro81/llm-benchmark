@@ -1,0 +1,8 @@
+{"run": 1, "step": 1, "tool": "write_file", "compile_passed": null, "duration_sec": 2.8, "context_chars": 3100, "result_summary": "Wrote file apps/web/src/registration/components/RegistrationForm.vue (87 lines)"}
+{"run": 1, "step": 2, "tool": "run_compilation", "compile_passed": false, "duration_sec": 14.2, "context_chars": 3800, "result_summary": "Compilation errors:\napps/web/src/registration/components/RegistrationForm.vue(15,3): error TS2339: Property 'values' does not exist on type 'FormContext'."}
+{"run": 1, "step": 3, "tool": "write_file", "compile_passed": null, "duration_sec": 3.1, "context_chars": 4600, "result_summary": "Wrote file apps/web/src/registration/components/RegistrationForm.vue (91 lines)"}
+{"run": 1, "step": 4, "tool": "run_compilation", "compile_passed": true, "duration_sec": 13.8, "context_chars": 5400, "result_summary": "Compilation succeeded."}
+{"run": 2, "step": 1, "tool": "write_file", "compile_passed": null, "duration_sec": 2.8, "context_chars": 3100, "result_summary": "Wrote file apps/web/src/registration/components/RegistrationForm.vue (87 lines)"}
+{"run": 2, "step": 2, "tool": "run_compilation", "compile_passed": false, "duration_sec": 14.2, "context_chars": 3800, "result_summary": "Compilation errors:\napps/web/src/registration/components/RegistrationForm.vue(15,3): error TS2339: Property 'values' does not exist on type 'FormContext'."}
+{"run": 2, "step": 3, "tool": "write_file", "compile_passed": null, "duration_sec": 3.1, "context_chars": 4600, "result_summary": "Wrote file apps/web/src/registration/components/RegistrationForm.vue (91 lines)"}
+{"run": 2, "step": 4, "tool": "run_compilation", "compile_passed": true, "duration_sec": 13.8, "context_chars": 5400, "result_summary": "Compilation succeeded."}

@@ -9,13 +9,12 @@ __pycache__/
 dist/
 build/
 
-# Results & Output
-results/
-*.json
+# Results & Output — ignore everything except published sessions
+results/*
+!results/published
+results/published/*
+!results/published/session__*
 *.csv
-!package.json
-!package-lock.json
-!fixtures/**/*.json
 
 # Temp files
 *.tmp
