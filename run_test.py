@@ -106,6 +106,24 @@ def _get_runner_class(module) -> Type:
 # Display helpers
 # ---------------------------------------------------------------------------
 
+def _make_session_dir(session_name: Optional[str]) -> Path:
+    """Compute (but do not create) the session output directory path.
+
+    Pattern: OUTPUT_DIR/session__{name}__{ts} if name provided,
+             OUTPUT_DIR/session__{ts} otherwise.
+
+    Args:
+        session_name: Optional human-readable label for the session.
+
+    Returns:
+        Path object (not yet created on disk).
+    """
+    ts = int(time.time())
+    if session_name:
+        return OUTPUT_DIR / f"session__{session_name}__{ts}"
+    return OUTPUT_DIR / f"session__{ts}"
+
+
 def show_header(model: str, fixtures: List[Path], runs: int):
     """Display benchmark header."""
     fixture_names = ", ".join(f.name for f in fixtures)
@@ -184,6 +202,7 @@ def _save_agent_results(
     fixture_name: str,
     requested_runs: int,
     agent_output_dir: Optional[Path] = None,
+    output_dir: Optional[Path] = None,
 ) -> Path:
     """Save agent results to a folder with summary.json + steps.jsonl.
 
@@ -196,15 +215,17 @@ def _save_agent_results(
         requested_runs: Number of runs requested (from --runs)
         agent_output_dir: Pre-created output folder (e.g. from run_fixture for
             prompt log co-location). If None, a new folder is created.
+        output_dir: Base directory for output. Defaults to OUTPUT_DIR.
 
     Returns:
         Path to the output folder.
     """
-    OUTPUT_DIR.mkdir(exist_ok=True)
+    base = output_dir if output_dir is not None else OUTPUT_DIR
+    base.mkdir(parents=True, exist_ok=True)
     if agent_output_dir is None:
-        model_safe = model.replace(":", "_").replace(".", "-")
+        model_safe = model.replace(":", "__")
         unix_ts = int(time.time())
-        agent_output_dir = OUTPUT_DIR / f"{model_safe}__{fixture_name}__{requested_runs}runs__{unix_ts}"
+        agent_output_dir = base / f"{model_safe}__{fixture_name}__{requested_runs}runs__{unix_ts}"
     agent_output_dir.mkdir(parents=True, exist_ok=True)
 
     # summary.json — metadata + full run results (including tool_call_log with args)
@@ -242,6 +263,7 @@ def save_results(
     fixture_name: str,
     requested_runs: Optional[int] = None,
     agent_output_dir: Optional[Path] = None,
+    output_dir: Optional[Path] = None,
 ) -> Path:
     """Save results for one fixture.
 
@@ -255,20 +277,22 @@ def save_results(
         requested_runs: Number of runs requested (--runs N). Defaults to len(results).
         agent_output_dir: Pre-created folder for agent output (optional; used when
             prompt logs were already written there during the run).
+        output_dir: Base directory for output. Defaults to OUTPUT_DIR.
 
     Returns:
         Path to saved JSON file (single-shot) or folder (agent).
     """
     n_runs = requested_runs if requested_runs is not None else len(results)
+    base = output_dir if output_dir is not None else OUTPUT_DIR
 
     if results and _is_agent_result(results[0]):
-        return _save_agent_results(results, model, fixture_name, n_runs, agent_output_dir)
+        return _save_agent_results(results, model, fixture_name, n_runs, agent_output_dir, base)
 
-    # Single-shot: original flat JSON file
-    OUTPUT_DIR.mkdir(exist_ok=True)
+    # Single-shot: flat JSON file
+    base.mkdir(parents=True, exist_ok=True)
     timestamp = results[0].timestamp.replace(":", "-")
-    model_safe = model.replace(":", "_").replace(".", "-")
-    output_file = OUTPUT_DIR / f"{model_safe}__{fixture_name}__{timestamp}.json"
+    model_safe = model.replace(":", "__")
+    output_file = base / f"{model_safe}__{fixture_name}__{timestamp}.json"
     with open(output_file, "w") as f:
         json.dump([r.__dict__ for r in results], f, indent=2)
     return output_file
@@ -348,20 +372,30 @@ def parse_arguments() -> argparse.Namespace:
         epilog=(
             "Examples:\n"
             "  python run_test.py --model qwen2.5-coder:7b-instruct-q8_0\n"
-            "  python run_test.py --model qwen2.5-coder:7b-instruct-q8_0 --fixture simple-component\n"
-            "  python run_test.py --model qwen2.5-coder:7b-instruct-q8_0 --runs 1\n"
+            "  python run_test.py --models qwen2.5-coder:7b qwen2.5-coder:14b\n"
+            "  python run_test.py --models qwen2.5-coder:7b --fixture nuxt-form-oneshot\n"
+            "  python run_test.py --models qwen2.5-coder:7b --runs 1 --session-name my-run\n"
         ),
     )
-    parser.add_argument(
+    model_group = parser.add_mutually_exclusive_group(required=True)
+    model_group.add_argument(
+        "--models",
+        nargs="+",
+        metavar="MODEL",
+        dest="models",
+        help="One or more Ollama model names",
+    )
+    model_group.add_argument(
         "--model",
-        required=True,
-        help="Ollama model name (e.g., qwen2.5-coder:7b-instruct-q8_0)",
+        metavar="MODEL",
+        dest="_model_alias",
+        help=argparse.SUPPRESS,
     )
     parser.add_argument(
         "--fixture",
         default=None,
         metavar="NAME",
-        help="Fixture name under fixtures/refactoring/ (runs ALL if omitted)",
+        help="Task name under tasks/ (runs ALL if omitted)",
     )
     parser.add_argument(
         "--runs",
@@ -371,12 +405,22 @@ def parse_arguments() -> argparse.Namespace:
         help="Number of runs per fixture (default: 3)",
     )
     parser.add_argument(
+        "--session-name",
+        default=None,
+        metavar="NAME",
+        help="Human-readable label for the session folder (optional)",
+    )
+    parser.add_argument(
         "--log-prompts",
         action="store_true",
         default=False,
         help="Log full message list sent to the model at each step (JSONL in results/)",
     )
-    return parser.parse_args()
+    args = parser.parse_args()
+    # Normalise --model alias into args.models list
+    if args._model_alias is not None:
+        args.models = [args._model_alias]
+    return args
 
 
 # ---------------------------------------------------------------------------
@@ -413,61 +457,71 @@ def main() -> int:
         console.print(f"[red]✗ {e}[/red]")
         return 1
 
-    show_header(args.model, fixtures, args.runs)
+    # Create session directory (always, even for a single model)
+    session_dir = _make_session_dir(args.session_name)
+    session_dir.mkdir(parents=True, exist_ok=True)
+    console.print(f"[dim]Session: {session_dir}[/dim]")
 
-    all_results: List[BenchmarkResult] = []
     had_errors = False
 
-    for index, fixture_path in enumerate(fixtures, start=1):
-        show_fixture_header(fixture_path.name, index, len(fixtures))
+    for model in args.models:
+        model_safe = model.replace(":", "__")
+        model_dir = session_dir / model_safe
+        model_dir.mkdir(parents=True, exist_ok=True)
 
-        try:
-            runner_module = _get_runner_module(fixture_path)
-        except ValueError as e:
-            console.print(f"[red]✗ {e}[/red]")
-            had_errors = True
-            continue
+        show_header(model, fixtures, args.runs)
 
-        # Pre-create output folder for agent tests so prompt_log_path is co-located.
-        is_agent = hasattr(runner_module, "AgentTest")
-        agent_out_dir: Optional[Path] = None
-        if is_agent:
-            model_safe = args.model.replace(":", "_").replace(".", "-")
-            unix_ts = int(time.time())
-            agent_out_dir = (
-                OUTPUT_DIR
-                / f"{model_safe}__{fixture_path.name}__{args.runs}runs__{unix_ts}"
+        all_results: List[BenchmarkResult] = []
+
+        for index, fixture_path in enumerate(fixtures, start=1):
+            show_fixture_header(fixture_path.name, index, len(fixtures))
+
+            try:
+                runner_module = _get_runner_module(fixture_path)
+            except ValueError as e:
+                console.print(f"[red]✗ {e}[/red]")
+                had_errors = True
+                continue
+
+            # Pre-create output folder for agent tests so prompt_log_path is co-located.
+            is_agent = hasattr(runner_module, "AgentTest")
+            agent_out_dir: Optional[Path] = None
+            if is_agent:
+                unix_ts = int(time.time())
+                agent_out_dir = (
+                    model_dir
+                    / f"{model_safe}__{fixture_path.name}__{args.runs}runs__{unix_ts}"
+                )
+                agent_out_dir.mkdir(parents=True, exist_ok=True)
+
+            results = run_fixture(
+                model,
+                fixture_path,
+                args.runs,
+                runner_module,
+                log_prompts=args.log_prompts,
+                agent_output_dir=agent_out_dir,
             )
-            OUTPUT_DIR.mkdir(exist_ok=True)
-            agent_out_dir.mkdir(parents=True, exist_ok=True)
 
-        results = run_fixture(
-            args.model,
-            fixture_path,
-            args.runs,
-            runner_module,
-            log_prompts=args.log_prompts,
-            agent_output_dir=agent_out_dir,
-        )
+            if results is None:
+                had_errors = True
+                continue
 
-        if results is None:
-            had_errors = True
-            continue
+            output_file = save_results(
+                results,
+                model,
+                fixture_path.name,
+                requested_runs=args.runs,
+                agent_output_dir=agent_out_dir,
+                output_dir=model_dir,
+            )
+            console.print(f"\n[green]✓ Results saved to {output_file}[/green]")
 
-        output_file = save_results(
-            results,
-            args.model,
-            fixture_path.name,
-            requested_runs=args.runs,
-            agent_output_dir=agent_out_dir,
-        )
-        console.print(f"\n[green]✓ Results saved to {output_file}[/green]")
+            show_fixture_summary(results, fixture_path.name)
+            all_results.extend(results)
 
-        show_fixture_summary(results, fixture_path.name)
-        all_results.extend(results)
-
-    if len(fixtures) > 1 and all_results:
-        show_overall_summary(all_results, len(fixtures))
+        if len(fixtures) > 1 and all_results:
+            show_overall_summary(all_results, len(fixtures))
 
     return 1 if had_errors else 0
 

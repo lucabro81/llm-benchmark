@@ -22,6 +22,7 @@ from run_test import (
     _RUNNER_MAP,
     _get_runner_class,
     _get_runner_module,
+    _make_session_dir,
     discover_fixtures,
     parse_arguments,
     save_results,
@@ -397,3 +398,85 @@ class TestParseArguments:
         with patch("sys.argv", ["run_test.py", "--model", "mymodel", "--fixture", "nuxt-form-oneshot"]):
             args = parse_arguments()
         assert args.fixture == "nuxt-form-oneshot"
+
+    def test_models_accepts_multiple_values(self):
+        with patch("sys.argv", ["run_test.py", "--models", "m1", "m2", "m3"]):
+            args = parse_arguments()
+        assert args.models == ["m1", "m2", "m3"]
+
+    def test_model_alias_produces_single_element_list(self):
+        with patch("sys.argv", ["run_test.py", "--model", "mymodel"]):
+            args = parse_arguments()
+        assert args.models == ["mymodel"]
+
+    def test_session_name_default_is_none(self):
+        with patch("sys.argv", ["run_test.py", "--model", "m"]):
+            args = parse_arguments()
+        assert args.session_name is None
+
+    def test_session_name_passed(self):
+        with patch("sys.argv", ["run_test.py", "--model", "m", "--session-name", "my-session"]):
+            args = parse_arguments()
+        assert args.session_name == "my-session"
+
+    def test_no_model_or_models_exits(self):
+        with patch("sys.argv", ["run_test.py"]):
+            with pytest.raises(SystemExit):
+                parse_arguments()
+
+
+# ---------------------------------------------------------------------------
+# _make_session_dir
+# ---------------------------------------------------------------------------
+
+class TestMakeSessionDir:
+    def test_starts_with_session_prefix(self, tmp_path, monkeypatch):
+        import run_test
+        monkeypatch.setattr(run_test, "OUTPUT_DIR", tmp_path)
+        d = _make_session_dir(None)
+        assert d.parent == tmp_path
+        assert d.name.startswith("session__")
+
+    def test_contains_session_name_when_provided(self, tmp_path, monkeypatch):
+        import run_test
+        monkeypatch.setattr(run_test, "OUTPUT_DIR", tmp_path)
+        d = _make_session_dir("my-run")
+        assert "my-run" in d.name
+
+    def test_no_name_still_valid_path(self, tmp_path, monkeypatch):
+        import run_test
+        monkeypatch.setattr(run_test, "OUTPUT_DIR", tmp_path)
+        d = _make_session_dir(None)
+        assert isinstance(d, Path)
+
+    def test_session_dir_is_not_created_by_function(self, tmp_path, monkeypatch):
+        """_make_session_dir only computes the path, does not mkdir."""
+        import run_test
+        monkeypatch.setattr(run_test, "OUTPUT_DIR", tmp_path)
+        d = _make_session_dir(None)
+        assert not d.exists()
+
+
+# ---------------------------------------------------------------------------
+# save_results with explicit output_dir
+# ---------------------------------------------------------------------------
+
+class TestSaveResultsOutputDir:
+    def test_single_shot_respects_output_dir(self, tmp_path):
+        custom_dir = tmp_path / "custom"
+        result = make_result()
+        path = save_results([result], "m", "fix", output_dir=custom_dir)
+        assert path.parent == custom_dir
+
+    def test_agent_respects_output_dir(self, tmp_path):
+        custom_dir = tmp_path / "custom"
+        results = [_FakeAgentResult(run_number=1)]
+        out = save_results(results, "m", "f", requested_runs=1, output_dir=custom_dir)
+        assert out.parent == custom_dir
+
+    def test_model_safe_name_in_output(self, tmp_path):
+        """Colon in model name replaced with __ in output path."""
+        custom_dir = tmp_path / "out"
+        result = make_result()
+        path = save_results([result], "model:7b", "fix", output_dir=custom_dir)
+        assert ":" not in path.name
