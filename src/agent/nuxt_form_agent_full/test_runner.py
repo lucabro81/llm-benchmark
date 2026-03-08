@@ -226,12 +226,20 @@ class AgentTest:
         with open(spec_file) as f:
             self.validation_spec = json.load(f)
 
-        rag_docs_path = fixture_path / "rag_docs"
+        rag_docs_rel = self.validation_spec.get("rag_docs_path")
+        if rag_docs_rel:
+            rag_docs_path = (fixture_path / rag_docs_rel).resolve()
+        else:
+            rag_docs_path = fixture_path / "rag_docs"
         if not rag_docs_path.exists():
             raise FileNotFoundError(f"rag_docs directory not found in {fixture_path}")
         self._rag_tool = QueryRagTool(rag_docs_path)
 
-        self.target_project = fixture_path / "target_project"
+        tp_path_rel = self.validation_spec.get("target_project_path")
+        if tp_path_rel:
+            self.target_project = (fixture_path / tp_path_rel).resolve()
+        else:
+            self.target_project = fixture_path / "target_project"
         if not self.target_project.exists():
             raise FileNotFoundError(f"target_project not found in {fixture_path}")
 
