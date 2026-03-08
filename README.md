@@ -56,23 +56,28 @@ OLLAMA_BASE_URL=http://192.168.1.100:11434
 ```bash
 source venv/bin/activate
 
-# Run all tasks with a model (3 runs each)
+# Run all tasks with a single model (3 runs each)
 python run_test.py --model qwen2.5-coder:7b-instruct-q8_0
+
+# Run all tasks on multiple models in series, grouped in a named session
+python run_test.py --models qwen2.5-coder:7b-instruct-q8_0 qwen2.5-coder:14b-instruct-q8_0 \
+  --session-name my-comparison
 
 # Run a specific task
 python run_test.py --model qwen2.5-coder:7b-instruct-q8_0 --fixture nuxt-form-oneshot
-python run_test.py --model qwen2.5-coder:7b-instruct-q8_0 --fixture nuxt-form-agent-guided
-python run_test.py --model qwen2.5-coder:7b-instruct-q8_0 --fixture nuxt-form-agent-twofiles
-python run_test.py --model qwen2.5-coder:7b-instruct-q8_0 --fixture nuxt-form-agent-rag
-python run_test.py --model qwen2.5-coder:7b-instruct-q8_0 --fixture nuxt-form-agent-full
 
 # Change number of runs
 python run_test.py --model qwen2.5-coder:7b-instruct-q8_0 --runs 5
 ```
 
-Results are saved as JSON to `results/` (gitignored):
+Results are saved to `results/` (gitignored by default):
 ```
-results/{model}_{task}_{timestamp}.json
+results/session__{name}__{timestamp}/{model}/
+```
+
+To publish results for the dashboard, copy (or symlink) the session folder to `results/published/`:
+```bash
+cp -r results/session__my-comparison__* results/published/
 ```
 
 ## Tasks
@@ -213,7 +218,15 @@ llm-benchmark/
 │   ├── test_nuxt_form_agent_full_validator.py
 │   └── test_nuxt_form_agent_full_runner.py
 │
-└── results/                       # Benchmark outputs (gitignored)
+├── results/
+│   └── published/                 # Versioned results (session__* folders committed)
+│       └── session__*/            # One folder per published session
+│
+└── dashboard/                     # Nuxt 4 SSG dashboard
+    ├── app/
+    │   ├── pages/                 # sessions/[sessionName]/... drill-down routes
+    │   └── components/            # ScoreBar, Breadcrumb
+    └── server/api/                # Build-time API routes (read results/published/)
 ```
 
 ## Development
@@ -286,8 +299,24 @@ Integration tests (marked `@pytest.mark.integration`) require a live Ollama inst
 - `src/agent/<task_name>/rag.py` — `QueryRagTool(Tool)` using `BM25Plus` (not BM25Okapi)
 - `compilation_cwd` and `compilation_command` in `validation_spec.json` if non-standard (e.g. Turborepo monorepo)
 
+### Dashboard
+
+The `dashboard/` directory contains a Nuxt 4 SSG app that visualises published results.
+
+```bash
+cd dashboard
+npm install
+npm run dev        # dev server on :3000
+npm run generate   # static build (reads ../results/published/)
+```
+
+Navigation: sessions list → session comparison (with model selector, max 4) → model detail → fixture runs → run detail with tool call log, AST checks, and generated output.
+
+To deploy to GitHub Pages set `NUXT_APP_BASE_URL=/llm-benchmark/` at build time.
+
 ### Environment Variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama server URL |
+| `NUXT_APP_BASE_URL` | `/` | Base URL for the dashboard (set to `/llm-benchmark/` for GitHub Pages) |

@@ -80,6 +80,34 @@ Red flags to report:
 │       ├── turborepo-nuxt-vue-elements/   # Turborepo monorepo (apps/web + packages/elements)
 │       └── rag-docs-vue-elements-form/    # 5 BM25-indexed form example files (shared by D and E)
 │
+├── results/
+│   └── published/                 # Versioned results (gitignored except session__* folders)
+│       └── session__*/            # Committed via explicit `git add`
+│
+├── dashboard/                     # Nuxt 4 SSG dashboard
+│   ├── app/
+│   │   ├── pages/
+│   │   │   ├── index.vue                                    # Sessions list
+│   │   │   └── sessions/[sessionName]/
+│   │   │       ├── index.vue                                # Comparison + model selector
+│   │   │       └── [modelName]/
+│   │   │           ├── index.vue                            # Model detail (fixture × run table)
+│   │   │           └── [fixtureName]/
+│   │   │               ├── index.vue                        # Fixture detail (per-run cards)
+│   │   │               └── [runNumber].vue                  # Run detail (full data)
+│   │   └── components/
+│   │       ├── ScoreBar.vue                                 # Colored score bar (0-10)
+│   │       └── Breadcrumb.vue                               # Navigation breadcrumb
+│   └── server/api/
+│       ├── manifest.get.ts                                  # List published sessions
+│       └── sessions/
+│           ├── [name].get.ts                                # Session comparison aggregates
+│           └── [name]/
+│               ├── [model].get.ts                           # Model fixtures + run summaries
+│               └── [model]/
+│                   ├── [fixture].get.ts                     # Fixture runs (no output_code)
+│                   └── [fixture]/[run].get.ts               # Single run (full, with output_code)
+│
 ├── tasks/                         # One directory per task (flat)
 │   ├── nuxt-form-oneshot/         # Test A — single-shot, full context inline
 │   │   ├── prompt.md
@@ -101,6 +129,27 @@ Red flags to report:
 ├── results/                       # gitignored, created at runtime
 └── run_test.py                    # CLI entry point
 ```
+
+---
+
+## Dashboard
+
+Nuxt 4 SSG app in `dashboard/`. Reads `results/published/` at build time via server API routes; all aggregations happen server-side. Client receives only pre-computed JSON.
+
+```bash
+cd dashboard && npm run dev       # dev server
+npm run generate                  # static build
+NUXT_APP_BASE_URL=/llm-benchmark/ npm run generate  # GitHub Pages
+```
+
+**Route structure** (no wrapper `.vue` files — each directory uses `index.vue`):
+- `/` — sessions list
+- `/sessions/[sessionName]` — comparison table with model selector (default: first 2, max 4)
+- `/sessions/[sessionName]/[modelName]` — per-fixture run table for one model
+- `/sessions/[sessionName]/[modelName]/[fixtureName]` — per-run cards with tool call log / AST checks
+- `/sessions/[sessionName]/[modelName]/[fixtureName]/[runNumber]` — full run detail
+
+**Publishing results**: copy a session folder to `results/published/`, then `git add results/published/session__*` and commit.
 
 ---
 
