@@ -42,6 +42,15 @@
         </details>
       </div>
 
+      <!-- Hidden links so SSG crawler pre-renders all model detail pages -->
+      <nav aria-hidden="true" class="prerender-links">
+        <NuxtLink
+          v-for="m in session.models"
+          :key="m.modelFolderName"
+          :to="`/sessions/${route.params.sessionName}/${m.modelFolderName}`"
+        />
+      </nav>
+
       <!-- Model selector pills -->
       <div class="model-pills">
         <button
@@ -548,5 +557,9 @@ details[open] .bench-details__summary::before { content: '▼ '; }
   font-size: 1rem;
   font-weight: 700;
   color: var(--color-text);
+}
+
+.prerender-links {
+  display: none;
 }
 </style>
