@@ -1,4 +1,4 @@
-"""Regex-based validation for the veevalidate-zod-form-nuxt-rag agent fixture.
+"""Regex-based validation for the nuxt-form-agent-full fixture (Test E).
 
 Scoring breakdown (validate_ast_structure, 0-10):
   +1  script_lang           <script ... lang="ts"> present

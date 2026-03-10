@@ -1,4 +1,4 @@
-"""Agent test orchestrator for the veevalidate-zod-form-nuxt-rag fixture.
+"""Agent test orchestrator for the nuxt-form-agent-full fixture (Test E).
 
 Differences from the base agent runner:
 - Two stub files restored (RegistrationForm.vue + types/index.ts)

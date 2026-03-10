@@ -104,8 +104,6 @@ def _get_runner_module(fixture_path: Path):
 
 def _get_runner_class(module) -> Type:
     """Return the test class from an imported runner module."""
-    if hasattr(module, "RefactoringTest"):
-        return module.RefactoringTest
     if hasattr(module, "AgentTest"):
         return module.AgentTest
     return module.CreationTest
@@ -318,6 +316,7 @@ def run_fixture(
     runner_module,
     log_prompts: bool = False,
     agent_output_dir: Optional[Path] = None,
+    output_base: Optional[Path] = None,
 ) -> Optional[List[BenchmarkResult]]:
     """Run benchmark for a single fixture.
 
@@ -356,9 +355,10 @@ def run_fixture(
             # Single-shot: legacy per-run log
             if hasattr(test, "run") and "prompt_log_path" in test.run.__code__.co_varnames:
                 model_safe = model.replace(":", "_").replace(".", "-")
-                OUTPUT_DIR.mkdir(exist_ok=True)
+                log_base = output_base if output_base is not None else OUTPUT_DIR
+                log_base.mkdir(exist_ok=True)
                 run_kwargs["prompt_log_path"] = (
-                    OUTPUT_DIR / f"{model_safe}__{fixture_path.name}__run{i+1}__prompts.jsonl"
+                    log_base / f"{model_safe}__{fixture_path.name}__run{i+1}__prompts.jsonl"
                 )
                 console.print(f"[dim]  prompt log → {run_kwargs['prompt_log_path']}[/dim]")
 
@@ -425,6 +425,12 @@ def parse_arguments() -> argparse.Namespace:
         default=False,
         help="Log full message list sent to the model at each step (JSONL in results/)",
     )
+    parser.add_argument(
+        "--publish",
+        action="store_true",
+        default=False,
+        help="Save session directly to results/published/ instead of results/",
+    )
     args = parser.parse_args()
     # Normalise --model alias into args.models list
     if args._model_alias is not None:
@@ -466,8 +472,11 @@ def main() -> int:
         console.print(f"[red]✗ {e}[/red]")
         return 1
 
+    # Determine output base directory
+    output_base = Path("results/published") if args.publish else OUTPUT_DIR
+
     # Create session directory (always, even for a single model)
-    session_dir = _make_session_dir(args.session_name)
+    session_dir = output_base / _make_session_dir(args.session_name).name
     session_dir.mkdir(parents=True, exist_ok=True)
     console.print(f"[dim]Session: {session_dir}[/dim]")
 
@@ -510,6 +519,7 @@ def main() -> int:
                 runner_module,
                 log_prompts=args.log_prompts,
                 agent_output_dir=agent_out_dir,
+                output_base=output_base,
             )
 
             if results is None:

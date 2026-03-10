@@ -1,4 +1,4 @@
-"""BM25-based RAG tool for the veevalidate-zod-form-nuxt-rag agent fixture.
+"""BM25-based RAG tool for the nuxt-form-agent-full fixture (Test E).
 
 Indexes all files in rag_docs/ and retrieves the top-1 (or top-2 if close)
 most relevant document for any free-text query.
