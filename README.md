@@ -301,7 +301,14 @@ Integration tests (marked `@pytest.mark.integration`) require a live Ollama inst
 
 ### Dashboard
 
-The `dashboard/` directory contains a Nuxt 4 SSG app that visualises published results.
+`dashboard/` is a Nuxt 4 SSG app for exploring benchmark results. It reads `results/published/` at build time — all aggregations happen server-side; the client receives only pre-computed JSON.
+
+**Pages:**
+- **Sessions list** — all published sessions with model count and fixture coverage
+- **Session comparison** — side-by-side fixture scores across up to 4 models (selectable pills); includes a problem description, fixture breakdown table (A→E tools/files/context/max-steps), and score legend
+- **Model detail** — per-fixture run table with score, compile rate, pattern/naming scores, tok/s, duration, steps; fixture labels link directly to the fixture detail page
+- **Fixture detail** — per-run cards showing tool call timeline (agent tasks) or AST check results + compilation errors (oneshot)
+- **Run detail** — full data: agent meta grid (tokens, steps, iterations, RAG queries, file reads), tool call log with duration and context size, AST checks, naming violations, compilation errors, and the raw generated output
 
 ```bash
 cd dashboard
@@ -309,8 +316,6 @@ npm install
 npm run dev        # dev server on :3000
 npm run generate   # static build (reads ../results/published/)
 ```
-
-Navigation: sessions list → session comparison (with model selector, max 4) → model detail → fixture runs → run detail with tool call log, AST checks, and generated output.
 
 To deploy to GitHub Pages set `NUXT_APP_BASE_URL=/llm-benchmark/` at build time.
 
