@@ -198,51 +198,23 @@ llm-benchmark/
 │       ├── turborepo-nuxt-vue-elements/   # Turborepo monorepo (apps/web + packages/elements)
 │       └── rag-docs-vue-elements-form/    # 5 BM25-indexed form example files (used by D and E)
 │
-├── tasks/
-│   ├── nuxt-form-oneshot/
-│   │   ├── prompt.md              # Full spec + all API docs inline
-│   │   └── validation_spec.json   # target_project_path, required_patterns, scoring
-│   ├── nuxt-form-agent-guided/
-│   │   ├── prompt.md
-│   │   └── validation_spec.json   # target_project_path, max_steps: 10
-│   ├── nuxt-form-agent-twofiles/
-│   │   ├── prompt.md
-│   │   └── validation_spec.json   # target_project_path, max_steps: 15
-│   ├── nuxt-form-agent-rag/
-│   │   ├── prompt.md
-│   │   └── validation_spec.json   # target_project_path, rag_docs_path, max_steps: 20
-│   └── nuxt-form-agent-full/
-│       ├── prompt.md
-│       └── validation_spec.json   # target_project_path, rag_docs_path, max_steps: 30
+├── tasks/                         # One directory per task — prompt.md + validation_spec.json
+│   ├── nuxt-form-oneshot/         # Test A
+│   ├── nuxt-form-agent-guided/    # Test B
+│   ├── nuxt-form-agent-twofiles/  # Test C
+│   ├── nuxt-form-agent-rag/       # Test D
+│   └── nuxt-form-agent-full/      # Test E
 │
 ├── scripts/
 │   └── parse_vue_ast.js           # Node.js AST parser (@vue/compiler-sfc + Babel)
 │
-├── tests/                         # TDD test suite
-│   ├── test_ollama_client.py
-│   ├── test_agent_tools.py
-│   ├── test_agent_client.py
-│   ├── test_nuxt_form_oneshot_validator.py
-│   ├── test_nuxt_form_oneshot_runner.py
-│   ├── test_nuxt_form_agent_guided_validator.py
-│   ├── test_nuxt_form_agent_guided_runner.py
-│   ├── test_nuxt_form_agent_twofiles_validator.py
-│   ├── test_nuxt_form_agent_twofiles_runner.py
-│   ├── test_nuxt_form_agent_rag_validator.py
-│   ├── test_nuxt_form_agent_rag_runner.py
-│   ├── test_nuxt_form_agent_full_rag.py
-│   ├── test_nuxt_form_agent_full_validator.py
-│   └── test_nuxt_form_agent_full_runner.py
+├── tests/                         # TDD test suite (validator + runner + shared tooling per task)
 │
 ├── results/
 │   └── published/                 # Versioned results (session__* folders committed)
 │       └── session__*/            # One folder per published session
 │
 └── dashboard/                     # Nuxt 4 SSG dashboard
-    ├── app/
-    │   ├── pages/                 # sessions/[sessionName]/... drill-down routes
-    │   └── components/            # ScoreBar, Breadcrumb
-    └── server/api/                # Build-time API routes (read results/published/)
 ```
 
 ## Development
