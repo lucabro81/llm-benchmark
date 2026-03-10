@@ -42,15 +42,16 @@ console = Console()
 # ---------------------------------------------------------------------------
 
 def discover_fixtures(base_dir: Path = TASKS_DIR) -> List[Path]:
-    """Return sorted list of valid fixture paths in base_dir.
+    """Return fixtures ordered as defined in _RUNNER_MAP (A → E).
 
     A valid fixture must contain a validation_spec.json file.
+    Unknown fixtures (not in _RUNNER_MAP) are appended alphabetically at the end.
 
     Args:
         base_dir: Directory to search for fixtures
 
     Returns:
-        Sorted list of fixture Paths
+        Ordered list of fixture Paths
 
     Raises:
         FileNotFoundError: If base_dir does not exist or contains no valid fixtures
@@ -58,9 +59,17 @@ def discover_fixtures(base_dir: Path = TASKS_DIR) -> List[Path]:
     if not base_dir.exists():
         raise FileNotFoundError(f"Fixtures directory not found: {base_dir}")
 
+    _runner_order = list(_RUNNER_MAP.keys())
+
+    def _sort_key(p: Path) -> tuple:
+        try:
+            return (0, _runner_order.index(p.name))
+        except ValueError:
+            return (1, p.name)
+
     fixtures = sorted(
         [p for p in base_dir.iterdir() if p.is_dir() and (p / "validation_spec.json").exists()],
-        key=lambda p: p.name,
+        key=_sort_key,
     )
 
     if not fixtures:
