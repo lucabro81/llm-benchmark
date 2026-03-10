@@ -15,3 +15,5 @@ export { default as ControlledInput } from "./src/components/ui/controlled-input
 export { default as ControlledCheckbox } from "./src/components/ui/controlled-checkbox/controlled-checkbox.vue"
 export { default as ControlledRadioGroup } from "./src/components/ui/controlled-radio-group/controlled-radio-group.vue"
 export { default as ControlledTextarea } from "./src/components/ui/controlled-textarea/controlled-textarea.vue"  
+
+export * from "./src/components/ui/data-table"
