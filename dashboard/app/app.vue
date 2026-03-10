@@ -8,6 +8,10 @@
     </main>
     <footer class="site-footer">
       <span>Results from <code>results/published/</code></span>
+      <span class="footer-sep">·</span>
+      <a href="https://github.com/lucabro81/llm-benchmark" target="_blank" rel="noopener">Repository</a>
+      <span class="footer-sep">·</span>
+      <a href="https://github.com/lucabro81/llm-benchmark/tree/main/results/published" target="_blank" rel="noopener">Published data</a>
     </footer>
   </div>
 </template>
@@ -64,4 +68,5 @@ a:hover { text-decoration: underline; }
   font-size: 0.85rem;
 }
 code { font-size: 0.85em; background: var(--color-bg); padding: 0.1em 0.3em; border-radius: 3px; }
+.footer-sep { margin: 0 0.5rem; }
 </style>
