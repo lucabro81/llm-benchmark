@@ -14,6 +14,13 @@
       "runtimeArgs": ["run", "dev"],
       "cwd": "dashboard",
       "port": 3000
+    },
+    {
+      "name": "dashboard-static",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "generate-preview"],
+      "cwd": "dashboard",
+      "port": 3000
     }
   ]
 }

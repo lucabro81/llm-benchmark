@@ -317,6 +317,7 @@ def run_fixture(
     log_prompts: bool = False,
     agent_output_dir: Optional[Path] = None,
     output_base: Optional[Path] = None,
+    prompt_version: Optional[str] = None,
 ) -> Optional[List[BenchmarkResult]]:
     """Run benchmark for a single fixture.
 
@@ -331,7 +332,7 @@ def run_fixture(
     """
     runner_class = _get_runner_class(runner_module)
     try:
-        test = runner_class(model=model, fixture_path=fixture_path)
+        test = runner_class(model=model, fixture_path=fixture_path, prompt_version=prompt_version)
     except FileNotFoundError as e:
         console.print(f"[red]✗ Error loading fixture '{fixture_path.name}': {e}[/red]")
         console.print("[yellow]  → Skipping this fixture[/yellow]")
@@ -431,10 +432,29 @@ def parse_arguments() -> argparse.Namespace:
         default=False,
         help="Save session directly to results/published/ instead of results/",
     )
+    parser.add_argument(
+        "--prompt-override",
+        nargs="+",
+        metavar="TASK=VERSION",
+        dest="prompt_overrides",
+        default=[],
+        help=(
+            "Use an alternate prompt version for one or more tasks. "
+            "Format: TASK=VERSION (e.g. nuxt-form-oneshot=v2). Repeatable."
+        ),
+    )
     args = parser.parse_args()
     # Normalise --model alias into args.models list
     if args._model_alias is not None:
         args.models = [args._model_alias]
+    # Parse --prompt-override TASK=VERSION into a dict
+    prompt_overrides: dict[str, str] = {}
+    for entry in args.prompt_overrides:
+        if "=" not in entry:
+            parser.error(f"--prompt-override: expected TASK=VERSION, got '{entry}'")
+        task, version = entry.split("=", 1)
+        prompt_overrides[task.strip()] = version.strip()
+    args.prompt_overrides = prompt_overrides
     return args
 
 
@@ -512,6 +532,10 @@ def main() -> int:
                 )
                 agent_out_dir.mkdir(parents=True, exist_ok=True)
 
+            prompt_version = args.prompt_overrides.get(fixture_path.name)
+            if prompt_version:
+                console.print(f"[dim]  prompt override: prompt-{prompt_version}.md[/dim]")
+
             results = run_fixture(
                 model,
                 fixture_path,
@@ -520,6 +544,7 @@ def main() -> int:
                 log_prompts=args.log_prompts,
                 agent_output_dir=agent_out_dir,
                 output_base=output_base,
+                prompt_version=prompt_version,
             )
 
             if results is None:

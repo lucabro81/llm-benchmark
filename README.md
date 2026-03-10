@@ -91,10 +91,32 @@ Results are saved to `results/` (gitignored by default):
 results/session__{name}__{timestamp}/{model}/
 ```
 
-To publish results for the dashboard, copy (or symlink) the session folder to `results/published/`:
+To publish results directly to `results/published/` (ready for the dashboard), use `--publish`:
+```bash
+python run_test.py --models qwen2.5-coder:7b --session-name my-run --publish
+```
+
+Or copy manually afterwards:
 ```bash
 cp -r results/session__my-comparison__* results/published/
 ```
+
+### Alternate prompt versions
+
+Each task uses `tasks/<task>/prompt.md` by default. To run with an alternate prompt (e.g. after a prompt fix), use `--prompt-override`:
+
+```bash
+# Run Task A with prompt-v2.md instead of prompt.md
+python run_test.py --models qwen2.5-coder:7b \
+  --prompt-override nuxt-form-oneshot=v2 \
+  --session-name oneshot-prompt-v2 --publish
+
+# Multiple overrides at once
+python run_test.py --models qwen2.5-coder:7b \
+  --prompt-override nuxt-form-oneshot=v2 nuxt-form-agent-guided=v2
+```
+
+Alternate prompt files follow the naming convention `prompt-{version}.md` inside the task directory. Sessions run with different prompts should use different `--session-name` values to keep results comparable.
 
 ## Tasks
 
@@ -199,7 +221,7 @@ llm-benchmark/
 │       └── rag-docs-vue-elements-form/    # 5 BM25-indexed form example files (used by D and E)
 │
 ├── tasks/                         # One directory per task — prompt.md + validation_spec.json
-│   ├── nuxt-form-oneshot/         # Test A
+│   ├── nuxt-form-oneshot/         # Test A — prompt.md (default), prompt-v2.md (no-props fix)
 │   ├── nuxt-form-agent-guided/    # Test B
 │   ├── nuxt-form-agent-twofiles/  # Test C
 │   ├── nuxt-form-agent-rag/       # Test D
@@ -301,11 +323,12 @@ Integration tests (marked `@pytest.mark.integration`) require a live Ollama inst
 ```bash
 cd dashboard
 npm install
-npm run dev        # dev server on :3000
-npm run generate   # static build (reads ../results/published/)
+npm run dev               # dev server on :3000 (SSR)
+npm run generate-preview  # static build + preview (closest to production)
+npm run generate          # static build only (reads ../results/published/)
 ```
 
-To deploy to GitHub Pages set `NUXT_APP_BASE_URL=/llm-benchmark/` at build time.
+To deploy to GitHub Pages set `NUXT_APP_BASE_URL=/llm-benchmark/` at build time. A GitHub Actions workflow (`.github/workflows/deploy.yml`) is available for manual deployment via `workflow_dispatch`.
 
 ### Environment Variables
 

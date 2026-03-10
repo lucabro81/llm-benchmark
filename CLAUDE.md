@@ -55,7 +55,6 @@ Red flags to report:
 │   │       └── validator.py       # Regex-based validation
 │   └── agent/
 │       ├── common/
-│       │   ├── tools.py           # make_tools() factory (read/write/list/compile)
 │       │   └── agent_client.py    # run_agent() → AgentRunResult (extra_system_prompt param)
 │       ├── nuxt_form_agent_guided/
 │       │   ├── test_runner.py     # AgentTest — write_file + run_compilation ONLY (Test B)
@@ -110,7 +109,8 @@ Red flags to report:
 │
 ├── tasks/                         # One directory per task (flat)
 │   ├── nuxt-form-oneshot/         # Test A — single-shot, full context inline
-│   │   ├── prompt.md
+│   │   ├── prompt.md              # default prompt
+│   │   ├── prompt-v2.md           # corrected prompt (no defineProps fix)
 │   │   └── validation_spec.json   # target_project_path → ../../fixtures/_shared/turborepo-nuxt-vue-elements
 │   ├── nuxt-form-agent-guided/    # Test B — write+compile, 1 file
 │   │   ├── prompt.md
@@ -137,8 +137,9 @@ Red flags to report:
 Nuxt 4 SSG app in `dashboard/`. Reads `results/published/` at build time via server API routes; all aggregations happen server-side. Client receives only pre-computed JSON.
 
 ```bash
-cd dashboard && npm run dev       # dev server
-npm run generate                  # static build
+cd dashboard && npm run dev               # dev server (SSR)
+npm run generate-preview                  # static build + preview (closest to production)
+npm run generate                          # static build only
 NUXT_APP_BASE_URL=/llm-benchmark/ npm run generate  # GitHub Pages
 ```
 
@@ -149,7 +150,11 @@ NUXT_APP_BASE_URL=/llm-benchmark/ npm run generate  # GitHub Pages
 - `/sessions/[sessionName]/[modelName]/[fixtureName]` — per-run cards with tool call log / AST checks
 - `/sessions/[sessionName]/[modelName]/[fixtureName]/[runNumber]` — full run detail
 
-**Publishing results**: copy a session folder to `results/published/`, then `git add results/published/session__*` and commit.
+**SSG crawler**: only pre-renders pages reachable via `<a>` tags. The session comparison page includes a hidden `<nav aria-hidden="true">` with `NuxtLink` elements for all models to ensure every model detail page is pre-rendered.
+
+**GitHub Actions**: `.github/workflows/deploy.yml` deploys to GitHub Pages (manual `workflow_dispatch` only). `.github/workflows/ci.yml` runs `pytest -m "not integration"` on push/PR to main.
+
+**Publishing results**: copy a session folder to `results/published/`, then `git add results/published/session__*` and commit. Alternatively, use `--publish` flag with `run_test.py` to save directly to `results/published/`.
 
 ---
 
@@ -194,10 +199,13 @@ Each `test_runner.py` exposes `format_run(result) -> None` for per-run console o
 ### [run_test.py](run_test.py) — CLI entry point
 
 ```
-python run_test.py --model <model> [--fixture <name>] [--runs <n>]
+python run_test.py --model <model> [--fixture <name>] [--runs <n>] [--publish] [--prompt-override TASK=VERSION ...]
 ```
 
-`_get_runner_class()` checks for `AgentTest` first, then `CreationTest`.
+- `--publish`: saves session directly to `results/published/` instead of `results/`
+- `--prompt-override TASK=VERSION`: uses `prompt-{VERSION}.md` instead of `prompt.md` for the specified task (e.g. `nuxt-form-oneshot=v2`). Multiple overrides can be specified.
+- `_get_runner_class()` checks for `AgentTest` first, then `CreationTest`.
+- All runner `__init__` methods accept `prompt_version: str | None = None`; they resolve `prompt-{version}.md` if set.
 
 New tasks must be registered in `_RUNNER_MAP` in [run_test.py](run_test.py).
 

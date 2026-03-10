@@ -164,14 +164,15 @@ class AgentTest:
     Tests whether the model can handle a two-file dependency chain with TS feedback.
     """
 
-    def __init__(self, model: str, fixture_path: Path):
+    def __init__(self, model: str, fixture_path: Path, prompt_version: str | None = None):
         self.model = model
         self.fixture_path = fixture_path
         self.fixture_name = fixture_path.name
 
-        prompt_file = fixture_path / "prompt.md"
+        prompt_filename = f"prompt-{prompt_version}.md" if prompt_version else "prompt.md"
+        prompt_file = fixture_path / prompt_filename
         if not prompt_file.exists():
-            raise FileNotFoundError(f"prompt.md not found in {fixture_path}")
+            raise FileNotFoundError(f"{prompt_filename} not found in {fixture_path}")
         self.prompt = prompt_file.read_text()
 
         spec_file = fixture_path / "validation_spec.json"
