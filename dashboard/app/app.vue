@@ -7,9 +7,7 @@
       <NuxtPage />
     </main>
     <footer class="site-footer">
-      <span>Results from <code>results/published/</code></span>
-      <span class="footer-sep">·</span>
-      <a href="https://github.com/lucabro81/llm-benchmark" target="_blank" rel="noopener">Repository</a>
+      <a href="https://github.com/lucabro81/llm-benchmark" target="_blank" rel="noopener">LLM Benchmark Suite</a>
       <span class="footer-sep">·</span>
       <a href="https://github.com/lucabro81/llm-benchmark/tree/main/results/published" target="_blank" rel="noopener">Published data</a>
     </footer>
