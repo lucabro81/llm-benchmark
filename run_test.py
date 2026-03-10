@@ -137,7 +137,7 @@ def show_header(model: str, fixtures: List[Path], runs: int):
     """Display benchmark header."""
     fixture_names = ", ".join(f.name for f in fixtures)
     console.print("\n[bold cyan]╔════════════════════════════════════════════╗[/bold cyan]")
-    console.print("[bold cyan]║  LLM Benchmark - Phase 1 (Prompt-Only)     ║[/bold cyan]")
+    console.print("[bold cyan]║  LLM Benchmark     ║[/bold cyan]")
     console.print("[bold cyan]╚════════════════════════════════════════════╝[/bold cyan]\n")
     console.print(f"Model:    [yellow]{model}[/yellow]")
     console.print(f"Fixtures: [yellow]{fixture_names}[/yellow]")
@@ -376,7 +376,7 @@ def run_fixture(
 def parse_arguments() -> argparse.Namespace:
     """Parse CLI arguments."""
     parser = argparse.ArgumentParser(
-        description="LLM Benchmark - Phase 1 (Prompt-Only Baseline)",
+        description="LLM Benchmark",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=(
             "Examples:\n"
