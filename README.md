@@ -2,6 +2,22 @@
 
 Local benchmarking tool for testing LLM performance on Vue.js/Nuxt/TypeScript development tasks using Ollama.
 
+## Table of Contents
+
+- [Overview](#overview)
+- [Requirements](#requirements)
+- [Installation](#installation)
+- [Configuration](#configuration)
+- [Running the Benchmark](#running-the-benchmark)
+- [Tasks](#tasks)
+- [Scoring](#scoring)
+- [Project Structure](#project-structure)
+- [Development](#development)
+  - [Running Tests](#running-tests)
+  - [Adding a New Task](#adding-a-new-task)
+  - [Dashboard](#dashboard)
+  - [Environment Variables](#environment-variables)
+
 ## Overview
 
 Benchmarks LLMs on a diagnostic battery of **5 tasks** (A→E) targeting the same Nuxt monorepo. Each test changes exactly one variable vs the previous, isolating the model's capability boundary:
