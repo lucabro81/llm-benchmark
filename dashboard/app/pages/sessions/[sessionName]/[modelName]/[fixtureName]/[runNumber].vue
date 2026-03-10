@@ -32,11 +32,15 @@
             <div class="meta-value">{{ data.run.total_output_tokens?.toLocaleString() ?? '—' }}</div>
           </div>
           <div class="meta-item">
-            <div class="meta-label">Steps</div>
+            <div class="meta-label">
+              <abbr title="Total smolagents steps consumed. Hard cap defined per task (B:10, C:15, D:20, E:30).">Steps</abbr>
+            </div>
             <div class="meta-value">{{ data.run.steps ?? '—' }}</div>
           </div>
           <div class="meta-item">
-            <div class="meta-label">Iterations</div>
+            <div class="meta-label">
+              <abbr title="write_file + run_compilation calls — observational metric, always ≤ steps.">Iterations</abbr>
+            </div>
             <div class="meta-value">{{ data.run.iterations ?? '—' }}</div>
           </div>
           <div class="meta-item">
@@ -67,7 +71,7 @@
           <div class="timeline">
             <div v-for="step in data.run.tool_call_log" :key="step.step" class="timeline__row">
               <div class="timeline__step">{{ step.step }}</div>
-              <span class="tool-pill" :class="toolPillClass(step.tool)">{{ step.tool }}</span>
+              <span class="tool-pill" :class="toolPillClass(step.tool)" :title="TOOL_DESC[step.tool] ?? step.tool">{{ step.tool }}</span>
               <span v-if="step.compile_passed === true" class="icon-ok">✓</span>
               <span v-else-if="step.compile_passed === false" class="icon-fail">✗</span>
               <span v-else class="icon-null">—</span>
@@ -182,6 +186,14 @@ function toolPillClass(tool: string): string {
   return 'tool-pill--gray'
 }
 
+const TOOL_DESC: Record<string, string> = {
+  write_file:       'Write or overwrite a file in the target project',
+  run_compilation:  'Run vue-tsc type-check and return errors/warnings',
+  query_rag:        'BM25 search over component API documentation',
+  read_file:        'Read any file from the project filesystem',
+  list_files:       'List directory contents to explore project structure',
+}
+
 function formatCtx(chars: number | null | undefined): string {
   if (chars == null) return '—'
   if (chars >= 1000) return (chars / 1000).toFixed(1) + 'k ctx'
@@ -281,6 +293,11 @@ function formatCheckName(name: string): string {
   font-size: .75rem;
   color: var(--color-text-muted);
   margin-bottom: .2rem;
+}
+
+.meta-label abbr {
+  text-decoration: underline dotted;
+  cursor: help;
 }
 
 .meta-value {
@@ -452,5 +469,15 @@ details[open] .output-summary::before {
   line-height: 1.5;
   white-space: pre;
   margin-top: .5rem;
+}
+
+.code-block code {
+  background: transparent;
+  color: inherit;
+  font-size: inherit;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  display: block;
 }
 </style>

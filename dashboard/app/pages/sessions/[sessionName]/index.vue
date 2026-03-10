@@ -7,6 +7,41 @@
     <template v-else-if="session">
       <h1 class="page-title">{{ session.displayName }}</h1>
 
+      <!-- Benchmark context -->
+      <div class="bench-context">
+        <p class="bench-context__lead">
+          All tasks ask the model to implement the same component — <code>RegistrationForm.vue</code>, a Vue 3
+          form with Zod validation, conditional fields, and controlled inputs from <code>packages/elements</code>.
+          What changes across fixtures is <strong>how much help the model gets</strong>: inline docs, tool access,
+          RAG, and filesystem exploration — each adding one layer of real-world complexity.
+        </p>
+        <details class="bench-details">
+          <summary class="bench-details__summary">Fixture breakdown</summary>
+          <div class="bench-details__body">
+            <div class="fixture-legend">
+              <div class="fixture-legend__header">
+                <span>Task</span><span>Tools available</span><span>Files</span><span>Context source</span><span>Max steps</span>
+              </div>
+              <div v-for="f in FIXTURE_LEGEND" :key="f.key" class="fixture-legend__row">
+                <span><strong>{{ f.letter }}</strong> — {{ f.name }}</span>
+                <span class="legend-tools">{{ f.tools.join(', ') || '—' }}</span>
+                <span>{{ f.files }}</span>
+                <span>{{ f.context }}</span>
+                <span>{{ f.maxSteps === 1 ? '—' : f.maxSteps }}</span>
+              </div>
+            </div>
+            <div class="score-legend">
+              <span class="score-legend__title">Score (0–10)</span>
+              <span class="legend-chip legend-chip--great">≥ 8 excellent</span>
+              <span class="legend-chip legend-chip--good">≥ 6 good</span>
+              <span class="legend-chip legend-chip--mid">≥ 3 partial</span>
+              <span class="legend-chip legend-chip--low">&lt; 3 poor</span>
+              <span class="score-legend__formula">= 50% TypeScript compile + 40% AST pattern checks + 10% naming</span>
+            </div>
+          </div>
+        </details>
+      </div>
+
       <!-- Model selector pills -->
       <div class="model-pills">
         <button
@@ -25,7 +60,7 @@
         <table class="comparison-table">
           <thead>
             <tr>
-              <th class="col-fixture">Fixture</th>
+              <th class="col-fixture" title="Tasks A→E — each adds one variable vs the previous">Fixture</th>
               <th v-for="m in visibleModels" :key="m.modelFolderName" class="col-model">
                 <NuxtLink :to="`/sessions/${route.params.sessionName}/${m.modelFolderName}`">
                   {{ m.modelName }}
@@ -40,10 +75,13 @@
                 <template v-if="getFixtureData(m, fixture.key)">
                   <ScoreBar :score="getFixtureData(m, fixture.key)!.avg_final_score" />
                   <div class="cell-chips">
-                    <span class="compile-badge" :class="compileClass(getFixtureData(m, fixture.key)!.compile_rate)">
+                    <span class="compile-badge" :class="compileClass(getFixtureData(m, fixture.key)!.compile_rate)"
+                      title="Fraction of runs where vue-tsc reported no errors">
                       {{ (getFixtureData(m, fixture.key)!.compile_rate * 100).toFixed(0) }}% compile
                     </span>
-                    <span class="stat-chip">{{ getFixtureData(m, fixture.key)!.avg_tokens_per_sec?.toFixed(0) ?? '—' }} tok/s</span>
+                    <span class="stat-chip" title="Average output tokens per second across all runs">
+                      {{ getFixtureData(m, fixture.key)!.avg_tokens_per_sec?.toFixed(0) ?? '—' }} tok/s
+                    </span>
                   </div>
                 </template>
                 <span v-else class="text-muted">—</span>
@@ -91,6 +129,14 @@
 
 <script setup lang="ts">
 const route = useRoute()
+
+const FIXTURE_LEGEND = [
+  { key: 'nuxt-form-oneshot',          letter: 'A', name: 'Single-shot',      tools: [],                                                              files: 1, context: 'Inline in prompt',  maxSteps: 1  },
+  { key: 'nuxt-form-agent-guided',     letter: 'B', name: 'Agent (guided)',   tools: ['write_file', 'run_compilation'],                               files: 1, context: 'Inline in prompt',  maxSteps: 10 },
+  { key: 'nuxt-form-agent-twofiles',   letter: 'C', name: 'Agent (2 files)',  tools: ['write_file', 'run_compilation'],                               files: 2, context: 'Inline in prompt',  maxSteps: 15 },
+  { key: 'nuxt-form-agent-rag',        letter: 'D', name: 'Agent + RAG',      tools: ['write_file', 'run_compilation', 'query_rag'],                   files: 2, context: 'RAG only',          maxSteps: 20 },
+  { key: 'nuxt-form-agent-full',       letter: 'E', name: 'Agent (full)',     tools: ['list_files', 'read_file', 'write_file', 'run_compilation', 'query_rag'], files: 2, context: 'RAG + filesystem', maxSteps: 30 },
+]
 
 const { data: session, pending, error } = await useAsyncData(
   'session-' + route.params.sessionName,
@@ -189,8 +235,131 @@ function compileClass(rate: number): string {
 .page-title {
   font-size: 1.5rem;
   font-weight: 700;
-  margin-bottom: 1.25rem;
+  margin-bottom: .75rem;
 }
+
+/* Benchmark context block */
+.bench-context {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.bench-context__lead {
+  font-size: .88rem;
+  color: var(--color-text-muted);
+  line-height: 1.6;
+  margin: 0 0 .5rem;
+}
+
+.bench-context__lead code {
+  font-family: monospace;
+  font-size: .85rem;
+  background: var(--color-bg);
+  padding: .1rem .3rem;
+  border-radius: 3px;
+  border: 1px solid var(--color-border);
+}
+
+.bench-details {
+  margin-top: .25rem;
+}
+
+.bench-details__summary {
+  font-size: .83rem;
+  font-weight: 600;
+  color: var(--color-accent);
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+}
+
+.bench-details__summary::-webkit-details-marker { display: none; }
+.bench-details__summary::before { content: '▶ '; font-size: .7rem; }
+details[open] .bench-details__summary::before { content: '▼ '; }
+
+.bench-details__body {
+  margin-top: .75rem;
+  display: flex;
+  flex-direction: column;
+  gap: .75rem;
+}
+
+/* Fixture legend grid */
+.fixture-legend {
+  display: grid;
+  gap: 0;
+  font-size: .82rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.fixture-legend__header,
+.fixture-legend__row {
+  display: grid;
+  grid-template-columns: 14rem 1fr 3rem 9rem 5rem;
+  gap: 0;
+}
+
+.fixture-legend__header {
+  background: var(--color-bg);
+  font-weight: 600;
+  color: var(--color-text-muted);
+  font-size: .78rem;
+}
+
+.fixture-legend__header span,
+.fixture-legend__row span {
+  padding: .4rem .65rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.fixture-legend__row:last-child span {
+  border-bottom: none;
+}
+
+.legend-tools {
+  font-family: monospace;
+  font-size: .78rem;
+  color: var(--color-text-muted);
+}
+
+/* Score legend */
+.score-legend {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: .4rem;
+  font-size: .8rem;
+}
+
+.score-legend__title {
+  font-weight: 600;
+  color: var(--color-text-muted);
+  margin-right: .15rem;
+}
+
+.score-legend__formula {
+  color: var(--color-text-muted);
+  font-size: .78rem;
+  margin-left: .35rem;
+}
+
+.legend-chip {
+  display: inline-block;
+  font-size: .75rem;
+  font-weight: 600;
+  padding: .1rem .4rem;
+  border-radius: 4px;
+}
+
+.legend-chip--great { background: #d1fae5; color: #065f46; }
+.legend-chip--good  { background: #dbeafe; color: #1e40af; }
+.legend-chip--mid   { background: #fff3cd; color: #856404; }
+.legend-chip--low   { background: #fee2e2; color: #991b1b; }
 
 .empty-state {
   text-align: center;

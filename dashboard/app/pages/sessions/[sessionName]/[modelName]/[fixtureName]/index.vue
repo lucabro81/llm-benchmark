@@ -6,19 +6,20 @@
     <div v-else-if="error" class="empty-state">Failed to load fixture data.</div>
     <template v-else-if="data">
       <h1 class="page-title">{{ data.label }}</h1>
+      <p v-if="FIXTURE_META[fixtureName]" class="fixture-desc">{{ FIXTURE_META[fixtureName].desc }}</p>
 
       <div v-for="run in data.runs" :key="run.run_number" class="run-card">
         <!-- Card header -->
         <div class="run-card__header">
           <span class="run-card__title">Run {{ run.run_number }}</span>
           <div class="run-chips">
-            <span class="score-chip" :class="scoreClass(run.score)">
-              {{ run.score.toFixed(1) }}
+            <span class="score-chip" :class="scoreClass(run.final_score)">
+              {{ (run.final_score ?? 0).toFixed(1) }}
             </span>
             <span class="chip chip--label">Pattern {{ run.pattern_score?.toFixed(1) ?? '—' }}</span>
             <span class="chip chip--label">Naming {{ run.naming_score?.toFixed(1) ?? '—' }}</span>
-            <span class="compile-badge" :class="run.compilation_passed ? 'compile-badge--great' : 'compile-badge--low'">
-              {{ run.compilation_passed ? '✓ compile' : '✗ compile' }}
+            <span class="compile-badge" :class="run.compiles ? 'compile-badge--great' : 'compile-badge--low'">
+              {{ run.compiles ? '✓ compile' : '✗ compile' }}
             </span>
           </div>
         </div>
@@ -27,7 +28,7 @@
         <div v-if="data.type === 'agent' && run.tool_call_log?.length" class="timeline">
           <div v-for="step in run.tool_call_log" :key="step.step" class="timeline__row">
             <div class="timeline__step">{{ step.step }}</div>
-            <span class="tool-pill" :class="toolPillClass(step.tool)">{{ step.tool }}</span>
+            <span class="tool-pill" :class="toolPillClass(step.tool)" :title="TOOL_DESC[step.tool] ?? step.tool">{{ step.tool }}</span>
             <span v-if="step.compile_passed === true" class="icon-ok">✓</span>
             <span v-else-if="step.compile_passed === false" class="icon-fail">✗</span>
             <span v-else class="icon-null">—</span>
@@ -42,8 +43,8 @@
 
         <!-- Oneshot: checks + violations + errors -->
         <div v-else-if="data.type === 'oneshot'" class="oneshot-detail">
-          <div v-if="run.ast_checks?.length" class="checks-list">
-            <div v-for="check in run.ast_checks" :key="check.name" class="check-row">
+          <div v-if="astChecksArray(run).length" class="checks-list">
+            <div v-for="check in astChecksArray(run)" :key="check.name" class="check-row">
               <span v-if="check.passed" class="icon-ok">✓</span>
               <span v-else class="icon-fail">✗</span>
               <span class="check-name">{{ check.name }}</span>
@@ -77,6 +78,22 @@ const sessionName = route.params.sessionName as string
 const modelName = route.params.modelName as string
 const fixtureName = route.params.fixtureName as string
 
+const FIXTURE_META: Record<string, { desc: string }> = {
+  'nuxt-form-oneshot':        { desc: 'One shot, no tools. The model must produce a correct RegistrationForm.vue in a single response. Full component API documented inline in the prompt.' },
+  'nuxt-form-agent-guided':   { desc: 'Agentic loop with write_file + run_compilation. Iterate on TypeScript compiler feedback until the code passes or the step budget (10) runs out.' },
+  'nuxt-form-agent-twofiles': { desc: 'Same as B, but must produce two coordinated files in order: registration/types/index.ts (Zod schema + types) then RegistrationForm.vue importing from it.' },
+  'nuxt-form-agent-rag':      { desc: 'No inline API docs in the prompt. The model must call query_rag to look up component usage examples from a BM25 document store before writing.' },
+  'nuxt-form-agent-full':     { desc: 'Full tool access: list_files, read_file, write_file, run_compilation, query_rag. The model can explore the project freely — closest to real-world agentic coding.' },
+}
+
+const TOOL_DESC: Record<string, string> = {
+  write_file:       'Write or overwrite a file in the target project',
+  run_compilation:  'Run vue-tsc type-check and return errors/warnings',
+  query_rag:        'BM25 search over component API documentation',
+  read_file:        'Read any file from the project filesystem',
+  list_files:       'List directory contents to explore project structure',
+}
+
 const { data, pending, error } = await useAsyncData(
   `fixture-${sessionName}-${modelName}-${fixtureName}`,
   () => $fetch<any>(`/api/sessions/${sessionName}/${modelName}/${fixtureName}`)
@@ -95,6 +112,12 @@ const breadcrumb = computed(() => [
   { label: modelDisplayName.value, to: `/sessions/${sessionName}/${modelName}` },
   { label: data.value?.label ?? fixtureName },
 ])
+
+function astChecksArray(run: any): { name: string; passed: boolean }[] {
+  const checks = run?.ast_checks
+  if (!checks || typeof checks !== 'object') return []
+  return Object.entries(checks).map(([name, passed]) => ({ name, passed: Boolean(passed) }))
+}
 
 function scoreClass(score: number): string {
   if (score >= 8) return 'score-chip--great'
@@ -126,8 +149,16 @@ function formatCtx(chars: number | null | undefined): string {
 .page-title {
   font-size: 1.3rem;
   font-weight: 700;
-  margin-bottom: 1.5rem;
+  margin-bottom: .35rem;
   font-family: monospace;
+}
+
+.fixture-desc {
+  font-size: .88rem;
+  color: var(--color-text-muted);
+  line-height: 1.5;
+  margin-bottom: 1.25rem;
+  max-width: 680px;
 }
 
 .empty-state {

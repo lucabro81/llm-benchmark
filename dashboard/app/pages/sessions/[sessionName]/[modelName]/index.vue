@@ -13,9 +13,13 @@
         class="fixture-section"
       >
         <div class="fixture-header">
-          <span class="fixture-label">{{ data.fixtures[fixtureKey].label }}</span>
+          <div class="fixture-header__left">
+            <NuxtLink :to="`/sessions/${sessionName}/${modelName}/${fixtureKey}`" class="fixture-label fixture-label--link">{{ data.fixtures[fixtureKey].label }}</NuxtLink>
+            <span v-if="FIXTURE_META[fixtureKey]" class="fixture-desc">{{ FIXTURE_META[fixtureKey].desc }}</span>
+          </div>
           <ScoreBar :score="data.fixtures[fixtureKey].aggregate?.avg_final_score ?? 0" />
-          <span class="compile-badge" :class="compileClass(data.fixtures[fixtureKey].aggregate?.compile_rate ?? 0)">
+          <span class="compile-badge" :class="compileClass(data.fixtures[fixtureKey].aggregate?.compile_rate ?? 0)"
+            title="Fraction of runs where vue-tsc reported no errors">
             {{ ((data.fixtures[fixtureKey].aggregate?.compile_rate ?? 0) * 100).toFixed(0) }}% compile
           </span>
         </div>
@@ -25,14 +29,14 @@
             <thead>
               <tr>
                 <th>#</th>
-                <th>Score</th>
-                <th>Compile</th>
-                <th>Pattern</th>
-                <th>Naming</th>
-                <th>tok/s</th>
-                <th>Duration</th>
-                <th v-if="data.fixtures[fixtureKey].type === 'agent'">Steps</th>
-                <th v-if="data.fixtures[fixtureKey].type === 'agent'">Succeeded</th>
+                <th title="Composite score: 50% compile + 40% AST patterns + 10% naming (0–10)">Score</th>
+                <th title="TypeScript compilation via vue-tsc — no errors = pass">Compile</th>
+                <th title="AST pattern checks: required components, conditional fields, Zod schema (0–10)">Pattern</th>
+                <th title="camelCase variable naming convention check (0–10)">Naming</th>
+                <th title="Output tokens per second">tok/s</th>
+                <th title="Wall-clock time for the full run">Duration</th>
+                <th v-if="data.fixtures[fixtureKey].type === 'agent'" title="Total smolagents steps consumed (hard cap per task)">Steps</th>
+                <th v-if="data.fixtures[fixtureKey].type === 'agent'" title="Agent completed within step budget without crashing">Succeeded</th>
               </tr>
             </thead>
             <tbody>
@@ -88,6 +92,14 @@ const FIXTURE_ORDER = [
   'nuxt-form-agent-rag',
   'nuxt-form-agent-full',
 ]
+
+const FIXTURE_META: Record<string, { desc: string }> = {
+  'nuxt-form-oneshot':        { desc: 'One shot, no tools. The model must produce correct code in a single response.' },
+  'nuxt-form-agent-guided':   { desc: 'Agentic loop with write_file + run_compilation. Iterate on compiler feedback, 1 file.' },
+  'nuxt-form-agent-twofiles': { desc: 'Same as B, but must produce two coordinated files: types/index.ts + RegistrationForm.vue.' },
+  'nuxt-form-agent-rag':      { desc: 'No inline API docs. Must query a BM25 document store to look up component usage examples.' },
+  'nuxt-form-agent-full':     { desc: 'Full tool access: list_files, read_file, write_file, run_compilation, query_rag.' },
+}
 
 const sessionDisplayName = computed(() => {
   const m = sessionName.match(/^session__(.+?)(?:__\d+)?$/)
@@ -158,12 +170,33 @@ function compileClass(rate: number): string {
   flex-wrap: wrap;
 }
 
+.fixture-header__left {
+  display: flex;
+  flex-direction: column;
+  gap: .15rem;
+  margin-right: auto;
+}
+
 .fixture-label {
   font-size: .9rem;
   font-family: monospace;
   font-weight: 600;
   color: var(--color-text);
-  margin-right: auto;
+}
+
+.fixture-label--link {
+  text-decoration: none;
+  color: var(--color-accent);
+}
+
+.fixture-label--link:hover {
+  text-decoration: underline;
+}
+
+.fixture-desc {
+  font-size: .78rem;
+  color: var(--color-text-muted);
+  font-family: sans-serif;
 }
 
 .compile-badge {

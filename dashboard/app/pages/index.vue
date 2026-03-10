@@ -1,6 +1,11 @@
 <template>
   <div>
     <h1 class="page-title">Sessions</h1>
+    <p class="bench-intro">
+      Each session runs a diagnostic battery of 5 tasks (A→E) against the same Nuxt/Vue monorepo.
+      Tasks differ by exactly one variable — from single-shot generation to a full agentic loop with RAG —
+      isolating where a model's capability boundary lies.
+    </p>
 
     <div v-if="pending" class="empty-state">Loading…</div>
     <div v-else-if="!manifest?.sessions?.length" class="empty-state">
@@ -38,7 +43,15 @@ const { data: manifest, pending } = await useAsyncData('manifest', () =>
 </script>
 
 <style scoped>
-.page-title { font-size: 1.5rem; font-weight: 700; margin-bottom: 1.5rem; }
+.page-title { font-size: 1.5rem; font-weight: 700; margin-bottom: .5rem; }
+
+.bench-intro {
+  font-size: .9rem;
+  color: var(--color-text-muted);
+  line-height: 1.6;
+  margin-bottom: 1.5rem;
+  max-width: 680px;
+}
 
 .empty-state {
   text-align: center;
