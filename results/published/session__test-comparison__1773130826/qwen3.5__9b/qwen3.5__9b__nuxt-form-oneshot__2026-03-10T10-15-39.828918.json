@@ -1,0 +1,100 @@
+[
+  {
+    "model": "qwen3.5:9b",
+    "fixture": "nuxt-form-oneshot",
+    "timestamp": "2026-03-10T10:15:39.828918",
+    "run_number": 1,
+    "compiles": true,
+    "compilation_errors": [],
+    "compilation_warnings": [],
+    "pattern_score": 10.0,
+    "ast_missing": [],
+    "ast_checks": {
+      "script_lang": true,
+      "form_component": true,
+      "controlled_components": true,
+      "conditional_rendering": true,
+      "zod_schema": true,
+      "required_fields": true,
+      "conditional_fields": true
+    },
+    "naming_score": 10.0,
+    "naming_violations": [],
+    "final_score": 10.0,
+    "scoring_weights": {
+      "compilation": 0.5,
+      "pattern_match": 0.4,
+      "naming": 0.1
+    },
+    "tokens_per_sec": 32.49407305457039,
+    "duration_sec": 217.793564633,
+    "output_code": "<script setup lang=\"ts\">\nimport {\n  Button,\n  ControlledCheckbox,\n  ControlledInput,\n  ControlledRadioGroup,\n  ControlledTextarea,\n  Form,\n  FormActions,\n  FormFields,\n} from \"elements\";\nimport { z } from \"zod\";\n\nconst registrationSchema = z.object({\n  username: z.string().min(3, \"Username: almeno 3 caratteri\"),\n  email: z.string().email(\"Email non valida\").min(1, \"Email obbligatoria\"),\n  role: z.enum([\"user\", \"admin\", \"contributor\"]),\n  otherInfo: z.string().optional(),\n  newsletter: z.boolean().optional(),\n  frequency: z.enum([\"daily\", \"weekly\", \"monthly\"]).optional(),\n  bio: z.string().optional(),\n})\n.superRefine((data, ctx) => {\n  if (data.role === \"contributor\" && !data.otherInfo) {\n    ctx.addIssue({\n      code: z.ZodIssueCode.custom,\n      message: \"Descrivi il tuo contributo\",\n      path: [\"otherInfo\"],\n    });\n  }\n  if (data.newsletter && !data.frequency) {\n    ctx.addIssue({\n      code: z.ZodIssueCode.custom,\n      message: \"Seleziona una frequenza\",\n      path: [\"frequency\"],\n    });\n  }\n});\n\ntype RegistrationFormValues = z.infer<typeof registrationSchema>;\n\nconst roleOptions = [\n  { value: \"user\", label: \"Utente\" },\n  { value: \"admin\", label: \"Amministratore\" },\n  { value: \"contributor\", label: \"Contributore\" },\n];\n\nconst frequencyOptions = [\n  { value: \"daily\", label: \"Ogni giorno\" },\n  { value: \"weekly\", label: \"Settimanalmente\" },\n  { value: \"monthly\", label: \"Mensilmente\" },\n];\n\nconst initialValues: RegistrationFormValues = {\n  username: \"\",\n  email: \"\",\n  role: \"user\",\n  otherInfo: \"\",\n  newsletter: false,\n  frequency: undefined,\n  bio: \"\",\n};\n\nconst actions = {\n  onSubmit: async (values: RegistrationFormValues) => {\n    console.log(\"Registration submitted:\", values);\n    return values;\n  },\n};\n</script>\n\n<template>\n  <div class=\"w-full max-w-md\">\n    <Form :initial-values=\"initialValues\" :form-schema=\"registrationSchema\" :actions=\"actions\">\n      <FormFields v-slot=\"{ form, resetGeneralError }\">\n        <ControlledInput\n          name=\"username\"\n          label=\"Username\"\n          placeholder=\"inserisci username\"\n          @input-click=\"resetGeneralError\"\n        />\n\n        <ControlledInput\n          name=\"email\"\n          label=\"Email\"\n          type=\"email\"\n          placeholder=\"nome@esempio.com\"\n          @input-click=\"resetGeneralError\"\n        />\n\n        <ControlledRadioGroup\n          name=\"role\"\n          label=\"Ruolo\"\n          :options=\"roleOptions\"\n          @input-click=\"resetGeneralError\"\n        />\n\n        <ControlledInput\n          v-if=\"form.values.role === 'contributor'\"\n          name=\"otherInfo\"\n          label=\"Altre informazioni\"\n          placeholder=\"Descrivi il tuo contributo...\"\n          @input-click=\"resetGeneralError\"\n        />\n\n        <ControlledCheckbox\n          name=\"newsletter\"\n          label=\"Iscrivimi alla newsletter\"\n          @input-click=\"resetGeneralError\"\n        />\n\n        <ControlledRadioGroup\n          v-if=\"form.values.newsletter\"\n          name=\"frequency\"\n          label=\"Frequenza newsletter\"\n          :options=\"frequencyOptions\"\n          orientation=\"horizontal\"\n          @input-click=\"resetGeneralError\"\n        />\n\n        <ControlledTextarea\n          name=\"bio\"\n          label=\"Biografia\"\n          placeholder=\"Raccontaci qualcosa di te...\"\n          @input-click=\"resetGeneralError\"\n        />\n      </FormFields>\n\n      <FormActions v-slot=\"{ form, isValid }\" class=\"mt-6\">\n        <Button\n          type=\"submit\"\n          class=\"w-full\"\n          :disabled=\"!isValid || form?.isSubmitting.value\"\n        >\n          Registrati\n        </Button>\n      </FormActions>\n    </Form>\n  </div>\n</template>",
+    "errors": []
+  },
+  {
+    "model": "qwen3.5:9b",
+    "fixture": "nuxt-form-oneshot",
+    "timestamp": "2026-03-10T10:19:22.403020",
+    "run_number": 2,
+    "compiles": false,
+    "compilation_errors": [
+      "src/app.vue(7,6): error TS2345: Argument of type '{}' is not assignable to parameter of type '{ readonly onSubmit: (values: { role: \"user\" | \"admin\" | \"contributor\"; email: string; username: string; otherInfo?: string | undefined; newsletter?: boolean | undefined; frequency?: \"daily\" | \"weekly\" | \"monthly\" | undefined; bio?: string | undefined; }) => Promise<...>; } & VNodeProps & AllowedComponentProps & Com...'."
+    ],
+    "compilation_warnings": [],
+    "pattern_score": 10.0,
+    "ast_missing": [],
+    "ast_checks": {
+      "script_lang": true,
+      "form_component": true,
+      "controlled_components": true,
+      "conditional_rendering": true,
+      "zod_schema": true,
+      "required_fields": true,
+      "conditional_fields": true
+    },
+    "naming_score": 10.0,
+    "naming_violations": [],
+    "final_score": 5.0,
+    "scoring_weights": {
+      "compilation": 0.5,
+      "pattern_match": 0.4,
+      "naming": 0.1
+    },
+    "tokens_per_sec": 32.59657872524327,
+    "duration_sec": 173.423108224,
+    "output_code": "<script setup lang=\"ts\">\nimport {\n  Button,\n  ControlledCheckbox,\n  ControlledInput,\n  ControlledRadioGroup,\n  ControlledTextarea,\n  Form,\n  FormActions,\n  FormFields,\n} from \"elements\";\nimport { z } from \"zod\";\n\nconst registrationSchema = z.object({\n  username: z.string().min(3, \"Username: almeno 3 caratteri\"),\n  email: z.string().email(\"Email non valida\").min(1, \"Email obbligatoria\"),\n  role: z.enum([\"user\", \"admin\", \"contributor\"]),\n  otherInfo: z.string().optional(),\n  newsletter: z.boolean().optional(),\n  frequency: z.enum([\"daily\", \"weekly\", \"monthly\"]).optional(),\n  bio: z.string().optional(),\n})\n.superRefine((data, ctx) => {\n  if (data.role === \"contributor\" && !data.otherInfo) {\n    ctx.addIssue({\n      code: z.ZodIssueCode.custom,\n      message: \"Descrivi il tuo contributo\",\n      path: [\"otherInfo\"],\n    });\n  }\n\n  if (data.newsletter && !data.frequency) {\n    ctx.addIssue({\n      code: z.ZodIssueCode.custom,\n      message: \"Seleziona una frequenza\",\n      path: [\"frequency\"],\n    });\n  }\n});\n\ntype RegistrationFormValues = z.infer<typeof registrationSchema>;\n\nconst initialValues: RegistrationFormValues = {\n  username: \"\",\n  email: \"\",\n  role: \"user\",\n  otherInfo: \"\",\n  newsletter: false,\n  frequency: undefined,\n  bio: \"\",\n};\n\nconst roleOptions = [\n  { value: \"user\", label: \"Utente\" },\n  { value: \"admin\", label: \"Amministratore\" },\n  { value: \"contributor\", label: \"Contributore\" },\n];\n\nconst frequencyOptions = [\n  { value: \"daily\", label: \"Ogni giorno\" },\n  { value: \"weekly\", label: \"Settimanalmente\" },\n  { value: \"monthly\", label: \"Mensilmente\" },\n];\n\nconst props = defineProps<{\n  onSubmit: (values: RegistrationFormValues) => Promise<RegistrationFormValues>;\n}>();\n\nconst actions = {\n  onSubmit: async (values: RegistrationFormValues) => {\n    return props.onSubmit(values);\n  },\n};\n</script>\n\n<template>\n  <div class=\"w-full max-w-md\">\n    <Form\n      :initial-values=\"initialValues\"\n      :form-schema=\"registrationSchema\"\n      :actions=\"actions\"\n    >\n      <FormFields v-slot=\"{ form, resetGeneralError }\">\n        <ControlledInput\n          name=\"username\"\n          label=\"Username\"\n          placeholder=\"Inserisci username\"\n          @input-click=\"resetGeneralError\"\n        />\n\n        <ControlledInput\n          name=\"email\"\n          label=\"Email\"\n          type=\"email\"\n          placeholder=\"nome@esempio.com\"\n          @input-click=\"resetGeneralError\"\n        />\n\n        <ControlledRadioGroup\n          name=\"role\"\n          label=\"Ruolo\"\n          :options=\"roleOptions\"\n          @input-click=\"resetGeneralError\"\n        />\n\n        <ControlledCheckbox\n          name=\"newsletter\"\n          label=\"Iscrivimi alla newsletter\"\n          @input-click=\"resetGeneralError\"\n        />\n\n        <ControlledRadioGroup\n          v-if=\"form.values.newsletter\"\n          name=\"frequency\"\n          label=\"Frequenza\"\n          :options=\"frequencyOptions\"\n          @input-click=\"resetGeneralError\"\n        />\n\n        <ControlledInput\n          v-if=\"form.values.role === 'contributor'\"\n          name=\"otherInfo\"\n          label=\"Informazioni aggiuntive\"\n          placeholder=\"Descrivi il tuo contributo...\"\n          @input-click=\"resetGeneralError\"\n        />\n\n        <ControlledTextarea\n          name=\"bio\"\n          label=\"Biografia\"\n          placeholder=\"Raccontaci qualcosa di te...\"\n          @input-click=\"resetGeneralError\"\n        />\n      </FormFields>\n\n      <FormActions v-slot=\"{ form, isValid }\" class=\"mt-6\">\n        <Button\n          type=\"submit\"\n          class=\"w-full\"\n          :disabled=\"!isValid || form?.isSubmitting.value\"\n        >\n          Iscriviti\n        </Button>\n      </FormActions>\n    </Form>\n  </div>\n</template>",
+    "errors": []
+  },
+  {
+    "model": "qwen3.5:9b",
+    "fixture": "nuxt-form-oneshot",
+    "timestamp": "2026-03-10T10:22:19.056645",
+    "run_number": 3,
+    "compiles": true,
+    "compilation_errors": [],
+    "compilation_warnings": [],
+    "pattern_score": 10.0,
+    "ast_missing": [],
+    "ast_checks": {
+      "script_lang": true,
+      "form_component": true,
+      "controlled_components": true,
+      "conditional_rendering": true,
+      "zod_schema": true,
+      "required_fields": true,
+      "conditional_fields": true
+    },
+    "naming_score": 10.0,
+    "naming_violations": [],
+    "final_score": 10.0,
+    "scoring_weights": {
+      "compilation": 0.5,
+      "pattern_match": 0.4,
+      "naming": 0.1
+    },
+    "tokens_per_sec": 32.653599802017254,
+    "duration_sec": 150.948135271,
+    "output_code": "<script setup lang=\"ts\">\nimport {\n  Button,\n  ControlledCheckbox,\n  ControlledInput,\n  ControlledRadioGroup,\n  ControlledTextarea,\n  Form,\n  FormActions,\n  FormFields,\n} from \"elements\";\nimport { z } from \"zod\";\n\nconst registrationSchema = z.object({\n  username: z.string().min(3, \"Username: almeno 3 caratteri\"),\n  email: z.string().email(\"Email non valida\").min(1, \"Email obbligatoria\"),\n  role: z.enum([\"user\", \"admin\", \"contributor\"]),\n  otherInfo: z.string().optional(),\n  newsletter: z.boolean().optional(),\n  frequency: z.enum([\"daily\", \"weekly\", \"monthly\"]).optional(),\n  bio: z.string().optional(),\n}).superRefine((data, ctx) => {\n  if (data.role === \"contributor\" && !data.otherInfo) {\n    ctx.addIssue({\n      code: z.ZodIssueCode.custom,\n      message: \"Descrivi il tuo contributo\",\n      path: [\"otherInfo\"],\n    });\n  }\n\n  if (data.newsletter && !data.frequency) {\n    ctx.addIssue({\n      code: z.ZodIssueCode.custom,\n      message: \"Seleziona una frequenza\",\n      path: [\"frequency\"],\n    });\n  }\n});\n\ntype RegistrationFormValues = z.infer<typeof registrationSchema>;\n\nconst initialValues: RegistrationFormValues = {\n  username: \"\",\n  email: \"\",\n  role: \"user\",\n  otherInfo: \"\",\n  newsletter: false,\n  frequency: undefined,\n  bio: \"\",\n};\n\nconst actions = {\n  onSubmit: async (values: RegistrationFormValues) => {\n    console.log(\"Form submitted:\", values);\n    return values;\n  },\n};\n</script>\n\n<template>\n  <div class=\"w-full\">\n    <Form\n      :initial-values=\"initialValues\"\n      :form-schema=\"registrationSchema\"\n      :actions=\"actions\"\n    >\n      <FormFields v-slot=\"{ form, resetGeneralError }\">\n        <ControlledInput\n          name=\"username\"\n          label=\"Username\"\n          placeholder=\"Inserisci username\"\n          @input-click=\"resetGeneralError\"\n        />\n\n        <ControlledInput\n          name=\"email\"\n          label=\"Email\"\n          type=\"email\"\n          placeholder=\"nome@email.com\"\n          @input-click=\"resetGeneralError\"\n        />\n\n        <ControlledRadioGroup\n          name=\"role\"\n          label=\"Ruolo\"\n          :options=\"[\n            { value: 'user', label: 'Utente' },\n            { value: 'admin', label: 'Amministratore' },\n            { value: 'contributor', label: 'Contributore' },\n          ]\"\n          @input-click=\"resetGeneralError\"\n        />\n\n        <ControlledInput\n          v-if=\"form.values.role === 'contributor'\"\n          name=\"otherInfo\"\n          label=\"Altre informazioni\"\n          placeholder=\"Descrivi il tuo contributo\"\n          @input-click=\"resetGeneralError\"\n        />\n\n        <ControlledCheckbox\n          name=\"newsletter\"\n          label=\"Iscrivimi alla newsletter\"\n          @input-click=\"resetGeneralError\"\n        />\n\n        <ControlledRadioGroup\n          v-if=\"form.values.newsletter\"\n          name=\"frequency\"\n          label=\"Frequenza\"\n          :options=\"[\n            { value: 'daily', label: 'Quotidiana' },\n            { value: 'weekly', label: 'Settimanale' },\n            { value: 'monthly', label: 'Mensile' },\n          ]\"\n          @input-click=\"resetGeneralError\"\n        />\n\n        <ControlledTextarea\n          name=\"bio\"\n          label=\"Biografia\"\n          placeholder=\"Raccontaci qualcosa di te...\"\n          @input-click=\"resetGeneralError\"\n        />\n      </FormFields>\n\n      <FormActions v-slot=\"{ form, isValid }\" class=\"mt-6\">\n        <Button\n          type=\"submit\"\n          class=\"w-full\"\n          :disabled=\"!isValid || form?.isSubmitting.value\"\n        >\n          Registrati\n        </Button>\n      </FormActions>\n    </Form>\n  </div>\n</template>",
+    "errors": []
+  }
+]
