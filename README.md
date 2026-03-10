@@ -71,7 +71,36 @@ OLLAMA_BASE_URL=http://192.168.1.100:11434
 
 ```bash
 source venv/bin/activate
+python run_test.py [OPTIONS]
+```
 
+### Options
+
+| Option | Argument | Default | Description |
+|--------|----------|---------|-------------|
+| `--model` | `MODEL` | — | Single model to benchmark (alias for `--models`) |
+| `--models` | `MODEL [MODEL ...]` | — | One or more models to benchmark in series (**required**) |
+| `--fixture` | `FIXTURE` | all | Run only the specified task (e.g. `nuxt-form-oneshot`) |
+| `--runs` | `N` | `3` | Number of independent runs per task per model |
+| `--session-name` | `NAME` | auto | Human-readable label embedded in the output folder name |
+| `--publish` | — | off | Save directly to `results/published/` instead of `results/` |
+| `--prompt-override` | `TASK=VERSION [...]` | — | Use `prompt-{VERSION}.md` instead of `prompt.md` for the given task. Repeatable. |
+
+### Output
+
+Results are saved to:
+```
+results/session__{name}__{timestamp}/{model}/
+```
+
+With `--publish` they go directly to `results/published/session__{name}__{timestamp}/{model}/`, which is what the dashboard reads at build time. Alternatively, copy manually after the run:
+```bash
+cp -r results/session__my-comparison__* results/published/
+```
+
+### Examples
+
+```bash
 # Run all tasks with a single model (3 runs each)
 python run_test.py --model qwen2.5-coder:7b-instruct-q8_0
 
@@ -79,44 +108,26 @@ python run_test.py --model qwen2.5-coder:7b-instruct-q8_0
 python run_test.py --models qwen2.5-coder:7b-instruct-q8_0 qwen2.5-coder:14b-instruct-q8_0 \
   --session-name my-comparison
 
-# Run a specific task
+# Run a specific task only
 python run_test.py --model qwen2.5-coder:7b-instruct-q8_0 --fixture nuxt-form-oneshot
 
-# Change number of runs
-python run_test.py --model qwen2.5-coder:7b-instruct-q8_0 --runs 5
-```
+# 5 runs, publish immediately to dashboard
+python run_test.py --model qwen2.5-coder:7b-instruct-q8_0 --runs 5 --publish \
+  --session-name my-run
 
-Results are saved to `results/` (gitignored by default):
-```
-results/session__{name}__{timestamp}/{model}/
-```
-
-To publish results directly to `results/published/` (ready for the dashboard), use `--publish`:
-```bash
-python run_test.py --models qwen2.5-coder:7b --session-name my-run --publish
-```
-
-Or copy manually afterwards:
-```bash
-cp -r results/session__my-comparison__* results/published/
-```
-
-### Alternate prompt versions
-
-Each task uses `tasks/<task>/prompt.md` by default. To run with an alternate prompt (e.g. after a prompt fix), use `--prompt-override`:
-
-```bash
-# Run Task A with prompt-v2.md instead of prompt.md
+# Run Task A with an alternate prompt (prompt-v2.md) and publish
 python run_test.py --models qwen2.5-coder:7b \
   --prompt-override nuxt-form-oneshot=v2 \
   --session-name oneshot-prompt-v2 --publish
 
-# Multiple overrides at once
+# Multiple prompt overrides at once
 python run_test.py --models qwen2.5-coder:7b \
   --prompt-override nuxt-form-oneshot=v2 nuxt-form-agent-guided=v2
 ```
 
-Alternate prompt files follow the naming convention `prompt-{version}.md` inside the task directory. Sessions run with different prompts should use different `--session-name` values to keep results comparable.
+### Prompt versioning
+
+Each task uses `tasks/<task>/prompt.md` by default. Alternate versions follow the naming convention `prompt-{version}.md` in the same directory (e.g. `prompt-v2.md`). Use `--prompt-override TASK=VERSION` to select one at runtime. Sessions run with different prompts should use different `--session-name` values to keep results comparable.
 
 ## Tasks
 
