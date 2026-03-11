@@ -1,13 +1,13 @@
 <template>
   <div class="app">
     <header class="site-header">
-      <NuxtLink to="/" class="logo">🤖 LLM Benchmark</NuxtLink>
+      <NuxtLink to="/" class="logo">LLM Benchmark</NuxtLink>
     </header>
     <main class="site-main">
       <NuxtPage />
     </main>
     <footer class="site-footer">
-      <a href="https://github.com/lucabro81/llm-benchmark" target="_blank" rel="noopener">LLM Benchmark Suite</a>
+      <a href="https://github.com/lucabro81/llm-benchmark" target="_blank" rel="noopener">Github</a>
       <span class="footer-sep">·</span>
       <a href="https://github.com/lucabro81/llm-benchmark/tree/main/results/published" target="_blank" rel="noopener">Published data</a>
     </footer>

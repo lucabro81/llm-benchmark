@@ -155,7 +155,7 @@ const { data: session, pending, error } = await useAsyncData(
 const sessionDisplayName = computed(() => {
   const raw = route.params.sessionName as string
   const m = raw.match(/^session__(.+?)(?:__\d+)?$/)
-  return m ? m[1].replace('__', ':') : raw
+  return m ? m[1]?.replace('__', ':') : raw
 })
 
 const breadcrumb = computed(() => [
