@@ -51,6 +51,15 @@
         />
       </nav>
 
+      <!-- Hidden links so SSG crawler pre-renders all fixture cross-model pages -->
+      <nav aria-hidden="true" class="prerender-links">
+        <NuxtLink
+          v-for="f in session.fixtures"
+          :key="f.key"
+          :to="`/sessions/${route.params.sessionName}/fixtures/${f.key}`"
+        />
+      </nav>
+
       <!-- Model selector pills -->
       <div class="model-pills">
         <button
@@ -79,7 +88,12 @@
           </thead>
           <tbody>
             <tr v-for="fixture in session.fixtures" :key="fixture.key">
-              <td class="col-fixture">{{ fixture.label }}</td>
+              <td class="col-fixture">
+                <NuxtLink
+                  :to="`/sessions/${route.params.sessionName}/fixtures/${fixture.key}`"
+                  class="fixture-link"
+                >{{ fixture.label }}</NuxtLink>
+              </td>
               <td v-for="m in visibleModels" :key="m.modelFolderName" class="col-score">
                 <template v-if="getFixtureData(m, fixture.key)">
                   <ScoreBar :score="getFixtureData(m, fixture.key)!.avg_final_score" />
@@ -459,6 +473,17 @@ details[open] .bench-details__summary::before { content: '▼ '; }
   color: var(--color-text-muted);
   white-space: nowrap;
   min-width: 200px;
+}
+
+.fixture-link {
+  color: var(--color-accent);
+  text-decoration: none;
+  font-family: monospace;
+  font-size: .82rem;
+}
+
+.fixture-link:hover {
+  text-decoration: underline;
 }
 
 .col-model {

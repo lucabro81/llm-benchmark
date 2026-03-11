@@ -210,6 +210,7 @@ def _save_agent_results(
     requested_runs: int,
     agent_output_dir: Optional[Path] = None,
     output_dir: Optional[Path] = None,
+    prompt_text: Optional[str] = None,
 ) -> Path:
     """Save agent results to a folder with summary.json + steps.jsonl.
 
@@ -240,6 +241,7 @@ def _save_agent_results(
         "model": model,
         "fixture": fixture_name,
         "n_runs": requested_runs,
+        "prompt": prompt_text,
         "runs": [r.__dict__ for r in results],
     }
     with (agent_output_dir / "summary.json").open("w", encoding="utf-8") as f:
@@ -271,6 +273,7 @@ def save_results(
     requested_runs: Optional[int] = None,
     agent_output_dir: Optional[Path] = None,
     output_dir: Optional[Path] = None,
+    prompt_text: Optional[str] = None,
 ) -> Path:
     """Save results for one fixture.
 
@@ -293,7 +296,7 @@ def save_results(
     base = output_dir if output_dir is not None else OUTPUT_DIR
 
     if results and _is_agent_result(results[0]):
-        return _save_agent_results(results, model, fixture_name, n_runs, agent_output_dir, base)
+        return _save_agent_results(results, model, fixture_name, n_runs, agent_output_dir, base, prompt_text)
 
     # Single-shot: flat JSON file
     base.mkdir(parents=True, exist_ok=True)
@@ -302,6 +305,8 @@ def save_results(
     output_file = base / f"{model_safe}__{fixture_name}__{timestamp}.json"
     with open(output_file, "w") as f:
         json.dump([r.__dict__ for r in results], f, indent=2)
+    if prompt_text is not None:
+        output_file.with_suffix(".prompt.md").write_text(prompt_text)
     return output_file
 
 
@@ -318,7 +323,7 @@ def run_fixture(
     agent_output_dir: Optional[Path] = None,
     output_base: Optional[Path] = None,
     prompt_version: Optional[str] = None,
-) -> Optional[List[BenchmarkResult]]:
+) -> Optional[tuple]:
     """Run benchmark for a single fixture.
 
     Args:
@@ -338,6 +343,7 @@ def run_fixture(
         console.print("[yellow]  → Skipping this fixture[/yellow]")
         return None
 
+    prompt_text = test.prompt_template
     is_agent = hasattr(runner_module, "AgentTest")
 
     results = []
@@ -367,7 +373,7 @@ def run_fixture(
         results.append(result)
         runner_module.format_run(result)
 
-    return results
+    return results, prompt_text
 
 
 # ---------------------------------------------------------------------------
@@ -536,7 +542,7 @@ def main() -> int:
             if prompt_version:
                 console.print(f"[dim]  prompt override: prompt-{prompt_version}.md[/dim]")
 
-            results = run_fixture(
+            run_result = run_fixture(
                 model,
                 fixture_path,
                 args.runs,
@@ -547,10 +553,11 @@ def main() -> int:
                 prompt_version=prompt_version,
             )
 
-            if results is None:
+            if run_result is None:
                 had_errors = True
                 continue
 
+            results, prompt_text = run_result
             output_file = save_results(
                 results,
                 model,
@@ -558,6 +565,7 @@ def main() -> int:
                 requested_runs=args.runs,
                 agent_output_dir=agent_out_dir,
                 output_dir=model_dir,
+                prompt_text=prompt_text,
             )
             console.print(f"\n[green]✓ Results saved to {output_file}[/green]")
 
