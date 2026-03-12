@@ -189,6 +189,9 @@ Scoring weights come from each task's `validation_spec.json` (default: compilati
 - `max_steps` (from `validation_spec.json`) is the hard cap via smolagents
 - `iterations` (count of `write_file` + `run_compilation` calls) is an observational metric
 - JSON format rules injected into the smolagents system prompt at each step to help small models
+- `write_file` and `run_compilation` are **decoupled**: `write_file` only writes and returns `"File written."`, the model must call `run_compilation` separately for TS feedback
+- `run_crashed` in `AgentRunResult`: set when `agent.run()` raises (e.g. Ollama 500); `aborted` in `AgentBenchmarkResult`: all scores → 0, validation skipped, run excluded from dashboard aggregates
+- `final_answer` steps are logged in `tool_call_log` for diagnostics but do NOT increment `step_count`; `_COMPILE_TOOLS = {"run_compilation"}` only
 
 ### Per-task layout
 
@@ -220,6 +223,9 @@ New tasks must be registered in `_RUNNER_MAP` in [run_test.py](run_test.py).
 - **`rag_docs_path`** in `validation_spec.json`: same mechanism for RAG docs path override. Tasks D and E point to `../../fixtures/_shared/rag-docs-vue-elements-form`.
 - **`extra_system_prompt`** in `run_agent()`: appended to the smolagents system prompt after construction; used for soft tool-usage reminders (e.g. RAG reminder) without overriding FORMAT_REMINDER.
 - **`compilation_cwd`** and **`compilation_command`** in `validation_spec.json`: used for the Turborepo monorepo where `npm run check-types` must run from `apps/web/`.
+- **`write_file` is decoupled from compilation**: it only writes and returns `"File written."`. The model must call `run_compilation` explicitly to receive TS error feedback.
+- **Aborted runs**: if `agent.run()` raises (e.g. Ollama 500), `AgentRunResult.run_crashed=True` → `AgentBenchmarkResult.aborted=True`, all scores set to 0, validation skipped. Dashboard `aggregateRuns()` filters aborted runs before computing averages and reports `n_aborted`.
+- **`final_answer` in `tool_call_log`**: logged as a diagnostic entry but excluded from `step_count`. `_COMPILE_TOOLS = {"run_compilation"}` only — `compile_passed` is `None` for `write_file` entries.
 - **FormFields slot**: `inject()` returns `T | undefined` by default. The `form-fields.vue` component uses `inject<FormContext>(...)!` (non-null assertion) so consumers can use `form.values.field` directly without `?.`. Models should NOT add `?.` inside `<FormFields>`.
 - **FormActions slot**: `form` prop is `FormContext | undefined` — use `form?.isSubmitting.value`.
 - **Controlled components** (`ControlledInput`, `ControlledRadioGroup`, etc.) receive `form` via `provide/inject` — do NOT pass `:form="form"` as a prop.

@@ -188,9 +188,12 @@ Agent tasks additionally track (not part of the score):
 
 | Metric | Description |
 |--------|-------------|
-| `steps` | Total tool-calling turns used |
+| `steps` | Tool-calling turns used (`final_answer` is logged but not counted) |
 | `iterations` | Number of `write_file` + `run_compilation` calls combined |
 | `succeeded` | True if agent finished before `max_steps` |
+| `aborted` | True if the agent crashed (e.g. Ollama 500) — run is excluded from averages |
+
+**`write_file` and `run_compilation` are separate tools.** `write_file` only writes and returns `"File written."` — the model must call `run_compilation` explicitly to get TypeScript feedback. `final_answer` steps are recorded in `tool_call_log` for diagnostics but do not increment `step_count`.
 
 ## Project Structure
 
