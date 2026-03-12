@@ -8,7 +8,9 @@ Implement TWO files **in this order**:
 2. `apps/web/src/registration/components/RegistrationForm.vue` — Vue SFC using the `elements` package
 
 Write `types/index.ts` **first** so that RegistrationForm.vue can import from it.
-Use `write_file` to write each file. Writing a file automatically triggers TypeScript compilation — fix any errors reported before moving on.
+Use `write_file` to write each file, then `run_compilation` to check for TypeScript errors.
+`write_file` only writes the file and returns `"File written."` — it does NOT compile.
+After each write, call `run_compilation` to get feedback and fix any errors before moving on.
 
 **Use `query_rag` to look up component API examples before writing any code.** The tool has code examples for all available form components and patterns.
 

@@ -25,10 +25,11 @@ Use Zod `.superRefine()` for cross-field rules:
 
 ## How to use your tools
 
-Use `write_file` to write the component:
+Use `write_file` to write the component, then `run_compilation` to check for TypeScript errors:
 - Path: `apps/web/src/registration/components/RegistrationForm.vue`
-- Writing the file automatically triggers TypeScript compilation
-- Read any TS errors reported and fix them before considering the task complete
+- `write_file` only writes the file and returns `"File written."` — it does NOT compile
+- After writing, always call `run_compilation` to get TypeScript feedback
+- Fix any errors reported and repeat until compilation succeeds
 
 Write a **single Vue SFC** file:
 - Use `<script setup lang="ts">`

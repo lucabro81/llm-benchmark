@@ -27,8 +27,9 @@ Use Zod `.superRefine()` for cross-field rules:
 
 ## How to use your tools
 
-Use `write_file` to write each file. Writing automatically triggers TypeScript compilation.
-Read any TS errors reported and fix them before moving on.
+Use `write_file` to write each file, then `run_compilation` to check for TypeScript errors.
+`write_file` only writes the file and returns `"File written."` — it does NOT compile.
+After each write, call `run_compilation` to get feedback and fix any errors before moving on.
 
 **Step 1 — `apps/web/src/registration/types/index.ts`**
 

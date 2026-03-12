@@ -46,9 +46,10 @@ Define a Zod schema with `.superRefine()` for conditional validation:
 ## Workflow
 
 1. Call `query_rag` to find the patterns you need.
-2. Write the component with `write_file` — it automatically runs TypeScript compilation and returns the result.
-3. If there are compilation errors, fix them and call `write_file` again.
-4. Only call `final_answer` after `write_file` returns "Compilation succeeded."
+2. Write the file with `write_file` — it only writes and returns `"File written."`, it does NOT compile.
+3. Call `run_compilation` to get TypeScript feedback.
+4. If there are errors, fix them with `write_file` and call `run_compilation` again.
+5. Only call `final_answer` after `run_compilation` returns `"Compilation succeeded."`
 
 ---
 
