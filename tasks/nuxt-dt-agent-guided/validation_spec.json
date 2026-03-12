@@ -1,0 +1,22 @@
+{
+  "target_project_path": "../../fixtures/_shared/turborepo-nuxt-vue-elements",
+  "target_file": "apps/web/src/orders/OrdersDataTable.vue",
+  "allowed_write_paths": [
+    "apps/web/src/orders/OrdersDataTable.vue"
+  ],
+  "compilation_cwd": "apps/web",
+  "compilation_command": "check-types",
+  "max_steps": 10,
+  "required_patterns": {
+    "script_lang": "ts",
+    "datatable_component": "<DataTable",
+    "render_function": "h(",
+    "currency_formatter": "Intl.NumberFormat",
+    "date_formatter": "Intl.DateTimeFormat",
+    "status_badge": "status",
+    "action_handlers": ["onView", "onCancel"],
+    "column_ids": ["id", "customer", "status", "total", "date", "actions"]
+  },
+  "naming_conventions": { "variables": "camelCase" },
+  "scoring": { "compilation": 0.5, "pattern_match": 0.4, "naming": 0.1 }
+}

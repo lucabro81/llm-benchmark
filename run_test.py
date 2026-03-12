@@ -26,12 +26,18 @@ TASKS_DIR = Path("tasks")
 
 # Explicit mapping: task directory name → test runner module path
 # nuxt-form diagnostic battery (A → B → C → D → E)
+# nuxt-dt diagnostic battery (F → G → H → I → J)
 _RUNNER_MAP = {
     "nuxt-form-oneshot":         "src.creation.nuxt_form_oneshot.test_runner",
     "nuxt-form-agent-guided":    "src.agent.nuxt_form_agent_guided.test_runner",
     "nuxt-form-agent-twofiles":  "src.agent.nuxt_form_agent_twofiles.test_runner",
     "nuxt-form-agent-rag":       "src.agent.nuxt_form_agent_rag.test_runner",
     "nuxt-form-agent-full":      "src.agent.nuxt_form_agent_full.test_runner",
+    "nuxt-dt-oneshot":           "src.creation.nuxt_dt_oneshot.test_runner",
+    "nuxt-dt-agent-guided":      "src.agent.nuxt_dt_agent_guided.test_runner",
+    "nuxt-dt-agent-twofiles":    "src.agent.nuxt_dt_agent_twofiles.test_runner",
+    "nuxt-dt-agent-rag":         "src.agent.nuxt_dt_agent_rag.test_runner",
+    "nuxt-dt-agent-full":        "src.agent.nuxt_dt_agent_full.test_runner",
 }
 
 console = Console()

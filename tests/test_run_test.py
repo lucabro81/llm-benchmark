@@ -171,13 +171,18 @@ class TestGetRunnerModule:
         module = _get_runner_module(fixture)
         assert hasattr(module, "CreationTest")
 
-    def test_all_five_tasks_registered(self):
+    def test_all_tasks_registered(self):
         expected = {
             "nuxt-form-oneshot",
             "nuxt-form-agent-guided",
             "nuxt-form-agent-twofiles",
             "nuxt-form-agent-rag",
             "nuxt-form-agent-full",
+            "nuxt-dt-oneshot",
+            "nuxt-dt-agent-guided",
+            "nuxt-dt-agent-twofiles",
+            "nuxt-dt-agent-rag",
+            "nuxt-dt-agent-full",
         }
         assert expected == set(_RUNNER_MAP.keys())
 
