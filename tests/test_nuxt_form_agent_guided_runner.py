@@ -67,6 +67,7 @@ def _make_agent_result(**kwargs):
         total_input_tokens=400, total_output_tokens=150,
         first_compile_success_step=1, compile_error_recovery_count=0,
         rag_queries_count=0, read_file_count=0, list_files_count=0,
+        run_crashed=False,
     )
     defaults.update(kwargs)
     return SimpleNamespace(**defaults)
@@ -98,9 +99,10 @@ class TestAgentBenchmarkResult:
             naming_score=10.0, naming_violations=[], final_score=10.0,
             scoring_weights={}, tokens_per_sec=0.0, duration_sec=1.0,
             output_code="", errors=[], steps=3, max_steps=10, iterations=2,
-            succeeded=True, tool_call_log=[],
+            succeeded=True, tool_call_log=[], aborted=False,
         )
         assert r.max_steps == 10
+        assert r.aborted is False
 
 
 # ---------------------------------------------------------------------------
@@ -275,3 +277,90 @@ class TestAgentTestRun:
             test.run()
 
         assert target_vue.read_text() == STUB_VUE
+
+
+# ---------------------------------------------------------------------------
+# AgentTest.run() — aborted run handling
+# ---------------------------------------------------------------------------
+
+class TestAbortedRun:
+
+    @patch("src.agent.nuxt_form_agent_guided.test_runner.validator")
+    @patch("src.agent.nuxt_form_agent_guided.test_runner.run_agent")
+    def test_aborted_true_when_run_crashed(self, mock_run_agent, mock_validator, tmp_path):
+        """run_crashed=True in agent result must produce aborted=True in benchmark result."""
+        fixture_path = _make_fixture(tmp_path)
+        mock_run_agent.return_value = _make_agent_result(run_crashed=True, steps=0, errors=["Ollama error"])
+
+        result = AgentTest(model="m", fixture_path=fixture_path).run()
+
+        assert result.aborted is True
+
+    @patch("src.agent.nuxt_form_agent_guided.test_runner.validator")
+    @patch("src.agent.nuxt_form_agent_guided.test_runner.run_agent")
+    def test_aborted_run_scores_are_zero(self, mock_run_agent, mock_validator, tmp_path):
+        """Aborted run must have all scores = 0 and compiles = False."""
+        fixture_path = _make_fixture(tmp_path)
+        mock_run_agent.return_value = _make_agent_result(run_crashed=True, steps=0, errors=["Ollama error"])
+
+        result = AgentTest(model="m", fixture_path=fixture_path).run()
+
+        assert result.final_score == 0.0
+        assert result.pattern_score == 0.0
+        assert result.naming_score == 0.0
+        assert result.compiles is False
+
+    @patch("src.agent.nuxt_form_agent_guided.test_runner.validator")
+    @patch("src.agent.nuxt_form_agent_guided.test_runner.run_agent")
+    def test_aborted_run_skips_validation(self, mock_run_agent, mock_validator, tmp_path):
+        """Validator must NOT be called when run is aborted."""
+        fixture_path = _make_fixture(tmp_path)
+        mock_run_agent.return_value = _make_agent_result(run_crashed=True, steps=0)
+
+        AgentTest(model="m", fixture_path=fixture_path).run()
+
+        mock_validator.validate_compilation.assert_not_called()
+        mock_validator.validate_ast_structure.assert_not_called()
+        mock_validator.validate_naming.assert_not_called()
+
+    @patch("src.agent.nuxt_form_agent_guided.test_runner.validator")
+    @patch("src.agent.nuxt_form_agent_guided.test_runner.run_agent")
+    def test_non_crashed_run_not_aborted(self, mock_run_agent, mock_validator, tmp_path):
+        """Normal run (run_crashed=False) must have aborted=False."""
+        fixture_path = _make_fixture(tmp_path)
+        mock_run_agent.return_value = _make_agent_result(run_crashed=False)
+        mock_validator.validate_compilation.return_value = _make_compilation_result()
+        mock_validator.validate_ast_structure.return_value = _make_ast_result()
+        mock_validator.validate_naming.return_value = _make_naming_result()
+
+        result = AgentTest(model="m", fixture_path=fixture_path).run()
+
+        assert result.aborted is False
+
+
+# ---------------------------------------------------------------------------
+# write_file decoupling — tool must only write, not compile
+# ---------------------------------------------------------------------------
+
+class TestWriteFileDecoupled:
+
+    def test_write_file_returns_file_written_only(self, tmp_path):
+        """After decoupling, write_file must return 'File written.' with no compilation output."""
+        from src.agent.nuxt_form_agent_guided.test_runner import _make_tools
+
+        allowed_path = "apps/web/src/registration/components/RegistrationForm.vue"
+        comp_dir = tmp_path / "apps" / "web" / "src" / "registration" / "components"
+        comp_dir.mkdir(parents=True)
+        (comp_dir / "RegistrationForm.vue").write_text("initial")
+
+        tools = _make_tools(
+            target_project=tmp_path,
+            allowed_paths=[allowed_path],
+            compilation_cwd=tmp_path,
+            compilation_command="check-types",
+        )
+        write_tool = next(t for t in tools if t.name == "write_file")
+        result = write_tool(path=allowed_path, content="<script>new</script>")
+
+        assert result == "File written."
+        assert "Compilation" not in result

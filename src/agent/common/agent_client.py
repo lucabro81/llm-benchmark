@@ -27,7 +27,8 @@ from smolagents.models import OpenAIServerModel
 from src.common.ollama_client import get_ollama_base_url
 
 # Tools whose observations indicate compilation outcome.
-_COMPILE_TOOLS = {"write_file", "run_compilation"}
+# Only run_compilation is tracked — write_file is decoupled and no longer auto-compiles.
+_COMPILE_TOOLS = {"run_compilation"}
 
 
 @dataclass
@@ -67,6 +68,7 @@ class AgentRunResult:
     rag_queries_count: int = 0
     read_file_count: int = 0
     list_files_count: int = 0
+    run_crashed: bool = False
 
 
 def _make_observations_prune_callback():
@@ -278,6 +280,7 @@ def run_agent(
     total_output_tokens = 0
     total_input_tokens = 0
     run_result = None
+    run_crashed = False
 
     try:
         run_result = agent.run(task, return_full_result=True)
@@ -291,6 +294,7 @@ def run_agent(
     except Exception as e:
         errors.append(f"Agent run error: {e}")
         succeeded = False
+        run_crashed = True
     finally:
         duration_sec = time.time() - start_time
 
@@ -303,12 +307,16 @@ def run_agent(
     step_count = 0
     try:
         for i, step in enumerate(agent.memory.steps):
-            tool_calls = getattr(step, "tool_calls", None) or []
-            # Exclude planning steps (no tool_calls) and the final_answer step
-            real_calls = [tc for tc in tool_calls if getattr(tc, "name", "") != "final_answer"]
-            if not real_calls:
+            all_calls = getattr(step, "tool_calls", None) or []
+            # Skip planning/task steps (TaskStep has no tool_calls at all).
+            if not all_calls:
                 continue
-            step_count += 1
+
+            # Count only non-final_answer calls toward step_count.
+            # final_answer is logged but not counted as a tool-calling step.
+            non_final_calls = [tc for tc in all_calls if getattr(tc, "name", "") != "final_answer"]
+            if non_final_calls:
+                step_count += 1
 
             observations = getattr(step, "observations", "") or ""
             obs_str = str(observations)
@@ -322,7 +330,8 @@ def run_agent(
             step_duration = sd.get("duration_sec", 0.0)
             context_chars = sd.get("context_chars", 0)
 
-            for tc in real_calls:
+            # Log ALL tool calls including final_answer for full diagnostic visibility.
+            for tc in all_calls:
                 tool_name = getattr(tc, "name", "unknown")
                 compile_passed = _compile_passed_from_observations(tool_name, obs_str)
                 tool_call_log.append({
@@ -370,4 +379,5 @@ def run_agent(
         rag_queries_count=rag_queries_count,
         read_file_count=read_file_count,
         list_files_count=list_files_count,
+        run_crashed=run_crashed,
     )

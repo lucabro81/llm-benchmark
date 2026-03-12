@@ -103,6 +103,7 @@ def _make_agent_result(**kwargs):
         total_input_tokens=600, total_output_tokens=250,
         first_compile_success_step=1, compile_error_recovery_count=0,
         rag_queries_count=1, read_file_count=2, list_files_count=1,
+        run_crashed=False,
     )
     defaults.update(kwargs)
     return SimpleNamespace(**defaults)
@@ -137,11 +138,12 @@ class TestAgentBenchmarkResult:
             naming_score=10.0, naming_violations=[], final_score=10.0,
             scoring_weights={}, tokens_per_sec=0.0, duration_sec=1.0,
             output_code="", errors=[], steps=5, max_steps=30, iterations=2,
-            succeeded=True, tool_call_log=[],
+            succeeded=True, tool_call_log=[], aborted=False,
         )
         assert result.steps == 5
         assert result.max_steps == 30
         assert result.iterations == 2
+        assert result.aborted is False
 
     def test_json_serialisable(self):
         result = AgentBenchmarkResult(
@@ -151,11 +153,12 @@ class TestAgentBenchmarkResult:
             naming_score=10.0, naming_violations=[], final_score=10.0,
             scoring_weights={}, tokens_per_sec=0.0, duration_sec=1.0,
             output_code="", errors=[], steps=5, max_steps=30, iterations=2,
-            succeeded=True, tool_call_log=[],
+            succeeded=True, tool_call_log=[], aborted=False,
         )
         dumped = json.dumps(result.__dict__)
         assert "steps" in dumped
         assert "max_steps" in dumped
+        assert "aborted" in dumped
 
 
 # ---------------------------------------------------------------------------
@@ -376,3 +379,90 @@ class TestAgentTestRun:
         tools = call_kwargs.kwargs.get("tools") or (call_kwargs[0][2] if len(call_kwargs[0]) > 2 else [])
         tool_names = [getattr(t, "name", None) for t in tools]
         assert "query_rag" in tool_names
+
+
+# ---------------------------------------------------------------------------
+# AgentTest.run() — aborted run handling
+# ---------------------------------------------------------------------------
+
+class TestAbortedRun:
+
+    @patch("src.agent.nuxt_form_agent_full.test_runner.validator")
+    @patch("src.agent.nuxt_form_agent_full.test_runner.run_agent")
+    def test_aborted_true_when_run_crashed(self, mock_run_agent, mock_validator, tmp_path):
+        fixture_path = _make_fixture(tmp_path)
+        mock_run_agent.return_value = _make_agent_result(run_crashed=True, steps=0, errors=["Ollama error"])
+
+        result = AgentTest(model="m", fixture_path=fixture_path).run(run_number=1)
+
+        assert result.aborted is True
+
+    @patch("src.agent.nuxt_form_agent_full.test_runner.validator")
+    @patch("src.agent.nuxt_form_agent_full.test_runner.run_agent")
+    def test_aborted_run_scores_are_zero(self, mock_run_agent, mock_validator, tmp_path):
+        fixture_path = _make_fixture(tmp_path)
+        mock_run_agent.return_value = _make_agent_result(run_crashed=True, steps=0)
+
+        result = AgentTest(model="m", fixture_path=fixture_path).run(run_number=1)
+
+        assert result.final_score == 0.0
+        assert result.pattern_score == 0.0
+        assert result.naming_score == 0.0
+        assert result.compiles is False
+
+    @patch("src.agent.nuxt_form_agent_full.test_runner.validator")
+    @patch("src.agent.nuxt_form_agent_full.test_runner.run_agent")
+    def test_aborted_run_skips_validation(self, mock_run_agent, mock_validator, tmp_path):
+        fixture_path = _make_fixture(tmp_path)
+        mock_run_agent.return_value = _make_agent_result(run_crashed=True, steps=0)
+
+        AgentTest(model="m", fixture_path=fixture_path).run(run_number=1)
+
+        mock_validator.validate_compilation.assert_not_called()
+        mock_validator.validate_ast_structure.assert_not_called()
+        mock_validator.validate_naming.assert_not_called()
+
+    @patch("src.agent.nuxt_form_agent_full.test_runner.validator")
+    @patch("src.agent.nuxt_form_agent_full.test_runner.run_agent")
+    def test_non_crashed_run_not_aborted(self, mock_run_agent, mock_validator, tmp_path):
+        fixture_path = _make_fixture(tmp_path)
+        mock_run_agent.return_value = _make_agent_result(run_crashed=False)
+        mock_validator.validate_compilation.return_value = _make_compilation_result()
+        mock_validator.validate_ast_structure.return_value = _make_ast_result()
+        mock_validator.validate_naming.return_value = _make_naming_result()
+
+        result = AgentTest(model="m", fixture_path=fixture_path).run(run_number=1)
+
+        assert result.aborted is False
+
+
+# ---------------------------------------------------------------------------
+# write_file decoupling — tool must only write, not compile
+# ---------------------------------------------------------------------------
+
+class TestWriteFileDecoupled:
+
+    def test_write_file_returns_file_written_only(self, tmp_path):
+        """After decoupling, write_file must return 'File written.' with no compilation output."""
+        from src.agent.nuxt_form_agent_full.test_runner import _make_tools
+        from unittest.mock import MagicMock
+
+        allowed_path = "apps/web/src/registration/components/RegistrationForm.vue"
+        comp_dir = tmp_path / "apps" / "web" / "src" / "registration" / "components"
+        comp_dir.mkdir(parents=True)
+        (comp_dir / "RegistrationForm.vue").write_text("initial")
+
+        mock_rag_tool = MagicMock()
+
+        tools = _make_tools(
+            target_project=tmp_path,
+            allowed_paths=[allowed_path],
+            compilation_cwd=tmp_path,
+            compilation_command="check-types",
+            rag_tool=mock_rag_tool,
+        )
+        write_tool = next(t for t in tools if t.name == "write_file")
+        result = write_tool(path=allowed_path, content="<script>new</script>")
+
+        assert result == "File written."
+        assert "Compilation" not in result

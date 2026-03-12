@@ -27,20 +27,22 @@ function round2(n: number): number {
 }
 
 function aggregateRuns(runs: any[]) {
-  const n = runs.length
+  const validRuns = runs.filter(r => !r.aborted)
+  const n = validRuns.length
   if (n === 0) return null
-  const isAgent = 'tool_call_log' in runs[0]
+  const isAgent = 'tool_call_log' in validRuns[0]
   return {
-    n_runs: n,
-    avg_final_score:    round2(avg(runs.map(r => r.final_score))),
-    avg_pattern_score:  round2(avg(runs.map(r => r.pattern_score))),
-    avg_naming_score:   round2(avg(runs.map(r => r.naming_score))),
-    compile_rate:       round2(runs.filter(r => r.compiles).length / n),
-    avg_tokens_per_sec: round2(avg(runs.map(r => r.tokens_per_sec))),
-    avg_duration_sec:   round2(avg(runs.map(r => r.duration_sec))),
+    n_runs:             n,
+    n_aborted:          runs.length - n,
+    avg_final_score:    round2(avg(validRuns.map(r => r.final_score))),
+    avg_pattern_score:  round2(avg(validRuns.map(r => r.pattern_score))),
+    avg_naming_score:   round2(avg(validRuns.map(r => r.naming_score))),
+    compile_rate:       round2(validRuns.filter(r => r.compiles).length / n),
+    avg_tokens_per_sec: round2(avg(validRuns.map(r => r.tokens_per_sec))),
+    avg_duration_sec:   round2(avg(validRuns.map(r => r.duration_sec))),
     is_agent:           isAgent,
-    avg_steps:          isAgent ? round2(avg(runs.map(r => r.steps ?? 0))) : null,
-    succeed_rate:       isAgent ? round2(runs.filter(r => r.succeeded).length / n) : null,
+    avg_steps:          isAgent ? round2(avg(validRuns.map(r => r.steps ?? 0))) : null,
+    succeed_rate:       isAgent ? round2(validRuns.filter(r => r.succeeded).length / n) : null,
   }
 }
 

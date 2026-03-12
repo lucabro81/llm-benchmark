@@ -65,6 +65,7 @@ class AgentBenchmarkResult:
     rag_queries_count: int = 0
     read_file_count: int = 0
     list_files_count: int = 0
+    aborted: bool = False
 
 
 def _make_tools(
@@ -113,17 +114,17 @@ def _make_tools(
 
     @tool
     def write_file(path: str, content: str) -> str:
-        """Write content to a file, then run TypeScript compilation automatically.
+        """Write content to a file.
 
         Only paths in the fixture's allowed_write_paths may be written.
+        To check for TypeScript errors after writing, call run_compilation separately.
 
         Args:
             path: Relative path to write (e.g. 'apps/web/src/registration/components/RegistrationForm.vue').
             content: Complete file content to write.
 
         Returns:
-            'File written.\\nCompilation succeeded.' on success,
-            'File written.\\nCompilation errors:\\n{errors}' if TS errors remain,
+            'File written.' on success,
             or an error message starting with 'ERROR:' if the write failed.
         """
         if path not in allowed_write_set:
@@ -141,10 +142,7 @@ def _make_tools(
         except Exception as e:
             return f"ERROR: {e}"
 
-        compile_result = _run_compile()
-        if compile_result == "Compilation succeeded.":
-            return f"File written.\n{compile_result}"
-        return f"File written.\nCompilation errors:\n{compile_result}"
+        return "File written."
 
     @tool
     def run_compilation() -> str:
@@ -259,6 +257,38 @@ class AgentTest:
                 prompt_log_path=prompt_log_path,
             )
             errors.extend(agent_result.errors)
+
+            # Early exit if agent crashed before making any tool calls.
+            if agent_result.run_crashed:
+                return AgentBenchmarkResult(
+                    model=self.model,
+                    fixture=self.fixture_name,
+                    timestamp=timestamp,
+                    run_number=run_number,
+                    compiles=False,
+                    compilation_errors=["Run aborted: agent crashed before making tool calls"],
+                    compilation_warnings=[],
+                    pattern_score=0.0,
+                    ast_missing=[],
+                    ast_checks={},
+                    naming_score=0.0,
+                    naming_violations=[],
+                    final_score=0.0,
+                    scoring_weights=self.validation_spec["scoring"],
+                    tokens_per_sec=agent_result.tokens_per_sec,
+                    duration_sec=agent_result.duration_sec,
+                    output_code="",
+                    errors=errors,
+                    steps=agent_result.steps,
+                    max_steps=self.max_steps,
+                    iterations=0,
+                    succeeded=False,
+                    tool_call_log=agent_result.tool_call_log,
+                    total_input_tokens=agent_result.total_input_tokens,
+                    total_output_tokens=agent_result.total_output_tokens,
+                    aborted=True,
+                )
+
             iterations = sum(
                 1 for e in agent_result.tool_call_log
                 if e.get("tool") in ("write_file", "run_compilation")
@@ -351,6 +381,7 @@ class AgentTest:
                 rag_queries_count=agent_result.rag_queries_count,
                 read_file_count=agent_result.read_file_count,
                 list_files_count=agent_result.list_files_count,
+                aborted=False,
             )
 
         finally:

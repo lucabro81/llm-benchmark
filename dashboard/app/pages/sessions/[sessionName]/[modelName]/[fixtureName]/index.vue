@@ -21,6 +21,7 @@
             <span class="compile-badge" :class="run.compiles ? 'compile-badge--great' : 'compile-badge--low'">
               {{ run.compiles ? '✓ compile' : '✗ compile' }}
             </span>
+            <span v-if="run.aborted" class="aborted-badge">⚠ aborted</span>
           </div>
         </div>
 
@@ -245,6 +246,17 @@ function formatCtx(chars: number | null | undefined): string {
 
 .compile-badge--great { background: #d1fae5; color: #065f46; }
 .compile-badge--low   { background: #fee2e2; color: #991b1b; }
+
+/* Aborted badge */
+.aborted-badge {
+  display: inline-block;
+  font-size: .72rem;
+  padding: .1rem .45rem;
+  border-radius: 4px;
+  background: #fee2e2;
+  color: #991b1b;
+  font-weight: 600;
+}
 
 /* Tool pills */
 .tool-pill {
