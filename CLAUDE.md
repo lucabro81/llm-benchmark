@@ -31,6 +31,12 @@ Red flags to report:
 - **All tests must be implemented BEFORE the actual function implementation**
 - Follow the TDD cycle: Red → Green → Refactor
 
+### Bug Fix Workflow
+When fixing a bug:
+1. Determine the root cause and identify what needs to change
+2. **Evaluate whether to create or update a test** that covers the broken case (regression test or update to existing spec)
+3. Implement the fix
+
 ### Development Environment
 - Python virtual environment managed with `venv`
 - Activate environment using the alias: `llmbench`
