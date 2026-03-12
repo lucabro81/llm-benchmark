@@ -343,7 +343,7 @@ def run_fixture(
         console.print("[yellow]  → Skipping this fixture[/yellow]")
         return None
 
-    prompt_text = test.prompt_template
+    prompt_text = getattr(test, "prompt_template", None) or getattr(test, "prompt", "")
     is_agent = hasattr(runner_module, "AgentTest")
 
     results = []
