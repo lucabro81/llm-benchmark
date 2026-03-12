@@ -134,9 +134,9 @@ def _make_session_dir(session_name: Optional[str]) -> Path:
 def show_header(model: str, fixtures: List[Path], runs: int):
     """Display benchmark header."""
     fixture_names = ", ".join(f.name for f in fixtures)
-    console.print("\n[bold cyan]╔════════════════════════════════════════════╗[/bold cyan]")
-    console.print("[bold cyan]║  LLM Benchmark     ║[/bold cyan]")
-    console.print("[bold cyan]╚════════════════════════════════════════════╝[/bold cyan]\n")
+    console.print("\n[bold cyan]╔═════════════════╗[/bold cyan]")
+    console.print("[bold cyan]║  LLM Benchmark  ║[/bold cyan]")
+    console.print("[bold cyan]╚═════════════════╝[/bold cyan]\n")
     console.print(f"Model:    [yellow]{model}[/yellow]")
     console.print(f"Fixtures: [yellow]{fixture_names}[/yellow]")
     console.print(f"Runs:     [yellow]{runs} per fixture[/yellow]\n")
@@ -145,9 +145,9 @@ def show_header(model: str, fixtures: List[Path], runs: int):
 def show_fixture_header(fixture_name: str, index: int, total: int):
     """Display fixture section header (only when running multiple fixtures)."""
     if total > 1:
-        console.print(f"\n[bold]{'═' * 46}[/bold]")
+        console.print(f"\n[bold]══════════════════════════════[/bold]")
         console.print(f"[bold]Fixture {index}/{total}: {fixture_name}[/bold]")
-        console.print(f"[bold]{'═' * 46}[/bold]")
+        console.print(f"[bold]══════════════════════════════[/bold]")
 
 
 
@@ -348,7 +348,7 @@ def run_fixture(
 
     results = []
     for i in range(runs):
-        console.print(f"[dim]── Run {i + 1}/{runs} ──[/dim]")
+        console.print(f"[dim]── Run {i + 1}/{runs} [{model} - {fixture_path.name}] ──[/dim]")
         run_kwargs = {"run_number": i + 1}
 
         if log_prompts and is_agent and agent_output_dir is not None:
