@@ -1,0 +1,31 @@
+{"run": 1, "step": 1, "tool": "write_file", "compile_passed": null, "duration_sec": 3.248, "context_chars": 19631, "result_summary": "File written."}
+{"run": 1, "step": 2, "tool": "run_compilation", "compile_passed": true, "duration_sec": 83.034, "context_chars": 19876, "result_summary": "Compilation succeeded."}
+{"run": 2, "step": 1, "tool": "write_file", "compile_passed": null, "duration_sec": 3.076, "context_chars": 23880, "result_summary": "File written."}
+{"run": 2, "step": 2, "tool": "run_compilation", "compile_passed": false, "duration_sec": 31.645, "context_chars": 24574, "result_summary": "(see latest compilation result)"}
+{"run": 2, "step": 3, "tool": "write_file", "compile_passed": null, "duration_sec": 5.14, "context_chars": 32015, "result_summary": "File written."}
+{"run": 2, "step": 4, "tool": "run_compilation", "compile_passed": false, "duration_sec": 28.869, "context_chars": 32516, "result_summary": "(see latest compilation result)"}
+{"run": 2, "step": 5, "tool": "write_file", "compile_passed": null, "duration_sec": 43.952, "context_chars": 39005, "result_summary": "File written."}
+{"run": 2, "step": 6, "tool": "write_file", "compile_passed": null, "duration_sec": 9.869, "context_chars": 42312, "result_summary": "File written."}
+{"run": 2, "step": 7, "tool": "run_compilation", "compile_passed": false, "duration_sec": 16.083, "context_chars": 42797, "result_summary": "(see latest compilation result)"}
+{"run": 2, "step": 8, "tool": "write_file", "compile_passed": null, "duration_sec": 4.094, "context_chars": 57076, "result_summary": "File written."}
+{"run": 2, "step": 9, "tool": "run_compilation", "compile_passed": false, "duration_sec": 26.674, "context_chars": 57664, "result_summary": "src/registration/components/RegistrationForm.vue(14,3): error TS1484: 'RegistrationFormValues' is a type and must be imported using a type-only import when 'verbatimModuleSyntax' is enabled.\nsrc/regis..."}
+{"run": 3, "step": 1, "tool": "write_file", "compile_passed": null, "duration_sec": 3.921, "context_chars": 23291, "result_summary": "File written."}
+{"run": 3, "step": 2, "tool": "run_compilation", "compile_passed": false, "duration_sec": 32.648, "context_chars": 23635, "result_summary": "(see latest compilation result)"}
+{"run": 3, "step": 3, "tool": "write_file", "compile_passed": null, "duration_sec": 5.306, "context_chars": 91291, "result_summary": "File written."}
+{"run": 3, "step": 4, "tool": "run_compilation", "compile_passed": false, "duration_sec": 14.905, "context_chars": 91773, "result_summary": "src/registration/components/RegistrationForm.vue(3,87): error TS2307: Cannot find module '@/registration/types' or its corresponding type declarations."}
+{"run": 5, "step": 1, "tool": "write_file", "compile_passed": null, "duration_sec": 3.726, "context_chars": 23294, "result_summary": "File written."}
+{"run": 5, "step": 2, "tool": "run_compilation", "compile_passed": true, "duration_sec": 25.1, "context_chars": 23539, "result_summary": "Compilation succeeded."}
+{"run": 7, "step": 1, "tool": "write_file", "compile_passed": null, "duration_sec": 4.066, "context_chars": 22874, "result_summary": "File written."}
+{"run": 7, "step": 2, "tool": "run_compilation", "compile_passed": false, "duration_sec": 32.362, "context_chars": 23218, "result_summary": "(see latest compilation result)"}
+{"run": 7, "step": 3, "tool": "write_file", "compile_passed": null, "duration_sec": 5.282, "context_chars": 53070, "result_summary": "File written."}
+{"run": 7, "step": 4, "tool": "run_compilation", "compile_passed": false, "duration_sec": 39.934, "context_chars": 53552, "result_summary": "src/registration/components/RegistrationForm.vue(3,87): error TS2307: Cannot find module '@/registration/types' or its corresponding type declarations."}
+{"run": 7, "step": 5, "tool": "write_file", "compile_passed": null, "duration_sec": 28.791, "context_chars": 58946, "result_summary": "File written."}
+{"run": 7, "step": 6, "tool": "write_file", "compile_passed": null, "duration_sec": 30.025, "context_chars": 64068, "result_summary": "File written."}
+{"run": 7, "step": 7, "tool": "write_file", "compile_passed": null, "duration_sec": 27.431, "context_chars": 69196, "result_summary": "File written."}
+{"run": 7, "step": 8, "tool": "write_file", "compile_passed": null, "duration_sec": 27.535, "context_chars": 74334, "result_summary": "File written."}
+{"run": 7, "step": 9, "tool": "write_file", "compile_passed": null, "duration_sec": 24.397, "context_chars": 79480, "result_summary": "File written."}
+{"run": 9, "step": 1, "tool": "write_file", "compile_passed": null, "duration_sec": 4.384, "context_chars": 23100, "result_summary": "File written."}
+{"run": 9, "step": 2, "tool": "run_compilation", "compile_passed": false, "duration_sec": 32.991, "context_chars": 23442, "result_summary": "(see latest compilation result)"}
+{"run": 9, "step": 3, "tool": "run_compilation", "compile_passed": true, "duration_sec": 22.86, "context_chars": 81153, "result_summary": "Compilation succeeded."}
+{"run": 10, "step": 1, "tool": "write_file", "compile_passed": null, "duration_sec": 3.252, "context_chars": 19742, "result_summary": "File written."}
+{"run": 10, "step": 2, "tool": "run_compilation", "compile_passed": true, "duration_sec": 28.257, "context_chars": 19987, "result_summary": "Compilation succeeded."}

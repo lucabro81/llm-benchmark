@@ -1,0 +1,418 @@
+{
+  "model": "qwen3.5:122b",
+  "fixture": "nuxt-form-agent-twofiles",
+  "n_runs": 10,
+  "prompt": "You are implementing a Vue 3 registration form in a Turborepo monorepo.\n\n## Task\n\nImplement TWO files **in this order**:\n\n1. `apps/web/src/registration/types/index.ts` \u2014 Zod schema + TypeScript types\n2. `apps/web/src/registration/components/RegistrationForm.vue` \u2014 Vue SFC that imports from the types file\n\n### Required fields\n\n| Field       | Component             | Constraints                                                                 |\n|-------------|----------------------|-----------------------------------------------------------------------------|\n| `username`  | ControlledInput       | required, min 3 chars                                                       |\n| `email`     | ControlledInput       | type=\"email\", required, valid email                                         |\n| `role`      | ControlledRadioGroup  | options: \"user\", \"admin\", \"contributor\"                                    |\n| `otherInfo` | ControlledInput       | visible only when `role === \"contributor\"`                                  |\n| `newsletter`| ControlledCheckbox    |                                                                             |\n| `frequency` | ControlledRadioGroup  | options: \"daily\", \"weekly\", \"monthly\"; visible only when `newsletter` true  |\n| `bio`       | ControlledTextarea    | optional                                                                    |\n\n### Conditional validation\n\nUse Zod `.superRefine()` for cross-field rules:\n- `otherInfo` required when `role === \"contributor\"`\n- `frequency` required when `newsletter === true`\n\n## How to use your tools\n\nUse `write_file` to write each file, then `run_compilation` to check for TypeScript errors.\n`write_file` only writes the file and returns `\"File written.\"` \u2014 it does NOT compile.\nAfter each write, call `run_compilation` to get feedback and fix any errors before moving on.\n\n**Step 1 \u2014 `apps/web/src/registration/types/index.ts`**\n\nExport:\n- `registrationSchema` \u2014 the Zod schema (use `.superRefine()` for cross-field rules)\n- `RegistrationFormValues` \u2014 the inferred TypeScript type (`z.infer<typeof registrationSchema>`)\n- `registrationInitialValues` \u2014 initial values object typed as `RegistrationFormValues`\n\nWrite this file first so the component can import from it.\n\n**Step 2 \u2014 `apps/web/src/registration/components/RegistrationForm.vue`**\n\n- Use `<script setup lang=\"ts\">`\n- Import `registrationSchema`, `RegistrationFormValues`, `registrationInitialValues` from `@/registration/types`\n- Import all components from `\"elements\"`\n\n---\n\n## Component API Reference\n\nUse ONLY the components from the `elements` package shown below.\n\n### 01_basic_form.vue\n\n```vue\n<!--\n  EXAMPLE: Basic form with ControlledInput, ControlledCheckbox, and Button.\n\n  Pattern:\n  - Import Form, FormFields, FormActions, controlled components and Button from \"elements\"\n  - <Form> takes :initial-values, :form-schema (Zod schema), :actions ({ onSubmit })\n  - <FormFields v-slot=\"{ form, resetGeneralError }\"> wraps all input components\n  - <FormActions v-slot=\"{ form, isValid }\"> wraps the submit button\n  - Pass @input-click=\"resetGeneralError\" to each controlled component\n-->\n<script setup lang=\"ts\">\nimport { Button, ControlledCheckbox, ControlledInput, Form, FormActions, FormFields } from \"elements\";\nimport { z } from \"zod\";\n\nconst loginSchema = z.object({\n  email: z.string().email(\"Formato email non valido\").min(1, \"Email obbligatoria\"),\n  password: z.string().min(1, \"Password obbligatoria\"),\n  rememberMe: z.boolean().optional(),\n});\n\ntype LoginFormValues = z.infer<typeof loginSchema>;\n\n// initial-values must include ALL schema fields\nconst initialValues: LoginFormValues = {\n  email: \"\",\n  password: \"\",\n  rememberMe: false,\n};\n\nconst { onSubmit } = defineProps<{\n  onSubmit: (values: LoginFormValues) => Promise<LoginFormValues>;\n}>();\n\nconst actions = { onSubmit };\n</script>\n\n<template>\n  <div class=\"w-full\">\n    <Form :initial-values=\"initialValues\" :form-schema=\"loginSchema\" :actions=\"actions\">\n\n      <FormFields v-slot=\"{ resetGeneralError }\">\n        <ControlledInput\n          name=\"email\"\n          label=\"Email\"\n          placeholder=\"inserisci email\"\n          @input-click=\"resetGeneralError\"\n        />\n        <ControlledInput\n          type=\"password\"\n          name=\"password\"\n          label=\"Password\"\n          placeholder=\"inserisci password\"\n          @input-click=\"resetGeneralError\"\n        />\n        <!-- name must exactly match the key in the Zod schema -->\n        <ControlledCheckbox\n          name=\"rememberMe\"\n          label=\"Ricordami\"\n          @input-click=\"resetGeneralError\"\n        />\n      </FormFields>\n\n      <FormActions v-slot=\"{ form, isValid }\" class=\"mt-6\">\n        <Button\n          type=\"submit\"\n          class=\"w-full\"\n          :disabled=\"!isValid || form?.isSubmitting.value\"\n        >\n          Accedi\n        </Button>\n      </FormActions>\n\n    </Form>\n  </div>\n</template>\n\n```\n\n### 02_checkbox_reveals_field.vue\n\n```vue\n<!--\n  EXAMPLE: Checkbox that conditionally shows another field.\n\n  Pattern:\n  - FormFields slot exposes `form` (vee-validate FormContext)\n  - form.values.<fieldName> gives the current reactive value of any field\n  - Use v-if on a sibling component to show/hide based on another field's value\n-->\n<script setup lang=\"ts\">\nimport { Button, ControlledCheckbox, ControlledInput, Form, FormActions, FormFields } from \"elements\";\nimport { z } from \"zod\";\n\nconst schema = z.object({\n  hasAlternateEmail: z.boolean().optional(),\n  // alternateEmail is optional in Zod; required logic handled in UI or via refine\n  alternateEmail: z.string().email(\"Email non valida\").optional(),\n});\n\ntype FormValues = z.infer<typeof schema>;\n\nconst initialValues: FormValues = {\n  hasAlternateEmail: false,\n  alternateEmail: \"\",\n};\n\nconst actions = {\n  onSubmit: async (values: FormValues) => values,\n};\n</script>\n\n<template>\n  <Form :initial-values=\"initialValues\" :form-schema=\"schema\" :actions=\"actions\">\n\n    <FormFields v-slot=\"{ form, resetGeneralError }\">\n      <ControlledCheckbox\n        name=\"hasAlternateEmail\"\n        label=\"Ho un'email alternativa\"\n        @input-click=\"resetGeneralError\"\n      />\n\n      <!--\n        form.values is the reactive vee-validate FormContext values object.\n        v-if re-evaluates automatically whenever the checkbox changes.\n      -->\n      <ControlledInput\n        v-if=\"form.values.hasAlternateEmail\"\n        name=\"alternateEmail\"\n        label=\"Email alternativa\"\n        type=\"email\"\n        placeholder=\"altra@email.com\"\n        @input-click=\"resetGeneralError\"\n      />\n    </FormFields>\n\n    <FormActions v-slot=\"{ form, isValid }\">\n      <Button type=\"submit\" :disabled=\"!isValid || form?.isSubmitting.value\">\n        Salva\n      </Button>\n    </FormActions>\n\n  </Form>\n</template>\n\n```\n\n### 03_radio_group.vue\n\n```vue\n<!--\n  EXAMPLE: ControlledRadioGroup \u2014 radio buttons driven by an options array.\n\n  Pattern:\n  - ControlledRadioGroup takes name, label, :options (array of { value, label })\n  - orientation is \"vertical\" (default) or \"horizontal\"\n  - A second ControlledRadioGroup can be shown conditionally based on form.values\n-->\n<script setup lang=\"ts\">\nimport { Button, ControlledRadioGroup, Form, FormActions, FormFields } from \"elements\";\nimport { z } from \"zod\";\n\nconst schema = z.object({\n  role: z.enum([\"user\", \"admin\", \"contributor\"]),\n  // notificationChannel is only relevant when role is \"admin\"\n  notificationChannel: z.enum([\"email\", \"slack\"]).optional(),\n});\n\ntype FormValues = z.infer<typeof schema>;\n\nconst initialValues: FormValues = {\n  role: \"user\",\n  notificationChannel: undefined,\n};\n\nconst roleOptions = [\n  { value: \"user\", label: \"Utente\" },\n  { value: \"admin\", label: \"Amministratore\" },\n  { value: \"contributor\", label: \"Contributore\" },\n];\n\nconst channelOptions = [\n  { value: \"email\", label: \"Email\" },\n  { value: \"slack\", label: \"Slack\" },\n];\n\nconst actions = {\n  onSubmit: async (values: FormValues) => values,\n};\n</script>\n\n<template>\n  <Form :initial-values=\"initialValues\" :form-schema=\"schema\" :actions=\"actions\">\n\n    <FormFields v-slot=\"{ form, resetGeneralError }\">\n      <!--\n        :options is an array of { value: string, label: string }.\n        The selected value is stored in form.values.role.\n      -->\n      <ControlledRadioGroup\n        name=\"role\"\n        label=\"Ruolo\"\n        :options=\"roleOptions\"\n        @input-click=\"resetGeneralError\"\n      />\n\n      <!-- Show a second radio group only when role === \"admin\" -->\n      <ControlledRadioGroup\n        v-if=\"form.values.role === 'admin'\"\n        name=\"notificationChannel\"\n        label=\"Canale notifiche\"\n        :options=\"channelOptions\"\n        orientation=\"horizontal\"\n        @input-click=\"resetGeneralError\"\n      />\n    </FormFields>\n\n    <FormActions v-slot=\"{ form, isValid }\">\n      <Button type=\"submit\" :disabled=\"!isValid || form?.isSubmitting.value\">\n        Conferma\n      </Button>\n    </FormActions>\n\n  </Form>\n</template>\n\n```\n\n### 04_zod_conditional_schema.ts\n\n```ts\n/**\n * EXAMPLE: Zod schema with optional fields and conditional validation.\n *\n * Patterns shown:\n * - .optional() marks a field as not required\n * - .superRefine() adds cross-field conditional validation rules\n * - z.infer<typeof schema> derives the TypeScript type\n */\n\nimport { z } from \"zod\";\n\nexport const registrationSchema = z.object({\n  username: z.string().min(3, \"Username: almeno 3 caratteri\"),\n  email: z.string().email(\"Email non valida\").min(1, \"Email obbligatoria\"),\n\n  // role drives conditional fields below\n  role: z.enum([\"user\", \"admin\", \"contributor\"]),\n\n  // otherInfo is optional by default; made required for \"contributor\" via superRefine\n  otherInfo: z.string().optional(),\n\n  // newsletter enables the frequency field\n  newsletter: z.boolean().optional(),\n\n  // frequency is optional; required only when newsletter is true\n  frequency: z.enum([\"daily\", \"weekly\", \"monthly\"]).optional(),\n\n  // bio is always optional\n  bio: z.string().optional(),\n})\n.superRefine((data, ctx) => {\n  // otherInfo is required when role is \"contributor\"\n  if (data.role === \"contributor\" && !data.otherInfo) {\n    ctx.addIssue({\n      code: z.ZodIssueCode.custom,\n      message: \"Descrivi il tuo contributo\",\n      path: [\"otherInfo\"],\n    });\n  }\n\n  // frequency is required when newsletter is true\n  if (data.newsletter && !data.frequency) {\n    ctx.addIssue({\n      code: z.ZodIssueCode.custom,\n      message: \"Seleziona una frequenza\",\n      path: [\"frequency\"],\n    });\n  }\n});\n\nexport type RegistrationFormValues = z.infer<typeof registrationSchema>;\n\n// Initial values: all optional fields get a safe default (empty string or false/undefined)\nexport const registrationInitialValues: RegistrationFormValues = {\n  username: \"\",\n  email: \"\",\n  role: \"user\",\n  otherInfo: \"\",\n  newsletter: false,\n  frequency: undefined,\n  bio: \"\",\n};\n\n```\n\n### 05_textarea_and_full_form.vue\n\n```vue\n<!--\n  EXAMPLE: Form with all four controlled component types together.\n\n  Components available from \"elements\":\n  - ControlledInput     \u2014 text, email, password, number, tel, url, date\n  - ControlledCheckbox  \u2014 single boolean toggle\n  - ControlledRadioGroup \u2014 exclusive choice from an options array\n  - ControlledTextarea  \u2014 multiline text\n\n  This example shows them all in one form.\n-->\n<script setup lang=\"ts\">\nimport {\n  Button,\n  ControlledCheckbox,\n  ControlledInput,\n  ControlledRadioGroup,\n  ControlledTextarea,\n  Form,\n  FormActions,\n  FormFields,\n} from \"elements\";\nimport { z } from \"zod\";\n\nconst profileSchema = z.object({\n  username: z.string().min(3, \"Almeno 3 caratteri\"),\n  email: z.string().email(\"Email non valida\"),\n  role: z.enum([\"user\", \"admin\"]),\n  newsletter: z.boolean().optional(),\n  bio: z.string().optional(),\n});\n\ntype ProfileFormValues = z.infer<typeof profileSchema>;\n\nconst initialValues: ProfileFormValues = {\n  username: \"\",\n  email: \"\",\n  role: \"user\",\n  newsletter: false,\n  bio: \"\",\n};\n\nconst roleOptions = [\n  { value: \"user\", label: \"Utente\" },\n  { value: \"admin\", label: \"Amministratore\" },\n];\n\nconst actions = {\n  onSubmit: async (values: ProfileFormValues) => {\n    console.log(\"submitted:\", values);\n    return values;\n  },\n};\n</script>\n\n<template>\n  <div class=\"w-full max-w-md\">\n    <Form :initial-values=\"initialValues\" :form-schema=\"profileSchema\" :actions=\"actions\">\n\n      <FormFields v-slot=\"{ resetGeneralError }\">\n        <!-- text input -->\n        <ControlledInput\n          name=\"username\"\n          label=\"Username\"\n          placeholder=\"il tuo username\"\n          @input-click=\"resetGeneralError\"\n        />\n\n        <!-- email input -->\n        <ControlledInput\n          name=\"email\"\n          label=\"Email\"\n          type=\"email\"\n          placeholder=\"nome@esempio.com\"\n          @input-click=\"resetGeneralError\"\n        />\n\n        <!-- radio group: options drive the available choices -->\n        <ControlledRadioGroup\n          name=\"role\"\n          label=\"Ruolo\"\n          :options=\"roleOptions\"\n          @input-click=\"resetGeneralError\"\n        />\n\n        <!-- checkbox -->\n        <ControlledCheckbox\n          name=\"newsletter\"\n          label=\"Iscrivimi alla newsletter\"\n          @input-click=\"resetGeneralError\"\n        />\n\n        <!-- textarea: multiline free text -->\n        <ControlledTextarea\n          name=\"bio\"\n          label=\"Biografia\"\n          placeholder=\"Raccontaci qualcosa di te...\"\n          @input-click=\"resetGeneralError\"\n        />\n      </FormFields>\n\n      <FormActions v-slot=\"{ form, isValid }\" class=\"mt-6\">\n        <Button\n          type=\"submit\"\n          class=\"w-full\"\n          :disabled=\"!isValid || form?.isSubmitting.value\"\n        >\n          Salva profilo\n        </Button>\n      </FormActions>\n\n    </Form>\n  </div>\n</template>\n\n```\n",
+  "runs": [
+    {
+      "model": "qwen3.5:122b",
+      "fixture": "nuxt-form-agent-twofiles",
+      "timestamp": "2026-03-13T07:42:20.681293",
+      "run_number": 1,
+      "compiles": false,
+      "compilation_errors": [
+        "Run aborted: agent crashed before making tool calls"
+      ],
+      "compilation_warnings": [],
+      "pattern_score": 0.0,
+      "ast_missing": [],
+      "ast_checks": {},
+      "naming_score": 0.0,
+      "naming_violations": [],
+      "final_score": 0.0,
+      "scoring_weights": {
+        "compilation": 0.5,
+        "pattern_match": 0.4,
+        "naming": 0.1
+      },
+      "tokens_per_sec": 0.0,
+      "duration_sec": 1801.698049545288,
+      "output_code": "",
+      "errors": [
+        "Agent run error: Error while generating output:\nRequest timed out."
+      ],
+      "steps": 0,
+      "max_steps": 15,
+      "iterations": 0,
+      "succeeded": false,
+      "tool_call_log": [],
+      "total_input_tokens": 0,
+      "total_output_tokens": 0,
+      "first_compile_success_step": null,
+      "compile_error_recovery_count": 0,
+      "rag_queries_count": 0,
+      "read_file_count": 0,
+      "list_files_count": 0,
+      "aborted": true
+    },
+    {
+      "model": "qwen3.5:122b",
+      "fixture": "nuxt-form-agent-twofiles",
+      "timestamp": "2026-03-13T08:12:22.405576",
+      "run_number": 2,
+      "compiles": false,
+      "compilation_errors": [
+        "Run aborted: agent crashed before making tool calls"
+      ],
+      "compilation_warnings": [],
+      "pattern_score": 0.0,
+      "ast_missing": [],
+      "ast_checks": {},
+      "naming_score": 0.0,
+      "naming_violations": [],
+      "final_score": 0.0,
+      "scoring_weights": {
+        "compilation": 0.5,
+        "pattern_match": 0.4,
+        "naming": 0.1
+      },
+      "tokens_per_sec": 0.0,
+      "duration_sec": 1801.5812318325043,
+      "output_code": "",
+      "errors": [
+        "Agent run error: Error while generating output:\nRequest timed out."
+      ],
+      "steps": 0,
+      "max_steps": 15,
+      "iterations": 0,
+      "succeeded": false,
+      "tool_call_log": [],
+      "total_input_tokens": 0,
+      "total_output_tokens": 0,
+      "first_compile_success_step": null,
+      "compile_error_recovery_count": 0,
+      "rag_queries_count": 0,
+      "read_file_count": 0,
+      "list_files_count": 0,
+      "aborted": true
+    },
+    {
+      "model": "qwen3.5:122b",
+      "fixture": "nuxt-form-agent-twofiles",
+      "timestamp": "2026-03-13T08:42:24.047686",
+      "run_number": 3,
+      "compiles": false,
+      "compilation_errors": [
+        "Run aborted: agent crashed before making tool calls"
+      ],
+      "compilation_warnings": [],
+      "pattern_score": 0.0,
+      "ast_missing": [],
+      "ast_checks": {},
+      "naming_score": 0.0,
+      "naming_violations": [],
+      "final_score": 0.0,
+      "scoring_weights": {
+        "compilation": 0.5,
+        "pattern_match": 0.4,
+        "naming": 0.1
+      },
+      "tokens_per_sec": 0.0,
+      "duration_sec": 1801.5147776603699,
+      "output_code": "",
+      "errors": [
+        "Agent run error: Error while generating output:\nRequest timed out."
+      ],
+      "steps": 0,
+      "max_steps": 15,
+      "iterations": 0,
+      "succeeded": false,
+      "tool_call_log": [],
+      "total_input_tokens": 0,
+      "total_output_tokens": 0,
+      "first_compile_success_step": null,
+      "compile_error_recovery_count": 0,
+      "rag_queries_count": 0,
+      "read_file_count": 0,
+      "list_files_count": 0,
+      "aborted": true
+    },
+    {
+      "model": "qwen3.5:122b",
+      "fixture": "nuxt-form-agent-twofiles",
+      "timestamp": "2026-03-13T09:12:25.623083",
+      "run_number": 4,
+      "compiles": false,
+      "compilation_errors": [
+        "Run aborted: agent crashed before making tool calls"
+      ],
+      "compilation_warnings": [],
+      "pattern_score": 0.0,
+      "ast_missing": [],
+      "ast_checks": {},
+      "naming_score": 0.0,
+      "naming_violations": [],
+      "final_score": 0.0,
+      "scoring_weights": {
+        "compilation": 0.5,
+        "pattern_match": 0.4,
+        "naming": 0.1
+      },
+      "tokens_per_sec": 0.0,
+      "duration_sec": 1801.3711977005005,
+      "output_code": "",
+      "errors": [
+        "Agent run error: Error while generating output:\nRequest timed out."
+      ],
+      "steps": 0,
+      "max_steps": 15,
+      "iterations": 0,
+      "succeeded": false,
+      "tool_call_log": [],
+      "total_input_tokens": 0,
+      "total_output_tokens": 0,
+      "first_compile_success_step": null,
+      "compile_error_recovery_count": 0,
+      "rag_queries_count": 0,
+      "read_file_count": 0,
+      "list_files_count": 0,
+      "aborted": true
+    },
+    {
+      "model": "qwen3.5:122b",
+      "fixture": "nuxt-form-agent-twofiles",
+      "timestamp": "2026-03-13T09:42:27.055747",
+      "run_number": 5,
+      "compiles": false,
+      "compilation_errors": [
+        "Run aborted: agent crashed before making tool calls"
+      ],
+      "compilation_warnings": [],
+      "pattern_score": 0.0,
+      "ast_missing": [],
+      "ast_checks": {},
+      "naming_score": 0.0,
+      "naming_violations": [],
+      "final_score": 0.0,
+      "scoring_weights": {
+        "compilation": 0.5,
+        "pattern_match": 0.4,
+        "naming": 0.1
+      },
+      "tokens_per_sec": 0.0,
+      "duration_sec": 1801.6330761909485,
+      "output_code": "",
+      "errors": [
+        "Agent run error: Error while generating output:\nRequest timed out."
+      ],
+      "steps": 0,
+      "max_steps": 15,
+      "iterations": 0,
+      "succeeded": false,
+      "tool_call_log": [],
+      "total_input_tokens": 0,
+      "total_output_tokens": 0,
+      "first_compile_success_step": null,
+      "compile_error_recovery_count": 0,
+      "rag_queries_count": 0,
+      "read_file_count": 0,
+      "list_files_count": 0,
+      "aborted": true
+    },
+    {
+      "model": "qwen3.5:122b",
+      "fixture": "nuxt-form-agent-twofiles",
+      "timestamp": "2026-03-13T10:12:28.752166",
+      "run_number": 6,
+      "compiles": false,
+      "compilation_errors": [
+        "Run aborted: agent crashed before making tool calls"
+      ],
+      "compilation_warnings": [],
+      "pattern_score": 0.0,
+      "ast_missing": [],
+      "ast_checks": {},
+      "naming_score": 0.0,
+      "naming_violations": [],
+      "final_score": 0.0,
+      "scoring_weights": {
+        "compilation": 0.5,
+        "pattern_match": 0.4,
+        "naming": 0.1
+      },
+      "tokens_per_sec": 0.0,
+      "duration_sec": 1801.581017255783,
+      "output_code": "",
+      "errors": [
+        "Agent run error: Error while generating output:\nRequest timed out."
+      ],
+      "steps": 0,
+      "max_steps": 15,
+      "iterations": 0,
+      "succeeded": false,
+      "tool_call_log": [],
+      "total_input_tokens": 0,
+      "total_output_tokens": 0,
+      "first_compile_success_step": null,
+      "compile_error_recovery_count": 0,
+      "rag_queries_count": 0,
+      "read_file_count": 0,
+      "list_files_count": 0,
+      "aborted": true
+    },
+    {
+      "model": "qwen3.5:122b",
+      "fixture": "nuxt-form-agent-twofiles",
+      "timestamp": "2026-03-13T10:42:30.358380",
+      "run_number": 7,
+      "compiles": false,
+      "compilation_errors": [
+        "Run aborted: agent crashed before making tool calls"
+      ],
+      "compilation_warnings": [],
+      "pattern_score": 0.0,
+      "ast_missing": [],
+      "ast_checks": {},
+      "naming_score": 0.0,
+      "naming_violations": [],
+      "final_score": 0.0,
+      "scoring_weights": {
+        "compilation": 0.5,
+        "pattern_match": 0.4,
+        "naming": 0.1
+      },
+      "tokens_per_sec": 0.0,
+      "duration_sec": 1801.451340675354,
+      "output_code": "",
+      "errors": [
+        "Agent run error: Error while generating output:\nRequest timed out."
+      ],
+      "steps": 0,
+      "max_steps": 15,
+      "iterations": 0,
+      "succeeded": false,
+      "tool_call_log": [],
+      "total_input_tokens": 0,
+      "total_output_tokens": 0,
+      "first_compile_success_step": null,
+      "compile_error_recovery_count": 0,
+      "rag_queries_count": 0,
+      "read_file_count": 0,
+      "list_files_count": 0,
+      "aborted": true
+    },
+    {
+      "model": "qwen3.5:122b",
+      "fixture": "nuxt-form-agent-twofiles",
+      "timestamp": "2026-03-13T11:12:31.826577",
+      "run_number": 8,
+      "compiles": false,
+      "compilation_errors": [
+        "Run aborted: agent crashed before making tool calls"
+      ],
+      "compilation_warnings": [],
+      "pattern_score": 0.0,
+      "ast_missing": [],
+      "ast_checks": {},
+      "naming_score": 0.0,
+      "naming_violations": [],
+      "final_score": 0.0,
+      "scoring_weights": {
+        "compilation": 0.5,
+        "pattern_match": 0.4,
+        "naming": 0.1
+      },
+      "tokens_per_sec": 0.0,
+      "duration_sec": 1801.285679101944,
+      "output_code": "",
+      "errors": [
+        "Agent run error: Error while generating output:\nRequest timed out."
+      ],
+      "steps": 0,
+      "max_steps": 15,
+      "iterations": 0,
+      "succeeded": false,
+      "tool_call_log": [],
+      "total_input_tokens": 0,
+      "total_output_tokens": 0,
+      "first_compile_success_step": null,
+      "compile_error_recovery_count": 0,
+      "rag_queries_count": 0,
+      "read_file_count": 0,
+      "list_files_count": 0,
+      "aborted": true
+    },
+    {
+      "model": "qwen3.5:122b",
+      "fixture": "nuxt-form-agent-twofiles",
+      "timestamp": "2026-03-13T11:42:33.128797",
+      "run_number": 9,
+      "compiles": false,
+      "compilation_errors": [
+        "Run aborted: agent crashed before making tool calls"
+      ],
+      "compilation_warnings": [],
+      "pattern_score": 0.0,
+      "ast_missing": [],
+      "ast_checks": {},
+      "naming_score": 0.0,
+      "naming_violations": [],
+      "final_score": 0.0,
+      "scoring_weights": {
+        "compilation": 0.5,
+        "pattern_match": 0.4,
+        "naming": 0.1
+      },
+      "tokens_per_sec": 0.0,
+      "duration_sec": 1801.654465675354,
+      "output_code": "",
+      "errors": [
+        "Agent run error: Error while generating output:\nRequest timed out."
+      ],
+      "steps": 0,
+      "max_steps": 15,
+      "iterations": 0,
+      "succeeded": false,
+      "tool_call_log": [],
+      "total_input_tokens": 0,
+      "total_output_tokens": 0,
+      "first_compile_success_step": null,
+      "compile_error_recovery_count": 0,
+      "rag_queries_count": 0,
+      "read_file_count": 0,
+      "list_files_count": 0,
+      "aborted": true
+    },
+    {
+      "model": "qwen3.5:122b",
+      "fixture": "nuxt-form-agent-twofiles",
+      "timestamp": "2026-03-13T12:12:34.799849",
+      "run_number": 10,
+      "compiles": false,
+      "compilation_errors": [
+        "Run aborted: agent crashed before making tool calls"
+      ],
+      "compilation_warnings": [],
+      "pattern_score": 0.0,
+      "ast_missing": [],
+      "ast_checks": {},
+      "naming_score": 0.0,
+      "naming_violations": [],
+      "final_score": 0.0,
+      "scoring_weights": {
+        "compilation": 0.5,
+        "pattern_match": 0.4,
+        "naming": 0.1
+      },
+      "tokens_per_sec": 0.0,
+      "duration_sec": 1801.4507055282593,
+      "output_code": "",
+      "errors": [
+        "Agent run error: Error while generating output:\nRequest timed out."
+      ],
+      "steps": 0,
+      "max_steps": 15,
+      "iterations": 0,
+      "succeeded": false,
+      "tool_call_log": [],
+      "total_input_tokens": 0,
+      "total_output_tokens": 0,
+      "first_compile_success_step": null,
+      "compile_error_recovery_count": 0,
+      "rag_queries_count": 0,
+      "read_file_count": 0,
+      "list_files_count": 0,
+      "aborted": true
+    }
+  ]
+}
