@@ -6,7 +6,7 @@
 
 ## Objective
 
-Benchmark LLMs locally via Ollama against a diagnostic battery of 5 tasks (A→E) targeting a shared Nuxt Turborepo monorepo. Each task changes exactly one variable vs the previous, isolating the model's capability boundary. The tool executes tasks, validates TypeScript compilation and pattern conformance, and collects metrics (scores, tokens/sec, duration, steps).
+Benchmark LLMs locally via Ollama against two diagnostic batteries — **form (A→E)** and **DataTable (F→J)** — totalling 10 tasks targeting a shared Nuxt Turborepo monorepo. Each task changes exactly one variable vs the previous, isolating the model's capability boundary. The tool executes tasks, validates TypeScript compilation and pattern conformance, and collects metrics (scores, tokens/sec, duration, steps).
 
 ---
 
@@ -31,11 +31,34 @@ Red flags to report:
 - **All tests must be implemented BEFORE the actual function implementation**
 - Follow the TDD cycle: Red → Green → Refactor
 
+#### Test file conventions
+
+All tests live flat in `tests/` — no subdirectories. Naming: `test_{module_snake_case}_{aspect}.py`.
+
+Each task gets two test files:
+- `test_<task>_validator.py` — covers `validate_ast_structure`, `validate_compilation`, `validate_naming`
+- `test_<task>_runner.py` — covers `CreationTest` / `AgentTest` orchestration (uses mocks)
+
+RAG tasks also get `test_<task>_rag.py` for `QueryRagTool`.
+
+Shared modules: `test_run_test.py` (CLI entry point), `test_agent_client.py`, `test_ollama_client.py`.
+
+#### What to test
+
+**Validator tests**: define a `COMPLETE_COMPONENT` string constant at module level with a fully correct fixture. Then test each validation function against it and against targeted broken variants (missing pattern, wrong naming, etc.). Keep fixtures as inline strings — no file I/O.
+
+**Runner tests**: use `@dataclass` stubs and `unittest.mock` patches. Never call Ollama. Test that `format_run()` doesn't crash, that `save_results()` writes the expected JSON keys, and that fixture resolution paths are correct.
+
+**Integration tests**: mark with `@pytest.mark.integration`. These require a live Ollama instance and will fail without one — this is expected. CI (`pytest -m "not integration"`) skips them.
+
 ### Bug Fix Workflow
 When fixing a bug:
 1. Determine the root cause and identify what needs to change
-2. **Evaluate whether to create or update a test** that covers the broken case (regression test or update to existing spec)
+2. **Write or update a test** that reproduces the broken case — it must **fail before the fix**
 3. Implement the fix
+4. Verify the test passes and no other tests regress
+
+Regression tests should include a docstring comment explaining what bug they guard against (see `test_run_test.py` for examples: `test_default_parameter_is_tasks_dir` guards against the `FIXTURES_BASE → TASKS_DIR` rename bug).
 
 ### Development Environment
 - Python virtual environment managed with `venv`
@@ -56,9 +79,12 @@ When fixing a bug:
 │   ├── common/
 │   │   └── ollama_client.py       # Shared Ollama API wrapper
 │   ├── creation/
-│   │   └── nuxt_form_oneshot/
-│   │       ├── test_runner.py     # CreationTest + BenchmarkResult (Test A)
-│   │       └── validator.py       # Regex-based validation
+│   │   ├── nuxt_form_oneshot/
+│   │   │   ├── test_runner.py     # CreationTest + BenchmarkResult (Test A)
+│   │   │   └── validator.py       # Regex-based validation
+│   │   └── nuxt_dt_oneshot/
+│   │       ├── test_runner.py     # CreationTest + BenchmarkResult (Test F)
+│   │       └── validator.py
 │   └── agent/
 │       ├── common/
 │       │   └── agent_client.py    # run_agent() → AgentRunResult (extra_system_prompt param)
@@ -72,9 +98,23 @@ When fixing a bug:
 │       │   ├── rag.py             # QueryRagTool (rag_docs_path from validation_spec)
 │       │   ├── test_runner.py     # AgentTest — write_file + run_compilation + query_rag (Test D)
 │       │   └── validator.py
-│       └── nuxt_form_agent_full/
-│           ├── rag.py             # QueryRagTool (BM25Plus over shared rag_docs)
-│           ├── test_runner.py     # AgentTest — full tools + RAG (Test E)
+│       ├── nuxt_form_agent_full/
+│       │   ├── rag.py             # QueryRagTool (BM25Plus over shared rag_docs)
+│       │   ├── test_runner.py     # AgentTest — full tools + RAG (Test E)
+│       │   └── validator.py
+│       ├── nuxt_dt_agent_guided/
+│       │   ├── test_runner.py     # AgentTest — write_file + run_compilation (Test G)
+│       │   └── validator.py
+│       ├── nuxt_dt_agent_twofiles/
+│       │   ├── test_runner.py     # AgentTest — write_file + run_compilation, 2 files (Test H)
+│       │   └── validator.py
+│       ├── nuxt_dt_agent_rag/
+│       │   ├── rag.py             # QueryRagTool (rag-docs-vue-elements-datatable)
+│       │   ├── test_runner.py     # AgentTest — write_file + run_compilation + query_rag (Test I)
+│       │   └── validator.py
+│       └── nuxt_dt_agent_full/
+│           ├── rag.py             # QueryRagTool (BM25Plus over rag-docs-vue-elements-datatable)
+│           ├── test_runner.py     # AgentTest — full tools + RAG (Test J)
 │           └── validator.py
 │
 ├── scripts/
@@ -82,8 +122,9 @@ When fixing a bug:
 │
 ├── fixtures/
 │   └── _shared/
-│       ├── turborepo-nuxt-vue-elements/   # Turborepo monorepo (apps/web + packages/elements)
-│       └── rag-docs-vue-elements-form/    # 5 BM25-indexed form example files (shared by D and E)
+│       ├── turborepo-nuxt-vue-elements/        # Turborepo monorepo (apps/web + packages/elements)
+│       ├── rag-docs-vue-elements-form/         # 5 BM25-indexed form example files (shared by D and E)
+│       └── rag-docs-vue-elements-datatable/    # 5 BM25-indexed DataTable example files (shared by I and J)
 │
 ├── results/
 │   └── published/                 # Versioned results (gitignored except session__* folders)
@@ -123,11 +164,29 @@ When fixing a bug:
 │   │   └── validation_spec.json   # target_project_path, max_steps: 10
 │   ├── nuxt-form-agent-twofiles/  # Test C — write+compile, 2 files
 │   │   ├── prompt.md
+│   │   ├── prompt-v2.md
 │   │   └── validation_spec.json   # target_project_path, max_steps: 15
 │   ├── nuxt-form-agent-rag/       # Test D — write+compile+RAG (no read)
 │   │   ├── prompt.md
 │   │   └── validation_spec.json   # target_project_path, rag_docs_path, max_steps: 20
-│   └── nuxt-form-agent-full/      # Test E — full agent (read/write/list/compile/RAG)
+│   ├── nuxt-form-agent-full/      # Test E — full agent (read/write/list/compile/RAG)
+│   │   ├── prompt.md
+│   │   ├── prompt-v2.md
+│   │   ├── prompt-v3.md
+│   │   └── validation_spec.json   # target_project_path, rag_docs_path, max_steps: 30
+│   ├── nuxt-dt-oneshot/           # Test F — single-shot, full context inline
+│   │   ├── prompt.md
+│   │   └── validation_spec.json   # target_file: apps/web/src/orders/OrdersDataTable.vue
+│   ├── nuxt-dt-agent-guided/      # Test G — write+compile, 1 file
+│   │   ├── prompt.md
+│   │   └── validation_spec.json   # target_project_path, max_steps: 10
+│   ├── nuxt-dt-agent-twofiles/    # Test H — write+compile, 2 files (columns.ts + OrdersDataTable.vue)
+│   │   ├── prompt.md
+│   │   └── validation_spec.json   # target_project_path, max_steps: 15
+│   ├── nuxt-dt-agent-rag/         # Test I — write+compile+RAG (no read)
+│   │   ├── prompt.md
+│   │   └── validation_spec.json   # target_project_path, rag_docs_path, max_steps: 20
+│   └── nuxt-dt-agent-full/        # Test J — full agent (read/write/list/compile/RAG)
 │       ├── prompt.md
 │       └── validation_spec.json   # target_project_path, rag_docs_path, max_steps: 30
 │
@@ -184,12 +243,12 @@ Scoring weights come from each task's `validation_spec.json` (default: compilati
 
 ### Task categories
 
-**Single-shot** (Test A) — one prompt → one response → validation.
-- `CreationTest` in `src/creation/nuxt_form_oneshot/test_runner.py`
+**Single-shot** (Tests A, F) — one prompt → one response → validation.
+- `CreationTest` in `src/creation/<task_name>/test_runner.py`
 - Validation: TypeScript compilation + regex pattern checks + naming conventions
 - Score: 0–10 composite
 
-**Agent** (Tests B–E) — multi-turn: the model calls tools (read/write/compile) in a loop, receives feedback, and iterates.
+**Agent** (Tests B–E, G–J) — multi-turn: the model calls tools (read/write/compile) in a loop, receives feedback, and iterates.
 - `AgentTest` in `src/agent/<module>/test_runner.py`
 - Uses smolagents `ToolCallingAgent` + `OpenAIServerModel` → Ollama `/v1`
 - `max_steps` (from `validation_spec.json`) is the hard cap via smolagents
@@ -237,6 +296,9 @@ New tasks must be registered in `_RUNNER_MAP` in [run_test.py](run_test.py).
 - **Controlled components** (`ControlledInput`, `ControlledRadioGroup`, etc.) receive `form` via `provide/inject` — do NOT pass `:form="form"` as a prop.
 - **BM25 RAG**: use `BM25Plus` (not `BM25Okapi`) to avoid negative IDF on small corpora.
 - **`form_component` check**: uses `<Form(?=[\s\n>])` to avoid matching `<FormWrapper` etc. as false positives.
+- **DataTable target file**: `apps/web/src/orders/OrdersDataTable.vue`. Test J has 3 writable files: `types.ts`, `columns.ts`, `OrdersDataTable.vue` (all under `apps/web/src/orders/`).
+- **Column renderers**: use Vue's `h()` render function (not JSX) — imported from `vue`. Required for currency/date formatters and the status badge cell.
+- **DataTable RAG docs**: `rag-docs-vue-elements-datatable/` shared by Tests I and J (analogous to `rag-docs-vue-elements-form/` for D and E).
 
 ---
 
