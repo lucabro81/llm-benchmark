@@ -12,6 +12,7 @@ Local benchmarking tool for testing LLM performance on Vue.js/Nuxt/TypeScript de
 - [Tasks](#tasks)
 - [Scoring](#scoring)
 - [Project Structure](#project-structure)
+- [Results Schema](SCHEMA.md)
 - [Development](#development)
   - [Running Tests](#running-tests)
   - [Adding a New Task](#adding-a-new-task)
@@ -109,6 +110,8 @@ With `--publish` they go directly to `results/published/session__{name}__{timest
 ```bash
 cp -r results/session__my-comparison__* results/published/
 ```
+
+See [SCHEMA.md](SCHEMA.md) for the full JSON schema and analysis examples.
 
 ### Examples
 
