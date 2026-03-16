@@ -1,0 +1,418 @@
+{
+  "model": "qwen3.5:122b",
+  "fixture": "nuxt-form-agent-rag",
+  "n_runs": 10,
+  "prompt": "You are implementing a Vue 3 registration form in a Turborepo monorepo.\n\n## Task\n\nImplement TWO files **in this order**:\n\n1. `apps/web/src/registration/types/index.ts` \u2014 Zod schema + TypeScript type\n2. `apps/web/src/registration/components/RegistrationForm.vue` \u2014 Vue SFC using the `elements` package\n\nWrite `types/index.ts` **first** so that RegistrationForm.vue can import from it.\nUse `write_file` to write each file, then `run_compilation` to check for TypeScript errors.\n`write_file` only writes the file and returns `\"File written.\"` \u2014 it does NOT compile.\nAfter each write, call `run_compilation` to get feedback and fix any errors before moving on.\n\n**Use `query_rag` to look up component API examples before writing any code.** The tool has code examples for all available form components and patterns.\n\n### Required fields\n\n| Field       | Component             | Constraints                                                                 |\n|-------------|----------------------|-----------------------------------------------------------------------------|\n| `username`  | ControlledInput       | required, min 3 chars                                                       |\n| `email`     | ControlledInput       | type=\"email\", required, valid email                                         |\n| `role`      | ControlledRadioGroup  | options: \"user\", \"admin\", \"contributor\"                                    |\n| `otherInfo` | ControlledInput       | visible only when `role === \"contributor\"`                                  |\n| `newsletter`| ControlledCheckbox    |                                                                             |\n| `frequency` | ControlledRadioGroup  | options: \"daily\", \"weekly\", \"monthly\"; visible only when `newsletter` true  |\n| `bio`       | ControlledTextarea    | optional                                                                    |\n\n### Conditional validation\n\nUse Zod `.superRefine()` for cross-field rules:\n- `otherInfo` required when `role === \"contributor\"`\n- `frequency` required when `newsletter === true`\n",
+  "runs": [
+    {
+      "model": "qwen3.5:122b",
+      "fixture": "nuxt-form-agent-rag",
+      "timestamp": "2026-03-13T12:42:36.304030",
+      "run_number": 1,
+      "compiles": false,
+      "compilation_errors": [
+        "Run aborted: agent crashed before making tool calls"
+      ],
+      "compilation_warnings": [],
+      "pattern_score": 0.0,
+      "ast_missing": [],
+      "ast_checks": {},
+      "naming_score": 0.0,
+      "naming_violations": [],
+      "final_score": 0.0,
+      "scoring_weights": {
+        "compilation": 0.5,
+        "pattern_match": 0.4,
+        "naming": 0.1
+      },
+      "tokens_per_sec": 0.0,
+      "duration_sec": 1801.6024272441864,
+      "output_code": "",
+      "errors": [
+        "Agent run error: Error while generating output:\nRequest timed out."
+      ],
+      "steps": 0,
+      "max_steps": 20,
+      "iterations": 0,
+      "succeeded": false,
+      "tool_call_log": [],
+      "total_input_tokens": 0,
+      "total_output_tokens": 0,
+      "first_compile_success_step": null,
+      "compile_error_recovery_count": 0,
+      "rag_queries_count": 0,
+      "read_file_count": 0,
+      "list_files_count": 0,
+      "aborted": true
+    },
+    {
+      "model": "qwen3.5:122b",
+      "fixture": "nuxt-form-agent-rag",
+      "timestamp": "2026-03-13T13:12:37.921744",
+      "run_number": 2,
+      "compiles": false,
+      "compilation_errors": [
+        "Run aborted: agent crashed before making tool calls"
+      ],
+      "compilation_warnings": [],
+      "pattern_score": 0.0,
+      "ast_missing": [],
+      "ast_checks": {},
+      "naming_score": 0.0,
+      "naming_violations": [],
+      "final_score": 0.0,
+      "scoring_weights": {
+        "compilation": 0.5,
+        "pattern_match": 0.4,
+        "naming": 0.1
+      },
+      "tokens_per_sec": 0.0,
+      "duration_sec": 1801.7106997966766,
+      "output_code": "",
+      "errors": [
+        "Agent run error: Error while generating output:\nRequest timed out."
+      ],
+      "steps": 0,
+      "max_steps": 20,
+      "iterations": 0,
+      "succeeded": false,
+      "tool_call_log": [],
+      "total_input_tokens": 0,
+      "total_output_tokens": 0,
+      "first_compile_success_step": null,
+      "compile_error_recovery_count": 0,
+      "rag_queries_count": 0,
+      "read_file_count": 0,
+      "list_files_count": 0,
+      "aborted": true
+    },
+    {
+      "model": "qwen3.5:122b",
+      "fixture": "nuxt-form-agent-rag",
+      "timestamp": "2026-03-13T13:42:39.720875",
+      "run_number": 3,
+      "compiles": false,
+      "compilation_errors": [
+        "Run aborted: agent crashed before making tool calls"
+      ],
+      "compilation_warnings": [],
+      "pattern_score": 0.0,
+      "ast_missing": [],
+      "ast_checks": {},
+      "naming_score": 0.0,
+      "naming_violations": [],
+      "final_score": 0.0,
+      "scoring_weights": {
+        "compilation": 0.5,
+        "pattern_match": 0.4,
+        "naming": 0.1
+      },
+      "tokens_per_sec": 0.0,
+      "duration_sec": 1801.4923729896545,
+      "output_code": "",
+      "errors": [
+        "Agent run error: Error while generating output:\nRequest timed out."
+      ],
+      "steps": 0,
+      "max_steps": 20,
+      "iterations": 0,
+      "succeeded": false,
+      "tool_call_log": [],
+      "total_input_tokens": 0,
+      "total_output_tokens": 0,
+      "first_compile_success_step": null,
+      "compile_error_recovery_count": 0,
+      "rag_queries_count": 0,
+      "read_file_count": 0,
+      "list_files_count": 0,
+      "aborted": true
+    },
+    {
+      "model": "qwen3.5:122b",
+      "fixture": "nuxt-form-agent-rag",
+      "timestamp": "2026-03-13T14:12:41.228831",
+      "run_number": 4,
+      "compiles": false,
+      "compilation_errors": [
+        "Run aborted: agent crashed before making tool calls"
+      ],
+      "compilation_warnings": [],
+      "pattern_score": 0.0,
+      "ast_missing": [],
+      "ast_checks": {},
+      "naming_score": 0.0,
+      "naming_violations": [],
+      "final_score": 0.0,
+      "scoring_weights": {
+        "compilation": 0.5,
+        "pattern_match": 0.4,
+        "naming": 0.1
+      },
+      "tokens_per_sec": 0.0,
+      "duration_sec": 1801.3098862171173,
+      "output_code": "",
+      "errors": [
+        "Agent run error: Error while generating output:\nRequest timed out."
+      ],
+      "steps": 0,
+      "max_steps": 20,
+      "iterations": 0,
+      "succeeded": false,
+      "tool_call_log": [],
+      "total_input_tokens": 0,
+      "total_output_tokens": 0,
+      "first_compile_success_step": null,
+      "compile_error_recovery_count": 0,
+      "rag_queries_count": 0,
+      "read_file_count": 0,
+      "list_files_count": 0,
+      "aborted": true
+    },
+    {
+      "model": "qwen3.5:122b",
+      "fixture": "nuxt-form-agent-rag",
+      "timestamp": "2026-03-13T14:42:42.590301",
+      "run_number": 5,
+      "compiles": false,
+      "compilation_errors": [
+        "Run aborted: agent crashed before making tool calls"
+      ],
+      "compilation_warnings": [],
+      "pattern_score": 0.0,
+      "ast_missing": [],
+      "ast_checks": {},
+      "naming_score": 0.0,
+      "naming_violations": [],
+      "final_score": 0.0,
+      "scoring_weights": {
+        "compilation": 0.5,
+        "pattern_match": 0.4,
+        "naming": 0.1
+      },
+      "tokens_per_sec": 0.0,
+      "duration_sec": 1801.4493453502655,
+      "output_code": "",
+      "errors": [
+        "Agent run error: Error while generating output:\nRequest timed out."
+      ],
+      "steps": 0,
+      "max_steps": 20,
+      "iterations": 0,
+      "succeeded": false,
+      "tool_call_log": [],
+      "total_input_tokens": 0,
+      "total_output_tokens": 0,
+      "first_compile_success_step": null,
+      "compile_error_recovery_count": 0,
+      "rag_queries_count": 0,
+      "read_file_count": 0,
+      "list_files_count": 0,
+      "aborted": true
+    },
+    {
+      "model": "qwen3.5:122b",
+      "fixture": "nuxt-form-agent-rag",
+      "timestamp": "2026-03-13T15:12:44.091576",
+      "run_number": 6,
+      "compiles": false,
+      "compilation_errors": [
+        "Run aborted: agent crashed before making tool calls"
+      ],
+      "compilation_warnings": [],
+      "pattern_score": 0.0,
+      "ast_missing": [],
+      "ast_checks": {},
+      "naming_score": 0.0,
+      "naming_violations": [],
+      "final_score": 0.0,
+      "scoring_weights": {
+        "compilation": 0.5,
+        "pattern_match": 0.4,
+        "naming": 0.1
+      },
+      "tokens_per_sec": 0.0,
+      "duration_sec": 1801.6128497123718,
+      "output_code": "",
+      "errors": [
+        "Agent run error: Error while generating output:\nRequest timed out."
+      ],
+      "steps": 0,
+      "max_steps": 20,
+      "iterations": 0,
+      "succeeded": false,
+      "tool_call_log": [],
+      "total_input_tokens": 0,
+      "total_output_tokens": 0,
+      "first_compile_success_step": null,
+      "compile_error_recovery_count": 0,
+      "rag_queries_count": 0,
+      "read_file_count": 0,
+      "list_files_count": 0,
+      "aborted": true
+    },
+    {
+      "model": "qwen3.5:122b",
+      "fixture": "nuxt-form-agent-rag",
+      "timestamp": "2026-03-13T15:42:45.720956",
+      "run_number": 7,
+      "compiles": false,
+      "compilation_errors": [
+        "Run aborted: agent crashed before making tool calls"
+      ],
+      "compilation_warnings": [],
+      "pattern_score": 0.0,
+      "ast_missing": [],
+      "ast_checks": {},
+      "naming_score": 0.0,
+      "naming_violations": [],
+      "final_score": 0.0,
+      "scoring_weights": {
+        "compilation": 0.5,
+        "pattern_match": 0.4,
+        "naming": 0.1
+      },
+      "tokens_per_sec": 0.0,
+      "duration_sec": 1801.4022619724274,
+      "output_code": "",
+      "errors": [
+        "Agent run error: Error while generating output:\nRequest timed out."
+      ],
+      "steps": 0,
+      "max_steps": 20,
+      "iterations": 0,
+      "succeeded": false,
+      "tool_call_log": [],
+      "total_input_tokens": 0,
+      "total_output_tokens": 0,
+      "first_compile_success_step": null,
+      "compile_error_recovery_count": 0,
+      "rag_queries_count": 0,
+      "read_file_count": 0,
+      "list_files_count": 0,
+      "aborted": true
+    },
+    {
+      "model": "qwen3.5:122b",
+      "fixture": "nuxt-form-agent-rag",
+      "timestamp": "2026-03-13T16:12:47.174743",
+      "run_number": 8,
+      "compiles": false,
+      "compilation_errors": [
+        "Run aborted: agent crashed before making tool calls"
+      ],
+      "compilation_warnings": [],
+      "pattern_score": 0.0,
+      "ast_missing": [],
+      "ast_checks": {},
+      "naming_score": 0.0,
+      "naming_violations": [],
+      "final_score": 0.0,
+      "scoring_weights": {
+        "compilation": 0.5,
+        "pattern_match": 0.4,
+        "naming": 0.1
+      },
+      "tokens_per_sec": 0.0,
+      "duration_sec": 1801.4963881969452,
+      "output_code": "",
+      "errors": [
+        "Agent run error: Error while generating output:\nRequest timed out."
+      ],
+      "steps": 0,
+      "max_steps": 20,
+      "iterations": 0,
+      "succeeded": false,
+      "tool_call_log": [],
+      "total_input_tokens": 0,
+      "total_output_tokens": 0,
+      "first_compile_success_step": null,
+      "compile_error_recovery_count": 0,
+      "rag_queries_count": 0,
+      "read_file_count": 0,
+      "list_files_count": 0,
+      "aborted": true
+    },
+    {
+      "model": "qwen3.5:122b",
+      "fixture": "nuxt-form-agent-rag",
+      "timestamp": "2026-03-13T16:42:48.722927",
+      "run_number": 9,
+      "compiles": false,
+      "compilation_errors": [
+        "Run aborted: agent crashed before making tool calls"
+      ],
+      "compilation_warnings": [],
+      "pattern_score": 0.0,
+      "ast_missing": [],
+      "ast_checks": {},
+      "naming_score": 0.0,
+      "naming_violations": [],
+      "final_score": 0.0,
+      "scoring_weights": {
+        "compilation": 0.5,
+        "pattern_match": 0.4,
+        "naming": 0.1
+      },
+      "tokens_per_sec": 0.0,
+      "duration_sec": 1801.3136432170868,
+      "output_code": "",
+      "errors": [
+        "Agent run error: Error while generating output:\nRequest timed out."
+      ],
+      "steps": 0,
+      "max_steps": 20,
+      "iterations": 0,
+      "succeeded": false,
+      "tool_call_log": [],
+      "total_input_tokens": 0,
+      "total_output_tokens": 0,
+      "first_compile_success_step": null,
+      "compile_error_recovery_count": 0,
+      "rag_queries_count": 0,
+      "read_file_count": 0,
+      "list_files_count": 0,
+      "aborted": true
+    },
+    {
+      "model": "qwen3.5:122b",
+      "fixture": "nuxt-form-agent-rag",
+      "timestamp": "2026-03-13T17:12:50.088201",
+      "run_number": 10,
+      "compiles": false,
+      "compilation_errors": [
+        "Run aborted: agent crashed before making tool calls"
+      ],
+      "compilation_warnings": [],
+      "pattern_score": 0.0,
+      "ast_missing": [],
+      "ast_checks": {},
+      "naming_score": 0.0,
+      "naming_violations": [],
+      "final_score": 0.0,
+      "scoring_weights": {
+        "compilation": 0.5,
+        "pattern_match": 0.4,
+        "naming": 0.1
+      },
+      "tokens_per_sec": 0.0,
+      "duration_sec": 1801.358793258667,
+      "output_code": "",
+      "errors": [
+        "Agent run error: Error while generating output:\nRequest timed out."
+      ],
+      "steps": 0,
+      "max_steps": 20,
+      "iterations": 0,
+      "succeeded": false,
+      "tool_call_log": [],
+      "total_input_tokens": 0,
+      "total_output_tokens": 0,
+      "first_compile_success_step": null,
+      "compile_error_recovery_count": 0,
+      "rag_queries_count": 0,
+      "read_file_count": 0,
+      "list_files_count": 0,
+      "aborted": true
+    }
+  ]
+}

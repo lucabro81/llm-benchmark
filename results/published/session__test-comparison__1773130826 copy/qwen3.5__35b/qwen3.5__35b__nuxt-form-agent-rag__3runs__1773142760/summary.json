@@ -1,0 +1,541 @@
+{
+  "model": "qwen3.5:35b",
+  "fixture": "nuxt-form-agent-rag",
+  "n_runs": 3,
+  "runs": [
+    {
+      "model": "qwen3.5:35b",
+      "fixture": "nuxt-form-agent-rag",
+      "timestamp": "2026-03-10T12:39:20.113650",
+      "run_number": 1,
+      "compiles": true,
+      "compilation_errors": [],
+      "compilation_warnings": [],
+      "pattern_score": 10.0,
+      "ast_missing": [],
+      "ast_checks": {
+        "script_lang": true,
+        "form_component": true,
+        "controlled_components": true,
+        "conditional_rendering": true,
+        "zod_schema": true,
+        "required_fields": true,
+        "conditional_fields": true
+      },
+      "naming_score": 10.0,
+      "naming_violations": [],
+      "final_score": 10.0,
+      "scoring_weights": {
+        "compilation": 0.5,
+        "pattern_match": 0.4,
+        "naming": 0.1
+      },
+      "tokens_per_sec": 42.69665047197368,
+      "duration_sec": 128.1599361896515,
+      "output_code": "<script setup lang=\"ts\">\nimport {\n  Button,\n  ControlledCheckbox,\n  ControlledRadioGroup,\n  ControlledInput,\n  ControlledTextarea,\n  Form,\n  FormActions,\n  FormFields,\n} from \"elements\";\n\nimport { registrationSchema, initialRegistrationValues } from \"../types\";\n\nimport type { RegistrationFormValues } from \"../types\";\n\nconst actions = {\n  onSubmit: async (values: RegistrationFormValues) => {\n    console.log(\"submitted:\", values);\n    return values;\n  },\n};\n\nconst roleOptions = [\"user\", \"admin\", \"contributor\"].map((role) => ({\n  value: role,\n  label: role.charAt(0).toUpperCase() + role.slice(1),\n}));\n\nconst frequencyOptions = [\"daily\", \"weekly\", \"monthly\"].map((freq) => ({\n  value: freq,\n  label: freq.charAt(0).toUpperCase() + freq.slice(1),\n}));\n</script>\n\n<template>\n  <div class=\"w-full max-w-md\">\n    <Form\n      :initial-values=\"initialRegistrationValues\"\n      :form-schema=\"registrationSchema\"\n      :actions=\"actions\"\n    >\n      <FormFields v-slot=\"{ form, resetGeneralError }\">\n        <ControlledInput\n          name=\"username\"\n          label=\"Username\"\n          placeholder=\"Il tuo username\"\n          @input-click=\"resetGeneralError\"\n        />\n        <ControlledInput\n          name=\"email\"\n          label=\"Email\"\n          type=\"email\"\n          placeholder=\"nome@esempio.com\"\n          @input-click=\"resetGeneralError\"\n        />\n        <ControlledRadioGroup\n          name=\"role\"\n          label=\"Ruolo\"\n          :options=\"roleOptions\"\n          @input-click=\"resetGeneralError\"\n        />\n        <ControlledInput\n          v-if=\"form.values.role === 'contributor'\"\n          name=\"otherInfo\"\n          label=\"Descrizione del contributo\"\n          placeholder=\"Descrivi il tuo contributo\"\n          @input-click=\"resetGeneralError\"\n        />\n        <ControlledCheckbox\n          name=\"newsletter\"\n          label=\"Iscrivimi alla newsletter\"\n          @input-click=\"resetGeneralError\"\n        />\n        <ControlledRadioGroup\n          v-if=\"form.values.newsletter\"\n          name=\"frequency\"\n          label=\"Frequenza newsletter\"\n          :options=\"frequencyOptions\"\n          orientation=\"horizontal\"\n          @input-click=\"resetGeneralError\"\n        />\n        <ControlledTextarea\n          name=\"bio\"\n          label=\"Bio\"\n          placeholder=\"Raccontami qualcosa di te...\"\n          @input-click=\"resetGeneralError\"\n        />\n      </FormFields>\n      <FormActions v-slot=\"{ form: formContext, isValid }\" class=\"mt-6\">\n        <Button\n          type=\"submit\"\n          class=\"w-full\"\n          :disabled=\"!isValid || formContext?.isSubmitting.value\"\n        >\n          Registrati\n        </Button>\n      </FormActions>\n    </Form>\n  </div>\n</template>\n",
+      "errors": [],
+      "steps": 9,
+      "max_steps": 20,
+      "iterations": 7,
+      "succeeded": true,
+      "tool_call_log": [
+        {
+          "step": 1,
+          "tool": "query_rag",
+          "args": {
+            "query": "basic form Form FormFields FormActions"
+          },
+          "result_summary": "--- 01_basic_form.vue ---\n<!--\n  EXAMPLE: Basic form with ControlledInput, ControlledCheckbox, and Button.\n\n  Pattern:\n  - Import Form, FormFields, FormActions, controlled components and Button from \"...",
+          "compile_passed": null,
+          "duration_sec": 2.898,
+          "context_chars": 10975
+        },
+        {
+          "step": 2,
+          "tool": "query_rag",
+          "args": {
+            "query": "radio group options array"
+          },
+          "result_summary": "--- 03_radio_group.vue ---\n<!--\n  EXAMPLE: ControlledRadioGroup \u2014 radio buttons driven by an options array.\n\n  Pattern:\n  - ControlledRadioGroup takes name, label, :options (array of { value, label })...",
+          "compile_passed": null,
+          "duration_sec": 2.755,
+          "context_chars": 16458
+        },
+        {
+          "step": 3,
+          "tool": "query_rag",
+          "args": {
+            "query": "zod schema optional superRefine conditional validation"
+          },
+          "result_summary": "--- 04_zod_conditional_schema.ts ---\n/**\n * EXAMPLE: Zod schema with optional fields and conditional validation.\n *\n * Patterns shown:\n * - .optional() marks a field as not required\n * - .superRefine(...",
+          "compile_passed": null,
+          "duration_sec": 11.842,
+          "context_chars": 18681
+        },
+        {
+          "step": 4,
+          "tool": "write_file",
+          "args": {
+            "path": "apps/web/src/registration/types/index.ts",
+            "content": "import { z } from \"zod\";\n\nexport const registrationSchema = z.object({\n  username: z.string().min(3, \"Username deve avere almeno 3 caratteri\"),\n  email: z.string().email(\"Email non valida\"),\n  role: z.enum([\"user\", \"admin\", \"contributor\"]),\n  otherInfo: z.string().optional(),\n  newsletter: z.boolean().optional(),\n  frequency: z.enum([\"daily\", \"weekly\", \"monthly\"]).optional(),\n  bio: z.string().optional(),\n})\n.superRefine((data, ctx) => {\n  // otherInfo is required when role is \"contributor\"\n  if (data.role === \"contributor\" && !data.otherInfo) {\n    ctx.addIssue({\n      code: z.ZodIssueCode.custom,\n      message: \"La descrizione del contributo \u00e8 obbligatoria\",\n      path: [\"otherInfo\"],\n    });\n  }\n\n  // frequency is required when newsletter is true\n  if (data.newsletter && !data.frequency) {\n    ctx.addIssue({\n      code: z.ZodIssueCode.custom,\n      message: \"Seleziona una frequenza di newsletter\",\n      path: [\"frequency\"],\n    });\n  }\n});\n\nexport type RegistrationFormValues = z.infer<typeof registrationSchema>;\n\nexport const initialRegistrationValues: RegistrationFormValues = {\n  username: \"\",\n  email: \"\",\n  role: \"user\",\n  otherInfo: \"\",\n  newsletter: false,\n  frequency: undefined,\n  bio: \"\",\n};\n"
+          },
+          "result_summary": "File written.\nCompilation errors:\nsrc/registration/components/RegistrationForm.vue(16,8): error TS2307: Cannot find module '@/registration/types' or its corresponding type declarations.",
+          "compile_passed": false,
+          "duration_sec": 17.532,
+          "context_chars": 20479
+        },
+        {
+          "step": 5,
+          "tool": "write_file",
+          "args": {
+            "path": "apps/web/src/registration/components/RegistrationForm.vue",
+            "content": "<script setup lang=\"ts\">\nimport {\n  Button,\n  ControlledCheckbox,\n  ControlledRadioGroup,\n  ControlledInput,\n  ControlledTextarea,\n  Form,\n  FormActions,\n  FormFields,\n} from \"elements\";\nimport { registrationSchema, initialRegistrationValues } from \"@/registration/types\";\n\nimport type { RegistrationFormValues } from \"@/registration/types\";\n\nconst actions = {\n  onSubmit: async (values: RegistrationFormValues) => {\n    console.log(\"submitted:\", values);\n    return values;\n  },\n};\n\nconst usernameOptions = [\"user\", \"admin\", \"contributor\"].map((role) => ({\n  value: role,\n  label: role.charAt(0).toUpperCase() + role.slice(1),\n}));\n\nconst frequencyOptions = [\"daily\", \"weekly\", \"monthly\"].map((freq) => ({\n  value: freq,\n  label: freq.charAt(0).toUpperCase() + freq.slice(1),\n}));\n</script>\n\n<template>\n  <div class=\"w-full max-w-md\">\n    <Form\n      :initial-values=\"initialRegistrationValues\"\n      :form-schema=\"registrationSchema\"\n      :actions=\"actions\"\n    >\n      <FormFields v-slot=\"{ resetGeneralError }\">\n        <ControlledInput\n          name=\"username\"\n          label=\"Username\"\n          placeholder=\"Il tuo username\"\n          @input-click=\"resetGeneralError\"\n        />\n        <ControlledInput\n          name=\"email\"\n          label=\"Email\"\n          type=\"email\"\n          placeholder=\"nome@esempio.com\"\n          @input-click=\"resetGeneralError\"\n        />\n        <ControlledRadioGroup\n          name=\"role\"\n          label=\"Ruolo\"\n          :options=\"usernameOptions\"\n          @input-click=\"resetGeneralError\"\n        />\n        <ControlledInput\n          v-if=\"form.values.role === 'contributor'\"\n          name=\"otherInfo\"\n          label=\"Descrizione del contributo\"\n          placeholder=\"Descrivi il tuo contributo\"\n          @input-click=\"resetGeneralError\"\n        />\n        <ControlledCheckbox\n          name=\"newsletter\"\n          label=\"Iscrivimi alla newsletter\"\n          @input-click=\"resetGeneralError\"\n        />\n        <ControlledRadioGroup\n          v-if=\"form.values.newsletter\"\n          name=\"frequency\"\n          label=\"Frequenza newsletter\"\n          :options=\"frequencyOptions\"\n          orientation=\"horizontal\"\n          @input-click=\"resetGeneralError\"\n        />\n        <ControlledTextarea\n          name=\"bio\"\n          label=\"Bio\"\n          placeholder=\"Raccontaci qualcosa di te...\"\n          @input-click=\"resetGeneralError\"\n        />\n      </FormFields>\n      <FormActions v-slot=\"{ form, isValid }\" class=\"mt-6\">\n        <Button\n          type=\"submit\"\n          class=\"w-full\"\n          :disabled=\"!isValid || form?.isSubmitting.value\"\n        >\n          Registrati\n        </Button>\n      </FormActions>\n    </Form>\n  </div>\n</template>\n"
+          },
+          "result_summary": "File written.\nCompilation errors:\nsrc/registration/components/RegistrationForm.vue(12,63): error TS2307: Cannot find module '@/registration/types' or its corresponding type declarations.\nsrc/registrat...",
+          "compile_passed": false,
+          "duration_sec": 20.934,
+          "context_chars": 24945
+        },
+        {
+          "step": 6,
+          "tool": "write_file",
+          "args": {
+            "path": "apps/web/src/registration/components/RegistrationForm.vue",
+            "content": "<script setup lang=\"ts\">\nimport {\n  Button,\n  ControlledCheckbox,\n  ControlledRadioGroup,\n  ControlledInput,\n  ControlledTextarea,\n  Form,\n  FormActions,\n  FormFields,\n} from \"elements\";\nimport { registrationSchema, initialRegistrationValues } from \"@/registration/types\";\n\nimport type { RegistrationFormValues } from \"@/registration/types\";\n\nconst actions = {\n  onSubmit: async (values: RegistrationFormValues) => {\n    console.log(\"submitted:\", values);\n    return values;\n  },\n};\n\nconst emailOptions = [\"user\", \"admin\", \"contributor\"].map((role) => ({\n  value: role,\n  label: role.charAt(0).toUpperCase() + role.slice(1),\n}));\n\nconst frequencyOptions = [\"daily\", \"weekly\", \"monthly\"].map((freq) => ({\n  value: freq,\n  label: freq.charAt(0).toUpperCase() + freq.slice(1),\n}));\n</script>\n\n<template>\n  <div class=\"w-full max-w-md\">\n    <Form\n      :initial-values=\"initialRegistrationValues\"\n      :form-schema=\"registrationSchema\"\n      :actions=\"actions\"\n    >\n      <FormFields v-slot=\"{ form, resetGeneralError }\">\n        <ControlledInput\n          name=\"username\"\n          label=\"Username\"\n          placeholder=\"Il tuo username\"\n          @input-click=\"resetGeneralError\"\n        />\n        <ControlledInput\n          name=\"email\"\n          label=\"Email\"\n          type=\"email\"\n          placeholder=\"nome@esempio.com\"\n          @input-click=\"resetGeneralError\"\n        />\n        <ControlledRadioGroup\n          name=\"role\"\n          label=\"Ruolo\"\n          :options=\"emailOptions\"\n          @input-click=\"resetGeneralError\"\n        />\n        <ControlledInput\n          v-if=\"form.values.role === 'contributor'\"\n          name=\"otherInfo\"\n          label=\"Descrizione del contributo\"\n          placeholder=\"Descrivi il tuo contributo\"\n          @input-click=\"resetGeneralError\"\n        />\n        <ControlledCheckbox\n          name=\"newsletter\"\n          label=\"Iscrivimi alla newsletter\"\n          @input-click=\"resetGeneralError\"\n        />\n        <ControlledRadioGroup\n          v-if=\"form.values.newsletter\"\n          name=\"frequency\"\n          label=\"Frequenza newsletter\"\n          :options=\"frequencyOptions\"\n          orientation=\"horizontal\"\n          @input-click=\"resetGeneralError\"\n        />\n        <ControlledTextarea\n          name=\"bio\"\n          label=\"Bio\"\n          placeholder=\"Raccontami qualcosa di te...\"\n          @input-click=\"resetGeneralError\"\n        />\n      </FormFields>\n      <FormActions v-slot=\"{ form: formContext, isValid }\" class=\"mt-6\">\n        <Button\n          type=\"submit\"\n          class=\"w-full\"\n          :disabled=\"!isValid || formContext?.isSubmitting.value\"\n        >\n          Registrati\n        </Button>\n      </FormActions>\n    </Form>\n  </div>\n</template>\n"
+          },
+          "result_summary": "File written.\nCompilation errors:\nsrc/registration/components/RegistrationForm.vue(12,63): error TS2307: Cannot find module '@/registration/types' or its corresponding type declarations.\nsrc/registrat...",
+          "compile_passed": false,
+          "duration_sec": 6.998,
+          "context_chars": 28678
+        },
+        {
+          "step": 7,
+          "tool": "run_compilation",
+          "args": {},
+          "result_summary": "(see latest compilation result)",
+          "compile_passed": false,
+          "duration_sec": 4.535,
+          "context_chars": 32993
+        },
+        {
+          "step": 7,
+          "tool": "write_file",
+          "args": {
+            "path": "apps/web/src/registration/components/RegistrationForm.vue",
+            "content": "<script setup lang=\"ts\">\nimport {\n  Button,\n  ControlledCheckbox,\n  ControlledRadioGroup,\n  ControlledInput,\n  ControlledTextarea,\n  Form,\n  FormActions,\n  FormFields,\n} from \"elements\";\nimport { registrationSchema, initialRegistrationValues } from \"@/registration/types\";\n\nimport type { RegistrationFormValues } from \"@/registration/types\";\n\nconst actions = {\n  onSubmit: async (values: RegistrationFormValues) => {\n    console.log(\"submitted:\", values);\n    return values;\n  },\n};\n\nconst roleOptions = [\"user\", \"admin\", \"contributor\"].map((role) => ({\n  value: role,\n  label: role.charAt(0).toUpperCase() + role.slice(1),\n}));\n\nconst frequencyOptions = [\"daily\", \"weekly\", \"monthly\"].map((freq) => ({\n  value: freq,\n  label: freq.charAt(0).toUpperCase() + freq.slice(1),\n}));\n</script>\n\n<template>\n  <div class=\"w-full max-w-md\">\n    <Form\n      :initial-values=\"initialRegistrationValues\"\n      :form-schema=\"registrationSchema\"\n      :actions=\"actions\"\n    >\n      <FormFields v-slot=\"{ form, resetGeneralError }\">\n        <ControlledInput\n          name=\"username\"\n          label=\"Username\"\n          placeholder=\"Il tuo username\"\n          @input-click=\"resetGeneralError\"\n        />\n        <ControlledInput\n          name=\"email\"\n          label=\"Email\"\n          type=\"email\"\n          placeholder=\"nome@esempio.com\"\n          @input-click=\"resetGeneralError\"\n        />\n        <ControlledRadioGroup\n          name=\"role\"\n          label=\"Ruolo\"\n          :options=\"roleOptions\"\n          @input-click=\"resetGeneralError\"\n        />\n        <ControlledInput\n          v-if=\"form.values.role === 'contributor'\"\n          name=\"otherInfo\"\n          label=\"Descrizione del contributo\"\n          placeholder=\"Descrivi il tuo contributo\"\n          @input-click=\"resetGeneralError\"\n        />\n        <ControlledCheckbox\n          name=\"newsletter\"\n          label=\"Iscrivimi alla newsletter\"\n          @input-click=\"resetGeneralError\"\n        />\n        <ControlledRadioGroup\n          v-if=\"form.values.newsletter\"\n          name=\"frequency\"\n          label=\"Frequenza newsletter\"\n          :options=\"frequencyOptions\"\n          orientation=\"horizontal\"\n          @input-click=\"resetGeneralError\"\n        />\n        <ControlledTextarea\n          name=\"bio\"\n          label=\"Bio\"\n          placeholder=\"Raccontami qualcosa di te...\"\n          @input-click=\"resetGeneralError\"\n        />\n      </FormFields>\n      <FormActions v-slot=\"{ form: formContext, isValid }\" class=\"mt-6\">\n        <Button\n          type=\"submit\"\n          class=\"w-full\"\n          :disabled=\"!isValid || formContext?.isSubmitting.value\"\n        >\n          Registrati\n        </Button>\n      </FormActions>\n    </Form>\n  </div>\n</template>\n"
+          },
+          "result_summary": "(see latest compilation result)",
+          "compile_passed": false,
+          "duration_sec": 4.535,
+          "context_chars": 32993
+        },
+        {
+          "step": 8,
+          "tool": "run_compilation",
+          "args": {},
+          "result_summary": "src/registration/components/RegistrationForm.vue(12,63): error TS2307: Cannot find module '@/registration/types' or its corresponding type declarations.\nsrc/registration/components/RegistrationForm.vu...",
+          "compile_passed": false,
+          "duration_sec": 19.716,
+          "context_chars": 32903
+        },
+        {
+          "step": 9,
+          "tool": "write_file",
+          "args": {
+            "path": "apps/web/src/registration/components/RegistrationForm.vue",
+            "content": "<script setup lang=\"ts\">\nimport {\n  Button,\n  ControlledCheckbox,\n  ControlledRadioGroup,\n  ControlledInput,\n  ControlledTextarea,\n  Form,\n  FormActions,\n  FormFields,\n} from \"elements\";\n\nimport { registrationSchema, initialRegistrationValues } from \"../types\";\n\nimport type { RegistrationFormValues } from \"../types\";\n\nconst actions = {\n  onSubmit: async (values: RegistrationFormValues) => {\n    console.log(\"submitted:\", values);\n    return values;\n  },\n};\n\nconst roleOptions = [\"user\", \"admin\", \"contributor\"].map((role) => ({\n  value: role,\n  label: role.charAt(0).toUpperCase() + role.slice(1),\n}));\n\nconst frequencyOptions = [\"daily\", \"weekly\", \"monthly\"].map((freq) => ({\n  value: freq,\n  label: freq.charAt(0).toUpperCase() + freq.slice(1),\n}));\n</script>\n\n<template>\n  <div class=\"w-full max-w-md\">\n    <Form\n      :initial-values=\"initialRegistrationValues\"\n      :form-schema=\"registrationSchema\"\n      :actions=\"actions\"\n    >\n      <FormFields v-slot=\"{ form, resetGeneralError }\">\n        <ControlledInput\n          name=\"username\"\n          label=\"Username\"\n          placeholder=\"Il tuo username\"\n          @input-click=\"resetGeneralError\"\n        />\n        <ControlledInput\n          name=\"email\"\n          label=\"Email\"\n          type=\"email\"\n          placeholder=\"nome@esempio.com\"\n          @input-click=\"resetGeneralError\"\n        />\n        <ControlledRadioGroup\n          name=\"role\"\n          label=\"Ruolo\"\n          :options=\"roleOptions\"\n          @input-click=\"resetGeneralError\"\n        />\n        <ControlledInput\n          v-if=\"form.values.role === 'contributor'\"\n          name=\"otherInfo\"\n          label=\"Descrizione del contributo\"\n          placeholder=\"Descrivi il tuo contributo\"\n          @input-click=\"resetGeneralError\"\n        />\n        <ControlledCheckbox\n          name=\"newsletter\"\n          label=\"Iscrivimi alla newsletter\"\n          @input-click=\"resetGeneralError\"\n        />\n        <ControlledRadioGroup\n          v-if=\"form.values.newsletter\"\n          name=\"frequency\"\n          label=\"Frequenza newsletter\"\n          :options=\"frequencyOptions\"\n          orientation=\"horizontal\"\n          @input-click=\"resetGeneralError\"\n        />\n        <ControlledTextarea\n          name=\"bio\"\n          label=\"Bio\"\n          placeholder=\"Raccontami qualcosa di te...\"\n          @input-click=\"resetGeneralError\"\n        />\n      </FormFields>\n      <FormActions v-slot=\"{ form: formContext, isValid }\" class=\"mt-6\">\n        <Button\n          type=\"submit\"\n          class=\"w-full\"\n          :disabled=\"!isValid || formContext?.isSubmitting.value\"\n        >\n          Registrati\n        </Button>\n      </FormActions>\n    </Form>\n  </div>\n</template>\n"
+          },
+          "result_summary": "File written.\nCompilation succeeded.",
+          "compile_passed": true,
+          "duration_sec": 12.235,
+          "context_chars": 39628
+        }
+      ],
+      "total_input_tokens": 91483,
+      "total_output_tokens": 5472,
+      "first_compile_success_step": 9,
+      "compile_error_recovery_count": 1,
+      "rag_queries_count": 3,
+      "read_file_count": 0,
+      "list_files_count": 0
+    },
+    {
+      "model": "qwen3.5:35b",
+      "fixture": "nuxt-form-agent-rag",
+      "timestamp": "2026-03-10T12:41:29.561331",
+      "run_number": 2,
+      "compiles": true,
+      "compilation_errors": [],
+      "compilation_warnings": [],
+      "pattern_score": 8.0,
+      "ast_missing": [
+        "zod_schema"
+      ],
+      "ast_checks": {
+        "script_lang": true,
+        "form_component": true,
+        "controlled_components": true,
+        "conditional_rendering": true,
+        "zod_schema": false,
+        "required_fields": true,
+        "conditional_fields": true
+      },
+      "naming_score": 10.0,
+      "naming_violations": [],
+      "final_score": 9.200000000000001,
+      "scoring_weights": {
+        "compilation": 0.5,
+        "pattern_match": 0.4,
+        "naming": 0.1
+      },
+      "tokens_per_sec": 37.64560928866486,
+      "duration_sec": 192.55897665023804,
+      "output_code": "<script setup lang=\"ts\">\nimport { Button, ControlledCheckbox, ControlledInput, ControlledRadioGroup, ControlledTextarea, Form, FormActions, FormFields } from \"elements\";\nimport { registrationSchema, registrationInitialValues } from \"../types\";\n\ntype FormValues = typeof registrationInitialValues;\n\nconst actions = {\n  onSubmit: async (values: FormValues) => {\n    console.log(\"Form submitted:\", values);\n    return values;\n  },\n};\n</script>\n\n<template>\n  <Form :initial-values=\"registrationInitialValues\" :form-schema=\"registrationSchema\" :actions=\"actions\">\n    <FormFields v-slot=\"{ form, resetGeneralError }\">\n      <!-- Username field -->\n      <ControlledInput\n        name=\"username\"\n        label=\"Username\"\n        placeholder=\"Your username\"\n        @input-click=\"resetGeneralError\"\n      />\n\n      <!-- Email field -->\n      <ControlledInput\n        name=\"email\"\n        label=\"Email\"\n        type=\"email\"\n        placeholder=\"your.email@example.com\"\n        @input-click=\"resetGeneralError\"\n      />\n\n      <!-- Role radio group -->\n      <ControlledRadioGroup\n        name=\"role\"\n        label=\"Role\"\n        :options=\"[\n          { value: 'user', label: 'User' },\n          { value: 'admin', label: 'Admin' },\n          { value: 'contributor', label: 'Contributor' },\n        ]\"\n        @input-click=\"resetGeneralError\"\n      />\n\n      <!-- otherInfo: shown only when role is contributor -->\n      <ControlledInput\n        v-if=\"form.values.role === 'contributor'\"\n        name=\"otherInfo\"\n        label=\"Other Information\"\n        placeholder=\"Describe your contribution\"\n        @input-click=\"resetGeneralError\"\n      />\n\n      <!-- Newsletter checkbox -->\n      <ControlledCheckbox\n        name=\"newsletter\"\n        label=\"Subscribe to newsletter\"\n        @input-click=\"resetGeneralError\"\n      />\n\n      <!-- Frequency: shown only when newsletter is true -->\n      <ControlledRadioGroup\n        v-if=\"form.values.newsletter\"\n        name=\"frequency\"\n        label=\"Frequency\"\n        :options=\"[\n          { value: 'daily', label: 'Daily' },\n          { value: 'weekly', label: 'Weekly' },\n          { value: 'monthly', label: 'Monthly' },\n        ]\"\n        @input-click=\"resetGeneralError\"\n      />\n\n      <!-- Bio textarea -->\n      <ControlledTextarea\n        name=\"bio\"\n        label=\"Bio\"\n        placeholder=\"Tell us about yourself...\"\n        @input-click=\"resetGeneralError\"\n      />\n    </FormFields>\n\n    <FormActions v-slot=\"{ form, isValid }\">\n      <Button\n        type=\"submit\"\n        :disabled=\"!isValid || form?.isSubmitting.value\"\n      >\n        Register\n      </Button>\n    </FormActions>\n  </Form>\n</template>\n",
+      "errors": [],
+      "steps": 10,
+      "max_steps": 20,
+      "iterations": 8,
+      "succeeded": true,
+      "tool_call_log": [
+        {
+          "step": 1,
+          "tool": "query_rag",
+          "args": {
+            "query": "checkbox reveals conditional field v-if"
+          },
+          "result_summary": "--- 02_checkbox_reveals_field.vue ---\n<!--\n  EXAMPLE: Checkbox that conditionally shows another field.\n\n  Pattern:\n  - FormFields slot exposes `form` (vee-validate FormContext)\n  - form.values.<fieldN...",
+          "compile_passed": null,
+          "duration_sec": 39.465,
+          "context_chars": 28075
+        },
+        {
+          "step": 1,
+          "tool": "query_rag",
+          "args": {
+            "query": "zod schema optional superRefine conditional validation"
+          },
+          "result_summary": "--- 02_checkbox_reveals_field.vue ---\n<!--\n  EXAMPLE: Checkbox that conditionally shows another field.\n\n  Pattern:\n  - FormFields slot exposes `form` (vee-validate FormContext)\n  - form.values.<fieldN...",
+          "compile_passed": null,
+          "duration_sec": 39.465,
+          "context_chars": 28075
+        },
+        {
+          "step": 1,
+          "tool": "query_rag",
+          "args": {
+            "query": "textarea full form all component types"
+          },
+          "result_summary": "--- 02_checkbox_reveals_field.vue ---\n<!--\n  EXAMPLE: Checkbox that conditionally shows another field.\n\n  Pattern:\n  - FormFields slot exposes `form` (vee-validate FormContext)\n  - form.values.<fieldN...",
+          "compile_passed": null,
+          "duration_sec": 39.465,
+          "context_chars": 28075
+        },
+        {
+          "step": 1,
+          "tool": "query_rag",
+          "args": {
+            "query": "radio group options array"
+          },
+          "result_summary": "--- 02_checkbox_reveals_field.vue ---\n<!--\n  EXAMPLE: Checkbox that conditionally shows another field.\n\n  Pattern:\n  - FormFields slot exposes `form` (vee-validate FormContext)\n  - form.values.<fieldN...",
+          "compile_passed": null,
+          "duration_sec": 39.465,
+          "context_chars": 28075
+        },
+        {
+          "step": 1,
+          "tool": "query_rag",
+          "args": {
+            "query": "basic form Form FormFields FormActions"
+          },
+          "result_summary": "--- 02_checkbox_reveals_field.vue ---\n<!--\n  EXAMPLE: Checkbox that conditionally shows another field.\n\n  Pattern:\n  - FormFields slot exposes `form` (vee-validate FormContext)\n  - form.values.<fieldN...",
+          "compile_passed": null,
+          "duration_sec": 39.465,
+          "context_chars": 28075
+        },
+        {
+          "step": 2,
+          "tool": "write_file",
+          "args": {
+            "path": "apps/web/src/registration/types/index.ts",
+            "content": "import { z } from \"zod\";\n\nexport const registrationSchema = z\n  .object({\n    username: z.string().min(3, \"Username must be at least 3 characters\"),\n    email: z.string().email(\"Invalid email address\"),\n    role: z.enum([\"user\", \"admin\", \"contributor\"]),\n    otherInfo: z.string().optional(),\n    newsletter: z.boolean().optional(),\n    frequency: z.enum([\"daily\", \"weekly\", \"monthly\"]).optional(),\n    bio: z.string().optional(),\n  })\n  .superRefine((data, ctx) => {\n    // otherInfo is required when role is \"contributor\"\n    if (data.role === \"contributor\" && !data.otherInfo) {\n      ctx.addIssue({\n        code: z.ZodIssueCode.custom,\n        message: \"Other information is required for contributors\",\n        path: [\"otherInfo\"],\n      });\n    }\n\n    // frequency is required when newsletter is true\n    if (data.newsletter && !data.frequency) {\n      ctx.addIssue({\n        code: z.ZodIssueCode.custom,\n        message: \"Frequency selection is required when newsletter is selected\",\n        path: [\"frequency\"],\n      });\n    }\n  });\n\nexport type RegistrationFormValues = z.infer<typeof registrationSchema>;\n\nexport const registrationInitialValues: RegistrationFormValues = {\n  username: \"\",\n  email: \"\",\n  role: \"user\",\n  otherInfo: \"\",\n  newsletter: false,\n  frequency: undefined,\n  bio: \"\",\n};\n"
+          },
+          "result_summary": "File written.\nCompilation errors:\nsrc/registration/components/RegistrationForm.vue(16,8): error TS2307: Cannot find module '@/registration/types' or its corresponding type declarations.",
+          "compile_passed": false,
+          "duration_sec": 4.493,
+          "context_chars": 30084
+        },
+        {
+          "step": 3,
+          "tool": "write_file",
+          "args": {
+            "content": "<script setup lang=\"ts\">\nimport { Button, ControlledCheckbox, ControlledInput, ControlledRadioGroup, ControlledTextarea, Form, FormActions, FormFields } from \"elements\";\nimport { registrationSchema, registrationInitialValues } from \"@/registration/types\";\n\ntype FormValues = typeof registrationInitialValues;\n\nconst actions = {\n  onSubmit: async (values: FormValues) => {\n    console.log(\"Form submitted:\", values);\n    return values;\n  },\n};\n</script>\n\n<template>\n  <Form :initial-values=\"registrationInitialValues\" :form-schema=\"registrationSchema\" :actions=\"actions\">\n    <FormFields v-slot=\"{ form, resetGeneralError }\">\n      <!-- Username field -->\n      <ControlledInput\n        name=\"username\"\n        label=\"Username\"\n        placeholder=\"Your username\"\n        @input-click=\"resetGeneralError\"\n      />\n\n      <!-- Email field -->\n      <ControlledInput\n        name=\"email\"\n        label=\"Email\"\n        type=\"email\"\n        placeholder=\"your.email@example.com\"\n        @input-click=\"resetGeneralError\"\n      />\n\n      <!-- Role radio group -->\n      <ControlledRadioGroup\n        name=\"role\"\n        label=\"Role\"\n        :options=\"[\n          { value: 'user', label: 'User' },\n          { value: 'admin', label: 'Admin' },\n          { value: 'contributor', label: 'Contributor' },\n        ]\"\n        @input-click=\"resetGeneralError\"\n      />\n\n      <!-- otherInfo: shown only when role is contributor -->\n      <ControlledInput\n        v-if=\"form.values.role === 'contributor'\"\n        name=\"otherInfo\"\n        label=\"Other Information\"\n        placeholder=\"Describe your contribution\"\n        @input-click=\"resetGeneralError\"\n      />\n\n      <!-- Newsletter checkbox -->\n      <ControlledCheckbox\n        name=\"newsletter\"\n        label=\"Subscribe to newsletter\"\n        @input-click=\"resetGeneralError\"\n      />\n\n      <!-- Frequency: shown only when newsletter is true -->\n      <ControlledRadioGroup\n        v-if=\"form.values.newsletter\"\n        name=\"frequency\"\n        label=\"Frequency\"\n        :options=\"[\n          { value: 'daily', label: 'Daily' },\n          { value: 'weekly', label: 'Weekly' },\n          { value: 'monthly', label: 'Monthly' },\n        ]\"\n        @input-click=\"resetGeneralError\"\n      />\n\n      <!-- Bio textarea -->\n      <ControlledTextarea\n        name=\"bio\"\n        label=\"Bio\"\n        placeholder=\"Tell us about yourself...\"\n        @input-click=\"resetGeneralError\"\n      />\n    </FormFields>\n\n    <FormActions v-slot=\"{ form, isValid }\">\n      <Button\n        type=\"submit\"\n        :disabled=\"!isValid || form?.isSubmitting.value\"\n      >\n        Register\n      </Button>\n    </FormActions>\n  </Form>\n</template>\n",
+            "path": "apps/web/src/registration/components/RegistrationForm.vue"
+          },
+          "result_summary": "File written.\nCompilation errors:\nsrc/registration/components/RegistrationForm.vue(3,63): error TS2307: Cannot find module '@/registration/types' or its corresponding type declarations.",
+          "compile_passed": false,
+          "duration_sec": 17.935,
+          "context_chars": 34038
+        },
+        {
+          "step": 4,
+          "tool": "write_file",
+          "args": {
+            "content": "<script setup lang=\"ts\">\nimport { Button, ControlledCheckbox, ControlledInput, ControlledRadioGroup, ControlledTextarea, Form, FormActions, FormFields } from \"elements\";\nimport { registrationSchema, registrationInitialValues } from \"@/registration/types\";\n\ntype FormValues = typeof registrationInitialValues;\n\nconst actions = {\n  onSubmit: async (values: FormValues) => {\n    console.log(\"Form submitted:\", values);\n    return values;\n  },\n};\n</script>\n\n<template>\n  <Form :initial-values=\"registrationInitialValues\" :form-schema=\"registrationSchema\" :actions=\"actions\">\n    <FormFields v-slot=\"{ form, resetGeneralError }\">\n      <!-- Username field -->\n      <ControlledInput\n        name=\"username\"\n        label=\"Username\"\n        placeholder=\"Your username\"\n        @input-click=\"resetGeneralError\"\n      />\n\n      <!-- Email field -->\n      <ControlledInput\n        name=\"email\"\n        label=\"Email\"\n        type=\"email\"\n        placeholder=\"your.email@example.com\"\n        @input-click=\"resetGeneralError\"\n      />\n\n      <!-- Role radio group -->\n      <ControlledRadioGroup\n        name=\"role\"\n        label=\"Role\"\n        :options=\"[\n          { value: 'user', label: 'User' },\n          { value: 'admin', label: 'Admin' },\n          { value: 'contributor', label: 'Contributor' },\n        ]\"\n        @input-click=\"resetGeneralError\"\n      />\n\n      <!-- otherInfo: shown only when role is contributor -->\n      <ControlledInput\n        v-if=\"form.values.role === 'contributor'\"\n        name=\"otherInfo\"\n        label=\"Other Information\"\n        placeholder=\"Describe your contribution\"\n        @input-click=\"resetGeneralError\"\n      />\n\n      <!-- Newsletter checkbox -->\n      <ControlledCheckbox\n        name=\"newsletter\"\n        label=\"Subscribe to newsletter\"\n        @input-click=\"resetGeneralError\"\n      />\n\n      <!-- Frequency: shown only when newsletter is true -->\n      <ControlledRadioGroup\n        v-if=\"form.values.newsletter\"\n        name=\"frequency\"\n        label=\"Frequency\"\n        :options=\"[\n          { value: 'daily', label: 'Daily' },\n          { value: 'weekly', label: 'Weekly' },\n          { value: 'monthly', label: 'Monthly' },\n        ]\"\n        @input-click=\"resetGeneralError\"\n      />\n\n      <!-- Bio textarea -->\n      <ControlledTextarea\n        name=\"bio\"\n        label=\"Bio\"\n        placeholder=\"Tell us about yourself...\"\n        @input-click=\"resetGeneralError\"\n      />\n    </FormFields>\n\n    <FormActions v-slot=\"{ form, isValid }\">\n      <Button\n        type=\"submit\"\n        :disabled=\"!isValid || form?.isSubmitting.value\"\n      >\n        Register\n      </Button>\n    </FormActions>\n  </Form>\n</template>\n",
+            "path": "apps/web/src/registration/components/RegistrationForm.vue"
+          },
+          "result_summary": "File written.\nCompilation errors:\nsrc/registration/components/RegistrationForm.vue(3,63): error TS2307: Cannot find module '@/registration/types' or its corresponding type declarations.",
+          "compile_passed": false,
+          "duration_sec": 2.008,
+          "context_chars": 37562
+        },
+        {
+          "step": 5,
+          "tool": "write_file",
+          "args": {
+            "path": "apps/web/src/registration/types/index.ts",
+            "content": "import { z } from \"zod\";\n\nexport const registrationSchema = z\n  .object({\n    username: z.string().min(3, \"Username must be at least 3 characters\"),\n    email: z.string().email(\"Invalid email address\"),\n    role: z.enum([\"user\", \"admin\", \"contributor\"]),\n    otherInfo: z.string().optional(),\n    newsletter: z.boolean().optional(),\n    frequency: z.enum([\"daily\", \"weekly\", \"monthly\"]).optional(),\n    bio: z.string().optional(),\n  })\n  .superRefine((data, ctx) => {\n    // otherInfo is required when role is \"contributor\"\n    if (data.role === \"contributor\" && !data.otherInfo) {\n      ctx.addIssue({\n        code: z.ZodIssueCode.custom,\n        message: \"Other information is required for contributors\",\n        path: [\"otherInfo\"],\n      });\n    }\n\n    // frequency is required when newsletter is true\n    if (data.newsletter && !data.frequency) {\n      ctx.addIssue({\n        code: z.ZodIssueCode.custom,\n        message: \"Frequency selection is required when newsletter is selected\",\n        path: [\"frequency\"],\n      });\n    }\n  });\n\nexport type RegistrationFormValues = z.infer<typeof registrationSchema>;\n\nexport const registrationInitialValues: RegistrationFormValues = {\n  username: \"\",\n  email: \"\",\n  role: \"user\",\n  otherInfo: \"\",\n  newsletter: false,\n  frequency: undefined,\n  bio: \"\",\n};\n"
+          },
+          "result_summary": "File written.\nCompilation errors:\nsrc/registration/components/RegistrationForm.vue(3,63): error TS2307: Cannot find module '@/registration/types' or its corresponding type declarations.",
+          "compile_passed": false,
+          "duration_sec": 2.457,
+          "context_chars": 39927
+        },
+        {
+          "step": 6,
+          "tool": "write_file",
+          "args": {
+            "path": "apps/web/src/registration/components/RegistrationForm.vue",
+            "content": "<script setup lang=\"ts\">\nimport { Button, ControlledCheckbox, ControlledInput, ControlledRadioGroup, ControlledTextarea, Form, FormActions, FormFields } from \"elements\";\nimport { registrationSchema, registrationInitialValues } from \"@/registration/types\";\n\ntype FormValues = typeof registrationInitialValues;\n\nconst actions = {\n  onSubmit: async (values: FormValues) => {\n    console.log(\"Form submitted:\", values);\n    return values;\n  },\n};\n</script>\n\n<template>\n  <Form :initial-values=\"registrationInitialValues\" :form-schema=\"registrationSchema\" :actions=\"actions\">\n    <FormFields v-slot=\"{ form, resetGeneralError }\">\n      <!-- Username field -->\n      <ControlledInput\n        name=\"username\"\n        label=\"Username\"\n        placeholder=\"Your username\"\n        @input-click=\"resetGeneralError\"\n      />\n\n      <!-- Email field -->\n      <ControlledInput\n        name=\"email\"\n        label=\"Email\"\n        type=\"email\"\n        placeholder=\"your.email@example.com\"\n        @input-click=\"resetGeneralError\"\n      />\n\n      <!-- Role radio group -->\n      <ControlledRadioGroup\n        name=\"role\"\n        label=\"Role\"\n        :options=\"[\n          { value: 'user', label: 'User' },\n          { value: 'admin', label: 'Admin' },\n          { value: 'contributor', label: 'Contributor' },\n        ]\"\n        @input-click=\"resetGeneralError\"\n      />\n\n      <!-- otherInfo: shown only when role is contributor -->\n      <ControlledInput\n        v-if=\"form.values.role === 'contributor'\"\n        name=\"otherInfo\"\n        label=\"Other Information\"\n        placeholder=\"Describe your contribution\"\n        @input-click=\"resetGeneralError\"\n      />\n\n      <!-- Newsletter checkbox -->\n      <ControlledCheckbox\n        name=\"newsletter\"\n        label=\"Subscribe to newsletter\"\n        @input-click=\"resetGeneralError\"\n      />\n\n      <!-- Frequency: shown only when newsletter is true -->\n      <ControlledRadioGroup\n        v-if=\"form.values.newsletter\"\n        name=\"frequency\"\n        label=\"Frequency\"\n        :options=\"[\n          { value: 'daily', label: 'Daily' },\n          { value: 'weekly', label: 'Weekly' },\n          { value: 'monthly', label: 'Monthly' },\n        ]\"\n        @input-click=\"resetGeneralError\"\n      />\n\n      <!-- Bio textarea -->\n      <ControlledTextarea\n        name=\"bio\"\n        label=\"Bio\"\n        placeholder=\"Tell us about yourself...\"\n        @input-click=\"resetGeneralError\"\n      />\n    </FormFields>\n\n    <FormActions v-slot=\"{ form, isValid }\">\n      <Button\n        type=\"submit\"\n        :disabled=\"!isValid || form?.isSubmitting.value\"\n      >\n        Register\n      </Button>\n    </FormActions>\n  </Form>\n</template>\n"
+          },
+          "result_summary": "File written.\nCompilation errors:\nsrc/registration/components/RegistrationForm.vue(3,63): error TS2307: Cannot find module '@/registration/types' or its corresponding type declarations.",
+          "compile_passed": false,
+          "duration_sec": 3.394,
+          "context_chars": 43765
+        },
+        {
+          "step": 7,
+          "tool": "query_rag",
+          "args": {
+            "query": "basic form Form FormFields FormActions"
+          },
+          "result_summary": "--- 01_basic_form.vue ---\n<!--\n  EXAMPLE: Basic form with ControlledInput, ControlledCheckbox, and Button.\n\n  Pattern:\n  - Import Form, FormFields, FormActions, controlled components and Button from \"...",
+          "compile_passed": null,
+          "duration_sec": 17.589,
+          "context_chars": 48392
+        },
+        {
+          "step": 8,
+          "tool": "write_file",
+          "args": {
+            "path": "apps/web/src/registration/components/RegistrationForm.vue",
+            "content": "<script setup lang=\"ts\">\nimport { Button, ControlledCheckbox, ControlledInput, ControlledRadioGroup, ControlledTextarea, Form, FormActions, FormFields } from \"elements\";\nimport { registrationSchema, registrationInitialValues } from \"@/registration/types\";\n\ntype FormValues = typeof registrationInitialValues;\n\nconst actions = {\n  onSubmit: async (values: FormValues) => {\n    console.log(\"Form submitted:\", values);\n    return values;\n  },\n};\n</script>\n\n<template>\n  <Form :initial-values=\"registrationInitialValues\" :form-schema=\"registrationSchema\" :actions=\"actions\">\n    <FormFields v-slot=\"{ form, resetGeneralError }\">\n      <!-- Username field -->\n      <ControlledInput\n        name=\"username\"\n        label=\"Username\"\n        placeholder=\"Your username\"\n        @input-click=\"resetGeneralError\"\n      />\n\n      <!-- Email field -->\n      <ControlledInput\n        name=\"email\"\n        label=\"Email\"\n        type=\"email\"\n        placeholder=\"your.email@example.com\"\n        @input-click=\"resetGeneralError\"\n      />\n\n      <!-- Role radio group -->\n      <ControlledRadioGroup\n        name=\"role\"\n        label=\"Role\"\n        :options=\"[\n          { value: 'user', label: 'User' },\n          { value: 'admin', label: 'Admin' },\n          { value: 'contributor', label: 'Contributor' },\n        ]\"\n        @input-click=\"resetGeneralError\"\n      />\n\n      <!-- otherInfo: shown only when role is contributor -->\n      <ControlledInput\n        v-if=\"form.values.role === 'contributor'\"\n        name=\"otherInfo\"\n        label=\"Other Information\"\n        placeholder=\"Describe your contribution\"\n        @input-click=\"resetGeneralError\"\n      />\n\n      <!-- Newsletter checkbox -->\n      <ControlledCheckbox\n        name=\"newsletter\"\n        label=\"Subscribe to newsletter\"\n        @input-click=\"resetGeneralError\"\n      />\n\n      <!-- Frequency: shown only when newsletter is true -->\n      <ControlledRadioGroup\n        v-if=\"form.values.newsletter\"\n        name=\"frequency\"\n        label=\"Frequency\"\n        :options=\"[\n          { value: 'daily', label: 'Daily' },\n          { value: 'weekly', label: 'Weekly' },\n          { value: 'monthly', label: 'Monthly' },\n        ]\"\n        @input-click=\"resetGeneralError\"\n      />\n\n      <!-- Bio textarea -->\n      <ControlledTextarea\n        name=\"bio\"\n        label=\"Bio\"\n        placeholder=\"Tell us about yourself...\"\n        @input-click=\"resetGeneralError\"\n      />\n    </FormFields>\n\n    <FormActions v-slot=\"{ form, isValid }\">\n      <Button\n        type=\"submit\"\n        :disabled=\"!isValid || form?.isSubmitting.value\"\n      >\n        Register\n      </Button>\n    </FormActions>\n  </Form>\n</template>\n"
+          },
+          "result_summary": "File written.\nCompilation errors:\nsrc/registration/components/RegistrationForm.vue(3,63): error TS2307: Cannot find module '@/registration/types' or its corresponding type declarations.",
+          "compile_passed": false,
+          "duration_sec": 18.239,
+          "context_chars": 51869
+        },
+        {
+          "step": 9,
+          "tool": "write_file",
+          "args": {
+            "path": "apps/web/src/registration/components/RegistrationForm.vue",
+            "content": "<script setup lang=\"ts\">\nimport { Button, ControlledCheckbox, ControlledInput, ControlledRadioGroup, ControlledTextarea, Form, FormActions, FormFields } from \"elements\";\nimport { registrationSchema, registrationInitialValues } from \"@/registration/types\";\n\ntype FormValues = typeof registrationInitialValues;\n\nconst actions = {\n  onSubmit: async (values: FormValues) => {\n    console.log(\"Form submitted:\", values);\n    return values;\n  },\n};\n</script>\n\n<template>\n  <Form :initial-values=\"registrationInitialValues\" :form-schema=\"registrationSchema\" :actions=\"actions\">\n    <FormFields v-slot=\"{ form, resetGeneralError }\">\n      <!-- Username field -->\n      <ControlledInput\n        name=\"username\"\n        label=\"Username\"\n        placeholder=\"Your username\"\n        @input-click=\"resetGeneralError\"\n      />\n\n      <!-- Email field -->\n      <ControlledInput\n        name=\"email\"\n        label=\"Email\"\n        type=\"email\"\n        placeholder=\"your.email@example.com\"\n        @input-click=\"resetGeneralError\"\n      />\n\n      <!-- Role radio group -->\n      <ControlledRadioGroup\n        name=\"role\"\n        label=\"Role\"\n        :options=\"[\n          { value: 'user', label: 'User' },\n          { value: 'admin', label: 'Admin' },\n          { value: 'contributor', label: 'Contributor' },\n        ]\"\n        @input-click=\"resetGeneralError\"\n      />\n\n      <!-- otherInfo: shown only when role is contributor -->\n      <ControlledInput\n        v-if=\"form.values.role === 'contributor'\"\n        name=\"otherInfo\"\n        label=\"Other Information\"\n        placeholder=\"Describe your contribution\"\n        @input-click=\"resetGeneralError\"\n      />\n\n      <!-- Newsletter checkbox -->\n      <ControlledCheckbox\n        name=\"newsletter\"\n        label=\"Subscribe to newsletter\"\n        @input-click=\"resetGeneralError\"\n      />\n\n      <!-- Frequency: shown only when newsletter is true -->\n      <ControlledRadioGroup\n        v-if=\"form.values.newsletter\"\n        name=\"frequency\"\n        label=\"Frequency\"\n        :options=\"[\n          { value: 'daily', label: 'Daily' },\n          { value: 'weekly', label: 'Weekly' },\n          { value: 'monthly', label: 'Monthly' },\n        ]\"\n        @input-click=\"resetGeneralError\"\n      />\n\n      <!-- Bio textarea -->\n      <ControlledTextarea\n        name=\"bio\"\n        label=\"Bio\"\n        placeholder=\"Tell us about yourself...\"\n        @input-click=\"resetGeneralError\"\n      />\n    </FormFields>\n\n    <FormActions v-slot=\"{ form, isValid }\">\n      <Button\n        type=\"submit\"\n        :disabled=\"!isValid || form?.isSubmitting.value\"\n      >\n        Register\n      </Button>\n    </FormActions>\n  </Form>\n</template>\n"
+          },
+          "result_summary": "File written.\nCompilation errors:\nsrc/registration/components/RegistrationForm.vue(3,63): error TS2307: Cannot find module '@/registration/types' or its corresponding type declarations.",
+          "compile_passed": false,
+          "duration_sec": 17.258,
+          "context_chars": 55346
+        },
+        {
+          "step": 10,
+          "tool": "write_file",
+          "args": {
+            "path": "apps/web/src/registration/components/RegistrationForm.vue",
+            "content": "<script setup lang=\"ts\">\nimport { Button, ControlledCheckbox, ControlledInput, ControlledRadioGroup, ControlledTextarea, Form, FormActions, FormFields } from \"elements\";\nimport { registrationSchema, registrationInitialValues } from \"../types\";\n\ntype FormValues = typeof registrationInitialValues;\n\nconst actions = {\n  onSubmit: async (values: FormValues) => {\n    console.log(\"Form submitted:\", values);\n    return values;\n  },\n};\n</script>\n\n<template>\n  <Form :initial-values=\"registrationInitialValues\" :form-schema=\"registrationSchema\" :actions=\"actions\">\n    <FormFields v-slot=\"{ form, resetGeneralError }\">\n      <!-- Username field -->\n      <ControlledInput\n        name=\"username\"\n        label=\"Username\"\n        placeholder=\"Your username\"\n        @input-click=\"resetGeneralError\"\n      />\n\n      <!-- Email field -->\n      <ControlledInput\n        name=\"email\"\n        label=\"Email\"\n        type=\"email\"\n        placeholder=\"your.email@example.com\"\n        @input-click=\"resetGeneralError\"\n      />\n\n      <!-- Role radio group -->\n      <ControlledRadioGroup\n        name=\"role\"\n        label=\"Role\"\n        :options=\"[\n          { value: 'user', label: 'User' },\n          { value: 'admin', label: 'Admin' },\n          { value: 'contributor', label: 'Contributor' },\n        ]\"\n        @input-click=\"resetGeneralError\"\n      />\n\n      <!-- otherInfo: shown only when role is contributor -->\n      <ControlledInput\n        v-if=\"form.values.role === 'contributor'\"\n        name=\"otherInfo\"\n        label=\"Other Information\"\n        placeholder=\"Describe your contribution\"\n        @input-click=\"resetGeneralError\"\n      />\n\n      <!-- Newsletter checkbox -->\n      <ControlledCheckbox\n        name=\"newsletter\"\n        label=\"Subscribe to newsletter\"\n        @input-click=\"resetGeneralError\"\n      />\n\n      <!-- Frequency: shown only when newsletter is true -->\n      <ControlledRadioGroup\n        v-if=\"form.values.newsletter\"\n        name=\"frequency\"\n        label=\"Frequency\"\n        :options=\"[\n          { value: 'daily', label: 'Daily' },\n          { value: 'weekly', label: 'Weekly' },\n          { value: 'monthly', label: 'Monthly' },\n        ]\"\n        @input-click=\"resetGeneralError\"\n      />\n\n      <!-- Bio textarea -->\n      <ControlledTextarea\n        name=\"bio\"\n        label=\"Bio\"\n        placeholder=\"Tell us about yourself...\"\n        @input-click=\"resetGeneralError\"\n      />\n    </FormFields>\n\n    <FormActions v-slot=\"{ form, isValid }\">\n      <Button\n        type=\"submit\"\n        :disabled=\"!isValid || form?.isSubmitting.value\"\n      >\n        Register\n      </Button>\n    </FormActions>\n  </Form>\n</template>\n"
+          },
+          "result_summary": "File written.\nCompilation succeeded.",
+          "compile_passed": true,
+          "duration_sec": 13.498,
+          "context_chars": 58664
+        }
+      ],
+      "total_input_tokens": 140032,
+      "total_output_tokens": 7249,
+      "first_compile_success_step": 10,
+      "compile_error_recovery_count": 1,
+      "rag_queries_count": 6,
+      "read_file_count": 0,
+      "list_files_count": 0
+    },
+    {
+      "model": "qwen3.5:35b",
+      "fixture": "nuxt-form-agent-rag",
+      "timestamp": "2026-03-10T12:44:43.349290",
+      "run_number": 3,
+      "compiles": true,
+      "compilation_errors": [],
+      "compilation_warnings": [],
+      "pattern_score": 10.0,
+      "ast_missing": [],
+      "ast_checks": {
+        "script_lang": true,
+        "form_component": true,
+        "controlled_components": true,
+        "conditional_rendering": true,
+        "zod_schema": true,
+        "required_fields": true,
+        "conditional_fields": true
+      },
+      "naming_score": 10.0,
+      "naming_violations": [],
+      "final_score": 10.0,
+      "scoring_weights": {
+        "compilation": 0.5,
+        "pattern_match": 0.4,
+        "naming": 0.1
+      },
+      "tokens_per_sec": 34.882251726407205,
+      "duration_sec": 140.55858659744263,
+      "output_code": "<script setup lang=\"ts\">\nimport { Button, ControlledCheckbox, ControlledInput, ControlledRadioGroup, ControlledTextarea, Form, FormActions, FormFields } from \"elements\";\nimport { registrationSchema, type RegistrationFormValues, registrationInitialValues } from \"../types\";\n\nconst roleOptions = [\n  { value: \"user\", label: \"User\" },\n  { value: \"admin\", label: \"Admin\" },\n  { value: \"contributor\", label: \"Contributor\" },\n];\n\nconst frequencyOptions = [\n  { value: \"daily\", label: \"Daily\" },\n  { value: \"weekly\", label: \"Weekly\" },\n  { value: \"monthly\", label: \"Monthly\" },\n];\n\nconst actions = {\n  onSubmit: async (values: RegistrationFormValues) => {\n    console.log(\"submitted:\", values);\n    return values;\n  },\n};\n</script>\n\n<template>\n  <div class=\"w-full max-w-md\">\n    <Form\n      :initial-values=\"registrationInitialValues\"\n      :form-schema=\"registrationSchema\"\n      :actions=\"actions\"\n    >\n      <FormFields v-slot=\"{ form, resetGeneralError }\">\n        <ControlledInput\n          name=\"username\"\n          label=\"Username\"\n          placeholder=\"Choose a username\"\n          @input-click=\"resetGeneralError\"\n        />\n\n        <ControlledInput\n          name=\"email\"\n          label=\"Email\"\n          type=\"email\"\n          placeholder=\"name@example.com\"\n          @input-click=\"resetGeneralError\"\n        />\n\n        <ControlledRadioGroup\n          name=\"role\"\n          label=\"Role\"\n          :options=\"roleOptions\"\n          @input-click=\"resetGeneralError\"\n        />\n\n        <ControlledInput\n          v-if=\"form.values.role === 'contributor'\"\n          name=\"otherInfo\"\n          label=\"Other Information\"\n          placeholder=\"Describe your contribution...\"\n          @input-click=\"resetGeneralError\"\n        />\n\n        <ControlledCheckbox\n          name=\"newsletter\"\n          label=\"Subscribe to newsletter\"\n          @input-click=\"resetGeneralError\"\n        />\n\n        <ControlledRadioGroup\n          v-if=\"form.values.newsletter\"\n          name=\"frequency\"\n          label=\"Frequency\"\n          :options=\"frequencyOptions\"\n          @input-click=\"resetGeneralError\"\n        />\n\n        <ControlledTextarea\n          name=\"bio\"\n          label=\"Bio\"\n          placeholder=\"Tell us about yourself...\"\n          @input-click=\"resetGeneralError\"\n        />\n      </FormFields>\n\n      <FormActions v-slot=\"{ form, isValid }\" class=\"mt-6\">\n        <Button\n          type=\"submit\"\n          class=\"w-full\"\n          :disabled=\"!isValid || form?.isSubmitting.value\"\n        >\n          Register\n        </Button>\n      </FormActions>\n    </Form>\n  </div>\n</template>\n",
+      "errors": [],
+      "steps": 7,
+      "max_steps": 20,
+      "iterations": 6,
+      "succeeded": true,
+      "tool_call_log": [
+        {
+          "step": 1,
+          "tool": "query_rag",
+          "args": {
+            "query": "textarea full form all component types"
+          },
+          "result_summary": "--- 05_textarea_and_full_form.vue ---\n<!--\n  EXAMPLE: Form with all four controlled component types together.\n\n  Components available from \"elements\":\n  - ControlledInput     \u2014 text, email, password, ...",
+          "compile_passed": null,
+          "duration_sec": 40.616,
+          "context_chars": 27960
+        },
+        {
+          "step": 1,
+          "tool": "query_rag",
+          "args": {
+            "query": "zod schema optional superRefine conditional validation"
+          },
+          "result_summary": "--- 05_textarea_and_full_form.vue ---\n<!--\n  EXAMPLE: Form with all four controlled component types together.\n\n  Components available from \"elements\":\n  - ControlledInput     \u2014 text, email, password, ...",
+          "compile_passed": null,
+          "duration_sec": 40.616,
+          "context_chars": 27960
+        },
+        {
+          "step": 1,
+          "tool": "query_rag",
+          "args": {
+            "query": "checkbox reveals conditional field v-if"
+          },
+          "result_summary": "--- 05_textarea_and_full_form.vue ---\n<!--\n  EXAMPLE: Form with all four controlled component types together.\n\n  Components available from \"elements\":\n  - ControlledInput     \u2014 text, email, password, ...",
+          "compile_passed": null,
+          "duration_sec": 40.616,
+          "context_chars": 27960
+        },
+        {
+          "step": 1,
+          "tool": "query_rag",
+          "args": {
+            "query": "radio group options array"
+          },
+          "result_summary": "--- 05_textarea_and_full_form.vue ---\n<!--\n  EXAMPLE: Form with all four controlled component types together.\n\n  Components available from \"elements\":\n  - ControlledInput     \u2014 text, email, password, ...",
+          "compile_passed": null,
+          "duration_sec": 40.616,
+          "context_chars": 27960
+        },
+        {
+          "step": 1,
+          "tool": "query_rag",
+          "args": {
+            "query": "basic form Form FormFields FormActions"
+          },
+          "result_summary": "--- 05_textarea_and_full_form.vue ---\n<!--\n  EXAMPLE: Form with all four controlled component types together.\n\n  Components available from \"elements\":\n  - ControlledInput     \u2014 text, email, password, ...",
+          "compile_passed": null,
+          "duration_sec": 40.616,
+          "context_chars": 27960
+        },
+        {
+          "step": 2,
+          "tool": "write_file",
+          "args": {
+            "path": "apps/web/src/registration/types/index.ts",
+            "content": "import { z } from \"zod\";\n\nexport const registrationSchema = z.object({\n  username: z.string().min(3, \"Username must be at least 3 characters\"),\n  email: z.string().email(\"Invalid email address\"),\n  role: z.enum([\"user\", \"admin\", \"contributor\"]),\n  otherInfo: z.string().optional(),\n  newsletter: z.boolean().optional(),\n  frequency: z.enum([\"daily\", \"weekly\", \"monthly\"]).optional(),\n  bio: z.string().optional(),\n})\n.superRefine((data, ctx) => {\n  // otherInfo is required when role is \"contributor\"\n  if (data.role === \"contributor\" && !data.otherInfo) {\n    ctx.addIssue({\n      code: z.ZodIssueCode.custom,\n      message: \"Other information is required for contributors\",\n      path: [\"otherInfo\"],\n    });\n  }\n\n  // frequency is required when newsletter is true\n  if (data.newsletter && !data.frequency) {\n    ctx.addIssue({\n      code: z.ZodIssueCode.custom,\n      message: \"Please select a frequency\",\n      path: [\"frequency\"],\n    });\n  }\n});\n\nexport type RegistrationFormValues = z.infer<typeof registrationSchema>;\n\nexport const registrationInitialValues: RegistrationFormValues = {\n  username: \"\",\n  email: \"\",\n  role: \"user\",\n  otherInfo: \"\",\n  newsletter: false,\n  frequency: undefined,\n  bio: \"\",\n};\n"
+          },
+          "result_summary": "File written.\nCompilation errors:\nsrc/registration/components/RegistrationForm.vue(16,8): error TS2307: Cannot find module '@/registration/types' or its corresponding type declarations.",
+          "compile_passed": false,
+          "duration_sec": 17.012,
+          "context_chars": 29753
+        },
+        {
+          "step": 3,
+          "tool": "write_file",
+          "args": {
+            "content": "<script setup lang=\"ts\">\nimport { Button, ControlledCheckbox, ControlledInput, ControlledRadioGroup, ControlledTextarea, Form, FormActions, FormFields } from \"elements\";\nimport { registrationSchema, type RegistrationFormValues, registrationInitialValues } from \"@/registration/types\";\n\nconst roleOptions = [\n  { value: \"user\", label: \"User\" },\n  { value: \"admin\", label: \"Admin\" },\n  { value: \"contributor\", label: \"Contributor\" },\n];\n\nconst frequencyOptions = [\n  { value: \"daily\", label: \"Daily\" },\n  { value: \"weekly\", label: \"Weekly\" },\n  { value: \"monthly\", label: \"Monthly\" },\n];\n\nconst actions = {\n  onSubmit: async (values: RegistrationFormValues) => {\n    console.log(\"submitted:\", values);\n    return values;\n  },\n};\n</script>\n\n<template>\n  <div class=\"w-full max-w-md\">\n    <Form\n      :initial-values=\"registrationInitialValues\"\n      :form-schema=\"registrationSchema\"\n      :actions=\"actions\"\n    >\n      <FormFields v-slot=\"{ resetGeneralError }\">\n        <ControlledInput\n          name=\"username\"\n          label=\"Username\"\n          placeholder=\"Choose a username\"\n          @input-click=\"resetGeneralError\"\n        />\n\n        <ControlledInput\n          name=\"email\"\n          label=\"Email\"\n          type=\"email\"\n          placeholder=\"name@example.com\"\n          @input-click=\"resetGeneralError\"\n        />\n\n        <ControlledRadioGroup\n          name=\"role\"\n          label=\"Role\"\n          :options=\"roleOptions\"\n          @input-click=\"resetGeneralError\"\n        />\n\n        <ControlledInput\n          v-if=\"form.values.role === 'contributor'\"\n          name=\"otherInfo\"\n          label=\"Other Information\"\n          placeholder=\"Describe your contribution...\"\n          @input-click=\"resetGeneralError\"\n        />\n\n        <ControlledCheckbox\n          name=\"newsletter\"\n          label=\"Subscribe to newsletter\"\n          @input-click=\"resetGeneralError\"\n        />\n\n        <ControlledRadioGroup\n          v-if=\"form.values.newsletter\"\n          name=\"frequency\"\n          label=\"Frequency\"\n          :options=\"frequencyOptions\"\n          @input-click=\"resetGeneralError\"\n        />\n\n        <ControlledTextarea\n          name=\"bio\"\n          label=\"Bio\"\n          placeholder=\"Tell us about yourself...\"\n          @input-click=\"resetGeneralError\"\n        />\n      </FormFields>\n\n      <FormActions v-slot=\"{ form, isValid }\" class=\"mt-6\">\n        <Button\n          type=\"submit\"\n          class=\"w-full\"\n          :disabled=\"!isValid || form?.isSubmitting.value\"\n        >\n          Register\n        </Button>\n      </FormActions>\n    </Form>\n  </div>\n</template>\n",
+            "path": "apps/web/src/registration/components/RegistrationForm.vue"
+          },
+          "result_summary": "File written.\nCompilation errors:\nsrc/registration/components/RegistrationForm.vue(3,92): error TS2307: Cannot find module '@/registration/types' or its corresponding type declarations.\nsrc/registrati...",
+          "compile_passed": false,
+          "duration_sec": 20.642,
+          "context_chars": 33957
+        },
+        {
+          "step": 4,
+          "tool": "write_file",
+          "args": {
+            "path": "apps/web/src/registration/components/RegistrationForm.vue",
+            "content": "<script setup lang=\"ts\">\nimport { Button, ControlledCheckbox, ControlledInput, ControlledRadioGroup, ControlledTextarea, Form, FormActions, FormFields } from \"elements\";\nimport { registrationSchema, type RegistrationFormValues, registrationInitialValues } from \"@/registration/types\";\n\nconst roleOptions = [\n  { value: \"user\", label: \"User\" },\n  { value: \"admin\", label: \"Admin\" },\n  { value: \"contributor\", label: \"Contributor\" },\n];\n\nconst frequencyOptions = [\n  { value: \"daily\", label: \"Daily\" },\n  { value: \"weekly\", label: \"Weekly\" },\n  { value: \"monthly\", label: \"Monthly\" },\n];\n\nconst actions = {\n  onSubmit: async (values: RegistrationFormValues) => {\n    console.log(\"submitted:\", values);\n    return values;\n  },\n};\n</script>\n\n<template>\n  <div class=\"w-full max-w-md\">\n    <Form\n      :initial-values=\"registrationInitialValues\"\n      :form-schema=\"registrationSchema\"\n      :actions=\"actions\"\n    >\n      <FormFields v-slot=\"{ form, resetGeneralError }\">\n        <ControlledInput\n          name=\"username\"\n          label=\"Username\"\n          placeholder=\"Choose a username\"\n          @input-click=\"resetGeneralError\"\n        />\n\n        <ControlledInput\n          name=\"email\"\n          label=\"Email\"\n          type=\"email\"\n          placeholder=\"name@example.com\"\n          @input-click=\"resetGeneralError\"\n        />\n\n        <ControlledRadioGroup\n          name=\"role\"\n          label=\"Role\"\n          :options=\"roleOptions\"\n          @input-click=\"resetGeneralError\"\n        />\n\n        <ControlledInput\n          v-if=\"form.values.role === 'contributor'\"\n          name=\"otherInfo\"\n          label=\"Other Information\"\n          placeholder=\"Describe your contribution...\"\n          @input-click=\"resetGeneralError\"\n        />\n\n        <ControlledCheckbox\n          name=\"newsletter\"\n          label=\"Subscribe to newsletter\"\n          @input-click=\"resetGeneralError\"\n        />\n\n        <ControlledRadioGroup\n          v-if=\"form.values.newsletter\"\n          name=\"frequency\"\n          label=\"Frequency\"\n          :options=\"frequencyOptions\"\n          @input-click=\"resetGeneralError\"\n        />\n\n        <ControlledTextarea\n          name=\"bio\"\n          label=\"Bio\"\n          placeholder=\"Tell us about yourself...\"\n          @input-click=\"resetGeneralError\"\n        />\n      </FormFields>\n\n      <FormActions v-slot=\"{ form, isValid }\" class=\"mt-6\">\n        <Button\n          type=\"submit\"\n          class=\"w-full\"\n          :disabled=\"!isValid || form?.isSubmitting.value\"\n        >\n          Register\n        </Button>\n      </FormActions>\n    </Form>\n  </div>\n</template>\n"
+          },
+          "result_summary": "File written.\nCompilation errors:\nsrc/registration/components/RegistrationForm.vue(3,92): error TS2307: Cannot find module '@/registration/types' or its corresponding type declarations.",
+          "compile_passed": false,
+          "duration_sec": 3.559,
+          "context_chars": 37359
+        },
+        {
+          "step": 5,
+          "tool": "run_compilation",
+          "args": {},
+          "result_summary": "src/registration/components/RegistrationForm.vue(3,92): error TS2307: Cannot find module '@/registration/types' or its corresponding type declarations.",
+          "compile_passed": false,
+          "duration_sec": 2.45,
+          "context_chars": 37785
+        },
+        {
+          "step": 6,
+          "tool": "write_file",
+          "args": {
+            "path": "apps/web/src/registration/components/RegistrationForm.vue",
+            "content": "<script setup lang=\"ts\">\nimport { Button, ControlledCheckbox, ControlledInput, ControlledRadioGroup, ControlledTextarea, Form, FormActions, FormFields } from \"elements\";\nimport { registrationSchema, type RegistrationFormValues, registrationInitialValues } from \"../../types\";\n\nconst roleOptions = [\n  { value: \"user\", label: \"User\" },\n  { value: \"admin\", label: \"Admin\" },\n  { value: \"contributor\", label: \"Contributor\" },\n];\n\nconst frequencyOptions = [\n  { value: \"daily\", label: \"Daily\" },\n  { value: \"weekly\", label: \"Weekly\" },\n  { value: \"monthly\", label: \"Monthly\" },\n];\n\nconst actions = {\n  onSubmit: async (values: RegistrationFormValues) => {\n    console.log(\"submitted:\", values);\n    return values;\n  },\n};\n</script>\n\n<template>\n  <div class=\"w-full max-w-md\">\n    <Form\n      :initial-values=\"registrationInitialValues\"\n      :form-schema=\"registrationSchema\"\n      :actions=\"actions\"\n    >\n      <FormFields v-slot=\"{ form, resetGeneralError }\">\n        <ControlledInput\n          name=\"username\"\n          label=\"Username\"\n          placeholder=\"Choose a username\"\n          @input-click=\"resetGeneralError\"\n        />\n\n        <ControlledInput\n          name=\"email\"\n          label=\"Email\"\n          type=\"email\"\n          placeholder=\"name@example.com\"\n          @input-click=\"resetGeneralError\"\n        />\n\n        <ControlledRadioGroup\n          name=\"role\"\n          label=\"Role\"\n          :options=\"roleOptions\"\n          @input-click=\"resetGeneralError\"\n        />\n\n        <ControlledInput\n          v-if=\"form.values.role === 'contributor'\"\n          name=\"otherInfo\"\n          label=\"Other Information\"\n          placeholder=\"Describe your contribution...\"\n          @input-click=\"resetGeneralError\"\n        />\n\n        <ControlledCheckbox\n          name=\"newsletter\"\n          label=\"Subscribe to newsletter\"\n          @input-click=\"resetGeneralError\"\n        />\n\n        <ControlledRadioGroup\n          v-if=\"form.values.newsletter\"\n          name=\"frequency\"\n          label=\"Frequency\"\n          :options=\"frequencyOptions\"\n          @input-click=\"resetGeneralError\"\n        />\n\n        <ControlledTextarea\n          name=\"bio\"\n          label=\"Bio\"\n          placeholder=\"Tell us about yourself...\"\n          @input-click=\"resetGeneralError\"\n        />\n      </FormFields>\n\n      <FormActions v-slot=\"{ form, isValid }\" class=\"mt-6\">\n        <Button\n          type=\"submit\"\n          class=\"w-full\"\n          :disabled=\"!isValid || form?.isSubmitting.value\"\n        >\n          Register\n        </Button>\n      </FormActions>\n    </Form>\n  </div>\n</template>\n"
+          },
+          "result_summary": "File written.\nCompilation errors:\nsrc/registration/components/RegistrationForm.vue(3,92): error TS2307: Cannot find module '../../types' or its corresponding type declarations.",
+          "compile_passed": false,
+          "duration_sec": 20.375,
+          "context_chars": 44727
+        },
+        {
+          "step": 7,
+          "tool": "write_file",
+          "args": {
+            "path": "apps/web/src/registration/components/RegistrationForm.vue",
+            "content": "<script setup lang=\"ts\">\nimport { Button, ControlledCheckbox, ControlledInput, ControlledRadioGroup, ControlledTextarea, Form, FormActions, FormFields } from \"elements\";\nimport { registrationSchema, type RegistrationFormValues, registrationInitialValues } from \"../types\";\n\nconst roleOptions = [\n  { value: \"user\", label: \"User\" },\n  { value: \"admin\", label: \"Admin\" },\n  { value: \"contributor\", label: \"Contributor\" },\n];\n\nconst frequencyOptions = [\n  { value: \"daily\", label: \"Daily\" },\n  { value: \"weekly\", label: \"Weekly\" },\n  { value: \"monthly\", label: \"Monthly\" },\n];\n\nconst actions = {\n  onSubmit: async (values: RegistrationFormValues) => {\n    console.log(\"submitted:\", values);\n    return values;\n  },\n};\n</script>\n\n<template>\n  <div class=\"w-full max-w-md\">\n    <Form\n      :initial-values=\"registrationInitialValues\"\n      :form-schema=\"registrationSchema\"\n      :actions=\"actions\"\n    >\n      <FormFields v-slot=\"{ form, resetGeneralError }\">\n        <ControlledInput\n          name=\"username\"\n          label=\"Username\"\n          placeholder=\"Choose a username\"\n          @input-click=\"resetGeneralError\"\n        />\n\n        <ControlledInput\n          name=\"email\"\n          label=\"Email\"\n          type=\"email\"\n          placeholder=\"name@example.com\"\n          @input-click=\"resetGeneralError\"\n        />\n\n        <ControlledRadioGroup\n          name=\"role\"\n          label=\"Role\"\n          :options=\"roleOptions\"\n          @input-click=\"resetGeneralError\"\n        />\n\n        <ControlledInput\n          v-if=\"form.values.role === 'contributor'\"\n          name=\"otherInfo\"\n          label=\"Other Information\"\n          placeholder=\"Describe your contribution...\"\n          @input-click=\"resetGeneralError\"\n        />\n\n        <ControlledCheckbox\n          name=\"newsletter\"\n          label=\"Subscribe to newsletter\"\n          @input-click=\"resetGeneralError\"\n        />\n\n        <ControlledRadioGroup\n          v-if=\"form.values.newsletter\"\n          name=\"frequency\"\n          label=\"Frequency\"\n          :options=\"frequencyOptions\"\n          @input-click=\"resetGeneralError\"\n        />\n\n        <ControlledTextarea\n          name=\"bio\"\n          label=\"Bio\"\n          placeholder=\"Tell us about yourself...\"\n          @input-click=\"resetGeneralError\"\n        />\n      </FormFields>\n\n      <FormActions v-slot=\"{ form, isValid }\" class=\"mt-6\">\n        <Button\n          type=\"submit\"\n          class=\"w-full\"\n          :disabled=\"!isValid || form?.isSubmitting.value\"\n        >\n          Register\n        </Button>\n      </FormActions>\n    </Form>\n  </div>\n</template>\n"
+          },
+          "result_summary": "File written.\nCompilation succeeded.",
+          "compile_passed": true,
+          "duration_sec": 11.923,
+          "context_chars": 51300
+        }
+      ],
+      "total_input_tokens": 80389,
+      "total_output_tokens": 4903,
+      "first_compile_success_step": 7,
+      "compile_error_recovery_count": 1,
+      "rag_queries_count": 5,
+      "read_file_count": 0,
+      "list_files_count": 0
+    }
+  ]
+}

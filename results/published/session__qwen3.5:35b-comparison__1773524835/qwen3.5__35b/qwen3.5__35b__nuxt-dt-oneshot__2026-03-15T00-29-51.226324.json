@@ -1,0 +1,385 @@
+[
+  {
+    "model": "qwen3.5:35b",
+    "fixture": "nuxt-dt-oneshot",
+    "timestamp": "2026-03-15T00:29:51.226324",
+    "run_number": 1,
+    "compiles": false,
+    "compilation_errors": [
+      "src/app.vue(9,6): error TS2345: Argument of type '{}' is not assignable to parameter of type '{ readonly onView: (order: Order) => void; readonly onCancel: (order: Order) => void; } & VNodeProps & AllowedComponentProps & ComponentCustomProps & Record<...>'.",
+      "src/orders/OrdersDataTable.vue(6,10): error TS1484: 'Order' is a type and must be imported using a type-only import when 'verbatimModuleSyntax' is enabled.",
+      "src/orders/OrdersDataTable.vue(6,17): error TS1484: 'OrderStatus' is a type and must be imported using a type-only import when 'verbatimModuleSyntax' is enabled.",
+      "src/orders/OrdersDataTable.vue(14,7): error TS2741: Property 'processing' is missing in type '{ pending: string; shipped: string; delivered: string; cancelled: string; }' but required in type 'Record<OrderStatus, string>'.",
+      "src/orders/OrdersDataTable.vue(21,7): error TS2741: Property 'processing' is missing in type '{ pending: string; shipped: string; delivered: string; cancelled: string; }' but required in type 'Record<OrderStatus, string>'.",
+      "src/registration/components/RegistrationForm.vue(14,3): error TS1484: 'RegistrationFormValues' is a type and must be imported using a type-only import when 'verbatimModuleSyntax' is enabled."
+    ],
+    "compilation_warnings": [],
+    "pattern_score": 10.0,
+    "ast_missing": [],
+    "ast_checks": {
+      "script_lang": true,
+      "datatable_component": true,
+      "render_function": true,
+      "currency_formatter": true,
+      "date_formatter": true,
+      "status_badge": true,
+      "action_handlers": true,
+      "column_ids": true
+    },
+    "naming_score": 10.0,
+    "naming_violations": [],
+    "final_score": 5.0,
+    "scoring_weights": {
+      "compilation": 0.5,
+      "pattern_match": 0.4,
+      "naming": 0.1
+    },
+    "tokens_per_sec": 53.238739493801596,
+    "duration_sec": 149.627885178,
+    "output_code": "<script setup lang=\"ts\">\nimport { DataTable, Button } from \"elements\";\nimport type { Column } from \"elements\";\nimport { h } from \"vue\";\n\nimport { Order, OrderStatus } from \"./types\";\nimport { orders } from \"./data\";\n\nconst props = defineProps<{\n  onView: (order: Order) => void;\n  onCancel: (order: Order) => void;\n}>();\n\nconst statusLabels: Record<OrderStatus, string> = {\n  pending: \"Pending\",\n  shipped: \"Shipped\",\n  delivered: \"Delivered\",\n  cancelled: \"Cancelled\",\n};\n\nconst statusClasses: Record<OrderStatus, string> = {\n  pending: \"bg-yellow-100 text-yellow-800\",\n  shipped: \"bg-blue-100 text-blue-800\",\n  delivered: \"bg-green-100 text-green-800\",\n  cancelled: \"bg-red-100 text-red-800\",\n};\n\nconst columns: Column<Order>[] = [\n  {\n    id: \"id\",\n    label: \"Order\",\n    isSortable: false,\n    cell: ({ row }) => {\n      const orderId = row.getValue(\"id\") as string;\n      return h(\"span\", { class: \"font-mono text-sm\" }, `#ORD-${orderId}`);\n    },\n  },\n  {\n    id: \"customer\",\n    label: \"Customer\",\n    isSortable: true,\n  },\n  {\n    id: \"status\",\n    label: \"Status\",\n    cell: ({ row }) => {\n      const status = row.getValue(\"status\") as OrderStatus;\n      return h(\n        \"span\",\n        {\n          class: `inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${statusClasses[status]}`,\n        },\n        statusLabels[status],\n      );\n    },\n  },\n  {\n    id: \"items\",\n    label: \"Items\",\n    isSortable: true,\n  },\n  {\n    id: \"total\",\n    label: \"Total\",\n    isSortable: true,\n    cell: ({ row }) => {\n      const amount = Number.parseFloat(row.getValue(\"total\") as string);\n      const formatted = new Intl.NumberFormat(\"en-US\", {\n        style: \"currency\",\n        currency: \"USD\",\n      }).format(amount);\n      return h(\"div\", { class: \"text-right font-medium\" }, formatted);\n    },\n  },\n  {\n    id: \"date\",\n    label: \"Date\",\n    isSortable: true,\n    cell: ({ row }) => {\n      const rawDate = row.getValue(\"date\") as string;\n      const formatted = new Intl.DateTimeFormat(\"en-US\", {\n        dateStyle: \"medium\",\n      }).format(new Date(rawDate));\n      return h(\"span\", { class: \"text-sm text-gray-600\" }, formatted);\n    },\n  },\n  {\n    id: \"actions\",\n    cell: ({ row }) => [\n      h(\n        Button,\n        { variant: \"ghost\", size: \"sm\", onClick: () => props.onView(row.original) },\n        () => \"View\"\n      ),\n      h(\n        Button,\n        { variant: \"destructive\", size: \"sm\", onClick: () => props.onCancel(row.original) },\n        () => \"Cancel\"\n      ),\n    ],\n  },\n];\n</script>\n\n<template>\n  <DataTable\n    :columns=\"columns\"\n    :data=\"orders\"\n    :config=\"{ filter: true, filterModel: 'customer' }\"\n  />\n</template>",
+    "errors": []
+  },
+  {
+    "model": "qwen3.5:35b",
+    "fixture": "nuxt-dt-oneshot",
+    "timestamp": "2026-03-15T00:32:25.808676",
+    "run_number": 2,
+    "compiles": false,
+    "compilation_errors": [
+      "src/app.vue(9,6): error TS2345: Argument of type '{}' is not assignable to parameter of type '{ readonly onView: (order: Order) => void; readonly onCancel: (order: Order) => void; } & VNodeProps & AllowedComponentProps & ComponentCustomProps & Record<...>'.",
+      "src/orders/OrdersDataTable.vue(13,7): error TS2741: Property 'processing' is missing in type '{ pending: string; shipped: string; delivered: string; cancelled: string; }' but required in type 'Record<OrderStatus, string>'.",
+      "src/orders/OrdersDataTable.vue(20,7): error TS2741: Property 'processing' is missing in type '{ pending: string; shipped: string; delivered: string; cancelled: string; }' but required in type 'Record<OrderStatus, string>'.",
+      "src/registration/components/RegistrationForm.vue(14,3): error TS1484: 'RegistrationFormValues' is a type and must be imported using a type-only import when 'verbatimModuleSyntax' is enabled."
+    ],
+    "compilation_warnings": [],
+    "pattern_score": 10.0,
+    "ast_missing": [],
+    "ast_checks": {
+      "script_lang": true,
+      "datatable_component": true,
+      "render_function": true,
+      "currency_formatter": true,
+      "date_formatter": true,
+      "status_badge": true,
+      "action_handlers": true,
+      "column_ids": true
+    },
+    "naming_score": 10.0,
+    "naming_violations": [],
+    "final_score": 5.0,
+    "scoring_weights": {
+      "compilation": 0.5,
+      "pattern_match": 0.4,
+      "naming": 0.1
+    },
+    "tokens_per_sec": 53.701028517292734,
+    "duration_sec": 123.573052197,
+    "output_code": "<script setup lang=\"ts\">\nimport { DataTable, Button } from \"elements\";\nimport { h } from \"vue\";\nimport type { Column } from \"elements\";\nimport type { Order, OrderStatus } from \"./types\";\nimport { orders } from \"./data\";\n\ndefineProps<{\n  onView: (order: Order) => void;\n  onCancel: (order: Order) => void;\n}>();\n\nconst statusLabels: Record<OrderStatus, string> = {\n  pending: \"Pending\",\n  shipped: \"Shipped\",\n  delivered: \"Delivered\",\n  cancelled: \"Cancelled\",\n};\n\nconst statusClasses: Record<OrderStatus, string> = {\n  pending: \"bg-yellow-100 text-yellow-800\",\n  shipped: \"bg-blue-100 text-blue-800\",\n  delivered: \"bg-green-100 text-green-800\",\n  cancelled: \"bg-red-100 text-red-800\",\n};\n\nconst columns: Column<Order>[] = [\n  {\n    id: \"id\",\n    label: \"Order\",\n    isSortable: false,\n    cell: ({ row }) => {\n      const id = row.getValue(\"id\") as string;\n      return h(\"span\", { class: \"font-mono text-gray-900\" }, `#ORD-${id}`);\n    },\n  },\n  {\n    id: \"customer\",\n    label: \"Customer\",\n    isSortable: true,\n  },\n  {\n    id: \"status\",\n    label: \"Status\",\n    cell: ({ row }) => {\n      const status = row.getValue(\"status\") as OrderStatus;\n      return h(\n        \"span\",\n        {\n          class: `inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${statusClasses[status]}`,\n        },\n        statusLabels[status],\n      );\n    },\n  },\n  {\n    id: \"items\",\n    label: \"Items\",\n    isSortable: true,\n    cell: ({ row }) => {\n      const count = row.getValue(\"items\") as number;\n      return h(\"span\", { class: \"text-right font-medium\" }, count);\n    },\n  },\n  {\n    id: \"total\",\n    label: \"Total\",\n    isSortable: true,\n    cell: ({ row }) => {\n      const amount = Number.parseFloat(row.getValue(\"total\") as string);\n      const formatted = new Intl.NumberFormat(\"en-US\", {\n        style: \"currency\",\n        currency: \"USD\",\n      }).format(amount);\n      return h(\"div\", { class: \"text-right font-medium\" }, formatted);\n    },\n  },\n  {\n    id: \"date\",\n    label: \"Date\",\n    isSortable: true,\n    cell: ({ row }) => {\n      const rawDate = row.getValue(\"date\") as string;\n      const formatted = new Intl.DateTimeFormat(\"en-US\", {\n        dateStyle: \"medium\",\n      }).format(new Date(rawDate));\n      return h(\"span\", { class: \"text-sm text-gray-600\" }, formatted);\n    },\n  },\n  {\n    id: \"actions\",\n    cell: ({ row }) => [\n      h(\n        Button,\n        {\n          variant: \"ghost\",\n          size: \"sm\",\n          onClick: () => {\n            props.onView(row.original);\n          },\n        },\n        () => \"View\",\n      ),\n      h(\n        Button,\n        {\n          variant: \"destructive\",\n          size: \"sm\",\n          onClick: () => {\n            props.onCancel(row.original);\n          },\n        },\n        () => \"Cancel\",\n      ),\n    ],\n  },\n];\n\nconst props = defineProps<{\n  onView: (order: Order) => void;\n  onCancel: (order: Order) => void;\n}>();\n</script>\n\n<template>\n  <DataTable\n    :columns=\"columns\"\n    :data=\"orders\"\n    :config=\"{ filter: true, filterModel: 'customer' }\"\n  />\n</template>",
+    "errors": []
+  },
+  {
+    "model": "qwen3.5:35b",
+    "fixture": "nuxt-dt-oneshot",
+    "timestamp": "2026-03-15T00:34:33.662205",
+    "run_number": 3,
+    "compiles": false,
+    "compilation_errors": [
+      "src/app.vue(9,6): error TS2345: Argument of type '{}' is not assignable to parameter of type '{ readonly onView: (order: Order) => void; readonly onCancel: (order: Order) => void; } & VNodeProps & AllowedComponentProps & ComponentCustomProps & Record<...>'.",
+      "src/orders/OrdersDataTable.vue(5,10): error TS1484: 'Order' is a type and must be imported using a type-only import when 'verbatimModuleSyntax' is enabled.",
+      "src/orders/OrdersDataTable.vue(5,17): error TS1484: 'OrderStatus' is a type and must be imported using a type-only import when 'verbatimModuleSyntax' is enabled.",
+      "src/registration/components/RegistrationForm.vue(14,3): error TS1484: 'RegistrationFormValues' is a type and must be imported using a type-only import when 'verbatimModuleSyntax' is enabled."
+    ],
+    "compilation_warnings": [],
+    "pattern_score": 10.0,
+    "ast_missing": [],
+    "ast_checks": {
+      "script_lang": true,
+      "datatable_component": true,
+      "render_function": true,
+      "currency_formatter": true,
+      "date_formatter": true,
+      "status_badge": true,
+      "action_handlers": true,
+      "column_ids": true
+    },
+    "naming_score": 10.0,
+    "naming_violations": [],
+    "final_score": 5.0,
+    "scoring_weights": {
+      "compilation": 0.5,
+      "pattern_match": 0.4,
+      "naming": 0.1
+    },
+    "tokens_per_sec": 53.77767953466308,
+    "duration_sec": 102.626220539,
+    "output_code": "<script setup lang=\"ts\">\nimport { h } from \"vue\";\nimport { DataTable, Button } from \"elements\";\nimport type { Column } from \"elements\";\nimport { Order, OrderStatus } from \"./types\";\nimport { orders } from \"./data\";\n\ninterface Props {\n  onView: (order: Order) => void;\n  onCancel: (order: Order) => void;\n}\n\nconst props = defineProps<Props>();\n\nconst statusLabels: Record<OrderStatus, string> = {\n  pending: \"Pending\",\n  processing: \"Processing\",\n  shipped: \"Shipped\",\n  delivered: \"Delivered\",\n  cancelled: \"Cancelled\",\n};\n\nconst statusClasses: Record<OrderStatus, string> = {\n  pending: \"bg-yellow-100 text-yellow-800\",\n  processing: \"bg-blue-100 text-blue-800\",\n  shipped: \"bg-indigo-100 text-indigo-800\",\n  delivered: \"bg-green-100 text-green-800\",\n  cancelled: \"bg-red-100 text-red-800\",\n};\n\nconst columns: Column<Order>[] = [\n  {\n    id: \"id\",\n    label: \"Order\",\n    isSortable: false,\n    cell: ({ row }) => {\n      const orderId = row.getValue(\"id\") as string;\n      return h(\"span\", { class: \"font-mono text-sm\" }, `#ORD-${orderId}`);\n    },\n  },\n  {\n    id: \"customer\",\n    label: \"Customer\",\n    isSortable: true,\n  },\n  {\n    id: \"status\",\n    label: \"Status\",\n    isSortable: false,\n    cell: ({ row }) => {\n      const status = row.getValue(\"status\") as OrderStatus;\n      return h(\n        \"span\",\n        {\n          class: `inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${statusClasses[status]}`,\n        },\n        statusLabels[status],\n      );\n    },\n  },\n  {\n    id: \"items\",\n    label: \"Items\",\n    isSortable: true,\n  },\n  {\n    id: \"total\",\n    label: \"Total\",\n    isSortable: true,\n    cell: ({ row }) => {\n      const amount = Number.parseFloat(row.getValue(\"total\") as string);\n      const formatted = new Intl.NumberFormat(\"en-US\", {\n        style: \"currency\",\n        currency: \"USD\",\n      }).format(amount);\n      return h(\"div\", { class: \"text-right font-medium\" }, formatted);\n    },\n  },\n  {\n    id: \"date\",\n    label: \"Date\",\n    isSortable: true,\n    cell: ({ row }) => {\n      const rawDate = row.getValue(\"date\") as string;\n      const formatted = new Intl.DateTimeFormat(\"en-US\", {\n        dateStyle: \"medium\",\n      }).format(new Date(rawDate));\n      return h(\"span\", { class: \"text-sm text-gray-600\" }, formatted);\n    },\n  },\n  {\n    id: \"actions\",\n    isSortable: false,\n    cell: ({ row }) => [\n      h(\n        Button,\n        {\n          variant: \"ghost\",\n          size: \"sm\",\n          onClick: () => props.onView(row.original),\n        },\n        () => \"View\",\n      ),\n      h(\n        Button,\n        {\n          variant: \"destructive\",\n          size: \"sm\",\n          onClick: () => props.onCancel(row.original),\n        },\n        () => \"Cancel\",\n      ),\n    ],\n  },\n];\n</script>\n\n<template>\n  <DataTable\n    :columns=\"columns\"\n    :data=\"orders\"\n    :config=\"{ filter: true, filterModel: 'customer' }\"\n  />\n</template>",
+    "errors": []
+  },
+  {
+    "model": "qwen3.5:35b",
+    "fixture": "nuxt-dt-oneshot",
+    "timestamp": "2026-03-15T00:36:20.247581",
+    "run_number": 4,
+    "compiles": false,
+    "compilation_errors": [
+      "src/app.vue(9,6): error TS2345: Argument of type '{}' is not assignable to parameter of type '{ readonly onView: (order: Order) => void; readonly onCancel: (order: Order) => void; } & VNodeProps & AllowedComponentProps & ComponentCustomProps & Record<...>'.",
+      "src/orders/OrdersDataTable.vue(104,39): error TS2304: Cannot find name 'row'.",
+      "src/orders/OrdersDataTable.vue(113,41): error TS2304: Cannot find name 'row'.",
+      "src/registration/components/RegistrationForm.vue(14,3): error TS1484: 'RegistrationFormValues' is a type and must be imported using a type-only import when 'verbatimModuleSyntax' is enabled."
+    ],
+    "compilation_warnings": [],
+    "pattern_score": 10.0,
+    "ast_missing": [],
+    "ast_checks": {
+      "script_lang": true,
+      "datatable_component": true,
+      "render_function": true,
+      "currency_formatter": true,
+      "date_formatter": true,
+      "status_badge": true,
+      "action_handlers": true,
+      "column_ids": true
+    },
+    "naming_score": 10.0,
+    "naming_violations": [],
+    "final_score": 5.0,
+    "scoring_weights": {
+      "compilation": 0.5,
+      "pattern_match": 0.4,
+      "naming": 0.1
+    },
+    "tokens_per_sec": 53.69167224947541,
+    "duration_sec": 106.850834769,
+    "output_code": "<script setup lang=\"ts\">\nimport { h } from \"vue\";\nimport { Button } from \"elements\";\nimport { DataTable } from \"elements\";\nimport type { Column } from \"elements\";\nimport type { Order, OrderStatus } from \"./types\";\nimport { orders } from \"./data\";\n\nconst props = defineProps<{\n  onView: (order: Order) => void;\n  onCancel: (order: Order) => void;\n}>();\n\n// Status Maps\nconst statusLabels: Record<OrderStatus, string> = {\n  pending: \"Pending\",\n  processing: \"Processing\",\n  shipped: \"Shipped\",\n  delivered: \"Delivered\",\n  cancelled: \"Cancelled\",\n} as unknown as Record<OrderStatus, string>;\n\nconst statusClasses: Record<OrderStatus, string> = {\n  pending: \"bg-yellow-100 text-yellow-800\",\n  processing: \"bg-blue-100 text-blue-800\",\n  shipped: \"bg-blue-100 text-blue-800\",\n  delivered: \"bg-green-100 text-green-800\",\n  cancelled: \"bg-red-100 text-red-800\",\n} as unknown as Record<OrderStatus, string>;\n\n// Currency Formatter\nconst currencyFormatter = new Intl.NumberFormat(\"en-US\", {\n  style: \"currency\",\n  currency: \"USD\",\n});\n\n// Date Formatter\nconst dateFormatter = new Intl.DateTimeFormat(\"en-US\", {\n  dateStyle: \"medium\",\n});\n\n// Columns Definition\nconst columns: Column<Order>[] = [\n  {\n    id: \"id\",\n    label: \"Order\",\n    cell: ({ row }) => {\n      const value = row.getValue(\"id\") as string;\n      return h(\"span\", { class: \"font-mono\" }, `#ORD-${value}`);\n    },\n  },\n  {\n    id: \"customer\",\n    label: \"Customer\",\n    isSortable: true,\n  },\n  {\n    id: \"status\",\n    label: \"Status\",\n    cell: ({ row }) => {\n      const status = row.getValue(\"status\") as OrderStatus;\n      return h(\n        \"span\",\n        {\n          class: `inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${statusClasses[status]}`,\n        },\n        statusLabels[status],\n      );\n    },\n  },\n  {\n    id: \"items\",\n    label: \"Items\",\n    isSortable: true,\n  },\n  {\n    id: \"total\",\n    label: \"Total\",\n    isSortable: true,\n    cell: ({ row }) => {\n      const amount = Number.parseFloat(row.getValue(\"total\") as string);\n      const formatted = currencyFormatter.format(amount);\n      return h(\"div\", { class: \"text-right font-medium\" }, formatted);\n    },\n  },\n  {\n    id: \"date\",\n    label: \"Date\",\n    isSortable: true,\n    cell: ({ row }) => {\n      const rawDate = row.getValue(\"date\") as string;\n      const formatted = dateFormatter.format(new Date(rawDate));\n      return h(\"span\", { class: \"text-sm text-gray-600\" }, formatted);\n    },\n  },\n  {\n    id: \"actions\",\n    cell: () => [\n      h(\n        Button,\n        {\n          variant: \"ghost\",\n          size: \"sm\",\n          onClick: () => props.onView(row.original),\n        },\n        () => \"View\",\n      ),\n      h(\n        Button,\n        {\n          variant: \"destructive\",\n          size: \"sm\",\n          onClick: () => props.onCancel(row.original),\n        },\n        () => \"Cancel\",\n      ),\n    ],\n  },\n];\n</script>\n\n<template>\n  <DataTable\n    :columns=\"columns\"\n    :data=\"orders\"\n    :config=\"{ filter: true, filterModel: 'customer' }\"\n  />\n</template>",
+    "errors": []
+  },
+  {
+    "model": "qwen3.5:35b",
+    "fixture": "nuxt-dt-oneshot",
+    "timestamp": "2026-03-15T00:38:11.124564",
+    "run_number": 5,
+    "compiles": false,
+    "compilation_errors": [
+      "src/app.vue(9,6): error TS2345: Argument of type '{}' is not assignable to parameter of type '{ readonly onView: (order: Order) => void; readonly onCancel: (order: Order) => void; } & VNodeProps & AllowedComponentProps & ComponentCustomProps & Record<...>'.",
+      "src/orders/OrdersDataTable.vue(20,3): error TS2353: Object literal may only specify known properties, and 'refunded' does not exist in type 'Record<OrderStatus, string>'.",
+      "src/orders/OrdersDataTable.vue(29,3): error TS2353: Object literal may only specify known properties, and 'refunded' does not exist in type 'Record<OrderStatus, string>'.",
+      "src/registration/components/RegistrationForm.vue(14,3): error TS1484: 'RegistrationFormValues' is a type and must be imported using a type-only import when 'verbatimModuleSyntax' is enabled."
+    ],
+    "compilation_warnings": [],
+    "pattern_score": 10.0,
+    "ast_missing": [],
+    "ast_checks": {
+      "script_lang": true,
+      "datatable_component": true,
+      "render_function": true,
+      "currency_formatter": true,
+      "date_formatter": true,
+      "status_badge": true,
+      "action_handlers": true,
+      "column_ids": true
+    },
+    "naming_score": 10.0,
+    "naming_violations": [],
+    "final_score": 5.0,
+    "scoring_weights": {
+      "compilation": 0.5,
+      "pattern_match": 0.4,
+      "naming": 0.1
+    },
+    "tokens_per_sec": 54.39986479496815,
+    "duration_sec": 38.253771546,
+    "output_code": "<script setup lang=\"ts\">\nimport { DataTable } from \"elements\";\nimport type { Column } from \"elements\";\nimport { h } from \"vue\";\nimport { Button } from \"elements\";\nimport type { Order, OrderStatus } from \"./types\";\nimport { orders } from \"./data\";\n\nconst props = defineProps<{\n  onView: (order: Order) => void;\n  onCancel: (order: Order) => void;\n}>();\n\nconst statusLabels: Record<OrderStatus, string> = {\n  pending: \"Pending\",\n  processing: \"Processing\",\n  shipped: \"Shipped\",\n  delivered: \"Delivered\",\n  cancelled: \"Cancelled\",\n  refunded: \"Refunded\",\n};\n\nconst statusClasses: Record<OrderStatus, string> = {\n  pending: \"bg-yellow-100 text-yellow-800\",\n  processing: \"bg-blue-100 text-blue-800\",\n  shipped: \"bg-indigo-100 text-indigo-800\",\n  delivered: \"bg-green-100 text-green-800\",\n  cancelled: \"bg-red-100 text-red-800\",\n  refunded: \"bg-gray-100 text-gray-800\",\n};\n\nconst columns: Column<Order>[] = [\n  {\n    id: \"id\",\n    label: \"Order\",\n    cell: ({ row }) => {\n      const orderId = row.getValue(\"id\") as string;\n      return h(\"span\", { class: \"font-mono\" }, `#ORD-${orderId}`);\n    },\n  },\n  {\n    id: \"customer\",\n    label: \"Customer\",\n    isSortable: true,\n  },\n  {\n    id: \"status\",\n    label: \"Status\",\n    cell: ({ row }) => {\n      const status = row.getValue(\"status\") as OrderStatus;\n      return h(\n        \"span\",\n        {\n          class:\n            \"inline-flex items-center rounded-full px-2 py-1 text-xs font-medium \" +\n            statusClasses[status],\n        },\n        statusLabels[status],\n      );\n    },\n  },\n  {\n    id: \"items\",\n    label: \"Items\",\n    isSortable: true,\n  },\n  {\n    id: \"total\",\n    label: \"Total\",\n    isSortable: true,\n    cell: ({ row }) => {\n      const amount = Number.parseFloat(row.getValue(\"total\") as string);\n      const formatted = new Intl.NumberFormat(\"en-US\", {\n        style: \"currency\",\n        currency: \"USD\",\n      }).format(amount);\n      return h(\"div\", { class: \"text-right font-medium\" }, formatted);\n    },\n  },\n  {\n    id: \"date\",\n    label: \"Date\",\n    isSortable: true,\n    cell: ({ row }) => {\n      const rawDate = row.getValue(\"date\") as string;\n      const formatted = new Intl.DateTimeFormat(\"en-US\", {\n        dateStyle: \"medium\",\n      }).format(new Date(rawDate));\n      return h(\"span\", { class: \"text-sm text-gray-600\" }, formatted);\n    },\n  },\n  {\n    id: \"actions\",\n    cell: ({ row }) => [\n      h(\n        Button,\n        { variant: \"ghost\", size: \"sm\", onClick: () => props.onView(row.original) },\n        () => \"View\",\n      ),\n      h(\n        Button,\n        {\n          variant: \"destructive\",\n          size: \"sm\",\n          onClick: () => props.onCancel(row.original),\n        },\n        () => \"Cancel\",\n      ),\n    ],\n  },\n];\n</script>\n\n<template>\n  <DataTable :columns=\"columns\" :data=\"orders\" />\n</template>",
+    "errors": []
+  },
+  {
+    "model": "qwen3.5:35b",
+    "fixture": "nuxt-dt-oneshot",
+    "timestamp": "2026-03-15T00:38:52.522748",
+    "run_number": 6,
+    "compiles": false,
+    "compilation_errors": [
+      "src/app.vue(9,6): error TS2345: Argument of type '{}' is not assignable to parameter of type '{ readonly onView: (order: Order) => void; readonly onCancel: (order: Order) => void; } & VNodeProps & AllowedComponentProps & ComponentCustomProps & Record<...>'.",
+      "src/orders/OrdersDataTable.vue(14,7): error TS2741: Property 'processing' is missing in type '{ pending: string; shipped: string; delivered: string; cancelled: string; }' but required in type 'Record<OrderStatus, string>'.",
+      "src/orders/OrdersDataTable.vue(21,7): error TS2741: Property 'processing' is missing in type '{ pending: string; shipped: string; delivered: string; cancelled: string; }' but required in type 'Record<OrderStatus, string>'.",
+      "src/registration/components/RegistrationForm.vue(14,3): error TS1484: 'RegistrationFormValues' is a type and must be imported using a type-only import when 'verbatimModuleSyntax' is enabled."
+    ],
+    "compilation_warnings": [],
+    "pattern_score": 10.0,
+    "ast_missing": [],
+    "ast_checks": {
+      "script_lang": true,
+      "datatable_component": true,
+      "render_function": true,
+      "currency_formatter": true,
+      "date_formatter": true,
+      "status_badge": true,
+      "action_handlers": true,
+      "column_ids": true
+    },
+    "naming_score": 10.0,
+    "naming_violations": [],
+    "final_score": 5.0,
+    "scoring_weights": {
+      "compilation": 0.5,
+      "pattern_match": 0.4,
+      "naming": 0.1
+    },
+    "tokens_per_sec": 53.36212461604305,
+    "duration_sec": 137.756883799,
+    "output_code": "<script setup lang=\"ts\">\nimport { DataTable } from \"elements\";\nimport type { Column } from \"elements\";\nimport { Button } from \"elements\";\nimport { h } from \"vue\";\nimport type { Order, OrderStatus } from \"./types\";\nimport { orders } from \"./data\";\n\nconst props = defineProps<{\n  onView: (order: Order) => void;\n  onCancel: (order: Order) => void;\n}>();\n\nconst statusLabels: Record<OrderStatus, string> = {\n  pending: \"Pending\",\n  shipped: \"Shipped\",\n  delivered: \"Delivered\",\n  cancelled: \"Cancelled\",\n};\n\nconst statusClasses: Record<OrderStatus, string> = {\n  pending: \"bg-yellow-100 text-yellow-800\",\n  shipped: \"bg-blue-100 text-blue-800\",\n  delivered: \"bg-green-100 text-green-800\",\n  cancelled: \"bg-red-100 text-red-800\",\n};\n\nconst columns: Column<Order>[] = [\n  {\n    id: \"id\",\n    label: \"Order\",\n    isSortable: true,\n    cell: ({ row }) => {\n      return h(\"span\", { class: \"font-mono\" }, `#ORD-${row.getValue(\"id\")}`);\n    },\n  },\n  {\n    id: \"customer\",\n    label: \"Customer\",\n    isSortable: true,\n  },\n  {\n    id: \"status\",\n    label: \"Status\",\n    isSortable: false,\n    cell: ({ row }) => {\n      const status = row.getValue(\"status\") as OrderStatus;\n      return h(\n        \"span\",\n        {\n          class: `inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${statusClasses[status]}`,\n        },\n        statusLabels[status],\n      );\n    },\n  },\n  {\n    id: \"items\",\n    label: \"Items\",\n    isSortable: true,\n  },\n  {\n    id: \"total\",\n    label: \"Total\",\n    isSortable: true,\n    cell: ({ row }) => {\n      const amount = Number.parseFloat(row.getValue(\"total\") as string);\n      const formatted = new Intl.NumberFormat(\"en-US\", {\n        style: \"currency\",\n        currency: \"USD\",\n      }).format(amount);\n      return h(\"div\", { class: \"text-right font-medium\" }, formatted);\n    },\n  },\n  {\n    id: \"date\",\n    label: \"Date\",\n    isSortable: true,\n    cell: ({ row }) => {\n      const rawDate = row.getValue(\"date\") as string;\n      const formatted = new Intl.DateTimeFormat(\"en-US\", {\n        dateStyle: \"medium\",\n      }).format(new Date(rawDate));\n      return h(\"span\", { class: \"text-sm text-gray-600\" }, formatted);\n    },\n  },\n  {\n    id: \"actions\",\n    cell: ({ row }) => [\n      h(\n        Button,\n        {\n          variant: \"ghost\",\n          size: \"sm\",\n          onClick: () => props.onView(row.original),\n        },\n        () => \"View\",\n      ),\n      h(\n        Button,\n        {\n          variant: \"destructive\",\n          size: \"sm\",\n          onClick: () => props.onCancel(row.original),\n        },\n        () => \"Cancel\",\n      ),\n    ],\n  },\n];\n</script>\n\n<template>\n  <DataTable\n    :columns=\"columns\"\n    :data=\"orders\"\n    :config=\"{ filter: true, filterModel: 'customer' }\"\n  />\n</template>",
+    "errors": []
+  },
+  {
+    "model": "qwen3.5:35b",
+    "fixture": "nuxt-dt-oneshot",
+    "timestamp": "2026-03-15T00:41:14.809509",
+    "run_number": 7,
+    "compiles": false,
+    "compilation_errors": [
+      "src/app.vue(9,6): error TS2345: Argument of type '{}' is not assignable to parameter of type '{ readonly onView: (order: Order) => void; readonly onCancel: (order: Order) => void; } & VNodeProps & AllowedComponentProps & ComponentCustomProps & Record<...>'.",
+      "src/registration/components/RegistrationForm.vue(14,3): error TS1484: 'RegistrationFormValues' is a type and must be imported using a type-only import when 'verbatimModuleSyntax' is enabled."
+    ],
+    "compilation_warnings": [],
+    "pattern_score": 10.0,
+    "ast_missing": [],
+    "ast_checks": {
+      "script_lang": true,
+      "datatable_component": true,
+      "render_function": true,
+      "currency_formatter": true,
+      "date_formatter": true,
+      "status_badge": true,
+      "action_handlers": true,
+      "column_ids": true
+    },
+    "naming_score": 10.0,
+    "naming_violations": [],
+    "final_score": 5.0,
+    "scoring_weights": {
+      "compilation": 0.5,
+      "pattern_match": 0.4,
+      "naming": 0.1
+    },
+    "tokens_per_sec": 53.01995646402712,
+    "duration_sec": 175.57539879,
+    "output_code": "<script setup lang=\"ts\">\nimport { DataTable, Button } from \"elements\";\nimport type { Column } from \"elements\";\nimport { h } from \"vue\";\nimport type { Order, OrderStatus } from \"./types\";\nimport { orders } from \"./data\";\n\nconst props = defineProps<{\n  onView: (order: Order) => void;\n  onCancel: (order: Order) => void;\n}>();\n\nconst statusLabels: Record<string, string> = {\n  pending: \"Pending\",\n  processing: \"Processing\",\n  shipped: \"Shipped\",\n  delivered: \"Delivered\",\n  cancelled: \"Cancelled\",\n};\n\nconst statusClasses: Record<string, string> = {\n  pending: \"bg-yellow-100 text-yellow-800\",\n  processing: \"bg-blue-100 text-blue-800\",\n  shipped: \"bg-purple-100 text-purple-800\",\n  delivered: \"bg-green-100 text-green-800\",\n  cancelled: \"bg-red-100 text-red-800\",\n};\n\nconst columns: Column<Order>[] = [\n  {\n    id: \"id\",\n    label: \"Order\",\n    isSortable: false,\n    cell: ({ row }) => {\n      const orderId = row.getValue(\"id\") as string;\n      return h(\"span\", { class: \"font-mono\" }, `#ORD-${orderId}`);\n    },\n  },\n  {\n    id: \"customer\",\n    label: \"Customer\",\n    isSortable: true,\n  },\n  {\n    id: \"status\",\n    label: \"Status\",\n    isSortable: false,\n    cell: ({ row }) => {\n      const status = row.getValue(\"status\") as string;\n      const label = statusLabels[status] ?? status;\n      const cls = statusClasses[status] ?? \"bg-gray-100 text-gray-800\";\n      return h(\n        \"span\",\n        { class: `inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${cls}` },\n        label,\n      );\n    },\n  },\n  {\n    id: \"items\",\n    label: \"Items\",\n    isSortable: true,\n  },\n  {\n    id: \"total\",\n    label: \"Total\",\n    isSortable: true,\n    cell: ({ row }) => {\n      const amount = Number.parseFloat(row.getValue(\"total\") as string);\n      const formatted = new Intl.NumberFormat(\"en-US\", {\n        style: \"currency\",\n        currency: \"USD\",\n      }).format(amount);\n      return h(\"div\", { class: \"text-right font-medium\" }, formatted);\n    },\n  },\n  {\n    id: \"date\",\n    label: \"Date\",\n    isSortable: true,\n    cell: ({ row }) => {\n      const rawDate = row.getValue(\"date\") as string;\n      const formatted = new Intl.DateTimeFormat(\"en-US\", {\n        dateStyle: \"medium\",\n      }).format(new Date(rawDate));\n      return h(\"span\", { class: \"text-sm text-gray-600\" }, formatted);\n    },\n  },\n  {\n    id: \"actions\",\n    cell: ({ row }) => [\n      h(\n        Button,\n        { variant: \"ghost\", size: \"sm\", onClick: () => props.onView(row.original) },\n        () => \"View\",\n      ),\n      h(\n        Button,\n        { variant: \"destructive\", size: \"sm\", onClick: () => props.onCancel(row.original) },\n        () => \"Cancel\",\n      ),\n    ],\n  },\n];\n</script>\n\n<template>\n  <DataTable\n    :columns=\"columns\"\n    :data=\"orders\"\n    :config=\"{ filter: true, filterModel: 'id' }\"\n  />\n</template>",
+    "errors": []
+  },
+  {
+    "model": "qwen3.5:35b",
+    "fixture": "nuxt-dt-oneshot",
+    "timestamp": "2026-03-15T00:44:15.304680",
+    "run_number": 8,
+    "compiles": false,
+    "compilation_errors": [
+      "src/app.vue(9,6): error TS2345: Argument of type '{}' is not assignable to parameter of type '{ readonly onView: (order: Order) => void; readonly onCancel: (order: Order) => void; } & VNodeProps & AllowedComponentProps & ComponentCustomProps & Record<...>'.",
+      "src/orders/OrdersDataTable.vue(103,27): error TS2304: Cannot find name 'onView'.",
+      "src/orders/OrdersDataTable.vue(112,27): error TS2552: Cannot find name 'onCancel'. Did you mean 'oncancel'?",
+      "src/registration/components/RegistrationForm.vue(14,3): error TS1484: 'RegistrationFormValues' is a type and must be imported using a type-only import when 'verbatimModuleSyntax' is enabled."
+    ],
+    "compilation_warnings": [],
+    "pattern_score": 10.0,
+    "ast_missing": [],
+    "ast_checks": {
+      "script_lang": true,
+      "datatable_component": true,
+      "render_function": true,
+      "currency_formatter": true,
+      "date_formatter": true,
+      "status_badge": true,
+      "action_handlers": true,
+      "column_ids": true
+    },
+    "naming_score": 10.0,
+    "naming_violations": [],
+    "final_score": 5.0,
+    "scoring_weights": {
+      "compilation": 0.5,
+      "pattern_match": 0.4,
+      "naming": 0.1
+    },
+    "tokens_per_sec": 53.487066513893446,
+    "duration_sec": 117.617218704,
+    "output_code": "<script setup lang=\"ts\">\nimport { DataTable } from \"elements\";\nimport { Button } from \"elements\";\nimport type { Column } from \"elements\";\nimport type { Order, OrderStatus } from \"./types\";\nimport { orders } from \"./data\";\nimport { h } from \"vue\";\n\ndefineProps<{\n  onView: (order: Order) => void;\n  onCancel: (order: Order) => void;\n}>();\n\nconst statusLabels: Record<OrderStatus, string> = {\n  pending: \"Pending\",\n  processing: \"Processing\",\n  shipped: \"Shipped\",\n  delivered: \"Delivered\",\n  cancelled: \"Cancelled\",\n};\n\nconst statusClasses: Record<OrderStatus, string> = {\n  pending: \"bg-yellow-100 text-yellow-800\",\n  processing: \"bg-blue-100 text-blue-800\",\n  shipped: \"bg-purple-100 text-purple-800\",\n  delivered: \"bg-green-100 text-green-800\",\n  cancelled: \"bg-red-100 text-red-800\",\n};\n\nconst columns: Column<Order>[] = [\n  {\n    id: \"id\",\n    label: \"Order\",\n    isSortable: false,\n    cell: ({ row }) => {\n      const orderId = String(row.getValue(\"id\"));\n      return h(\n        \"span\",\n        { class: \"font-mono text-sm text-gray-900\" },\n        `#ORD-${orderId}`\n      );\n    },\n  },\n  {\n    id: \"customer\",\n    label: \"Customer\",\n    isSortable: true,\n  },\n  {\n    id: \"status\",\n    label: \"Status\",\n    cell: ({ row }) => {\n      const status = row.getValue(\"status\") as OrderStatus;\n      const label = statusLabels[status] || status;\n      const cls = statusClasses[status] || \"bg-gray-100 text-gray-800\";\n      return h(\n        \"span\",\n        {\n          class: `inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${cls}`,\n        },\n        label\n      );\n    },\n  },\n  {\n    id: \"items\",\n    label: \"Items\",\n    isSortable: true,\n  },\n  {\n    id: \"total\",\n    label: \"Total\",\n    isSortable: true,\n    cell: ({ row }) => {\n      const amount = Number.parseFloat(row.getValue(\"total\") as string);\n      const formatted = new Intl.NumberFormat(\"en-US\", {\n        style: \"currency\",\n        currency: \"USD\",\n      }).format(amount);\n      return h(\"div\", { class: \"text-right font-medium\" }, formatted);\n    },\n  },\n  {\n    id: \"date\",\n    label: \"Date\",\n    isSortable: true,\n    cell: ({ row }) => {\n      const rawDate = row.getValue(\"date\") as string;\n      const formatted = new Intl.DateTimeFormat(\"en-US\", {\n        dateStyle: \"medium\",\n      }).format(new Date(rawDate));\n      return h(\"span\", { class: \"text-sm text-gray-600\" }, formatted);\n    },\n  },\n  {\n    id: \"actions\",\n    cell: ({ row }) => [\n      h(\n        Button,\n        {\n          variant: \"ghost\",\n          size: \"sm\",\n          onClick: () => (onView as (o: Order) => void)(row.original),\n        },\n        () => \"View\"\n      ),\n      h(\n        Button,\n        {\n          variant: \"destructive\",\n          size: \"sm\",\n          onClick: () => (onCancel as (o: Order) => void)(row.original),\n        },\n        () => \"Cancel\"\n      ),\n    ],\n  },\n];\n</script>\n\n<template>\n  <DataTable\n    :columns=\"columns\"\n    :data=\"orders\"\n    :config=\"{ filter: true, filterModel: 'customer' }\"\n  />\n</template>",
+    "errors": []
+  },
+  {
+    "model": "qwen3.5:35b",
+    "fixture": "nuxt-dt-oneshot",
+    "timestamp": "2026-03-15T00:46:17.091017",
+    "run_number": 9,
+    "compiles": false,
+    "compilation_errors": [
+      "src/app.vue(9,6): error TS2345: Argument of type '{}' is not assignable to parameter of type '{ readonly onView: (order: Order) => void; readonly onCancel: (order: Order) => void; } & VNodeProps & AllowedComponentProps & ComponentCustomProps & Record<...>'.",
+      "src/orders/OrdersDataTable.vue(5,10): error TS1484: 'Order' is a type and must be imported using a type-only import when 'verbatimModuleSyntax' is enabled.",
+      "src/orders/OrdersDataTable.vue(5,17): error TS1484: 'OrderStatus' is a type and must be imported using a type-only import when 'verbatimModuleSyntax' is enabled.",
+      "src/orders/OrdersDataTable.vue(99,26): error TS2304: Cannot find name 'props'.",
+      "src/orders/OrdersDataTable.vue(108,26): error TS2304: Cannot find name 'props'.",
+      "src/orders/OrdersDataTable.vue(126,6): error TS2322: Type '{ filter: boolean; filterModel: string; }' is not assignable to type 'Config<keyof Order> | undefined'.",
+      "src/registration/components/RegistrationForm.vue(14,3): error TS1484: 'RegistrationFormValues' is a type and must be imported using a type-only import when 'verbatimModuleSyntax' is enabled."
+    ],
+    "compilation_warnings": [],
+    "pattern_score": 10.0,
+    "ast_missing": [],
+    "ast_checks": {
+      "script_lang": true,
+      "datatable_component": true,
+      "render_function": true,
+      "currency_formatter": true,
+      "date_formatter": true,
+      "status_badge": true,
+      "action_handlers": true,
+      "column_ids": true
+    },
+    "naming_score": 10.0,
+    "naming_violations": [],
+    "final_score": 5.0,
+    "scoring_weights": {
+      "compilation": 0.5,
+      "pattern_match": 0.4,
+      "naming": 0.1
+    },
+    "tokens_per_sec": 53.70201629322143,
+    "duration_sec": 89.810408117,
+    "output_code": "<script setup lang=\"ts\">\nimport { DataTable, Button } from \"elements\";\nimport { h } from \"vue\";\nimport type { Column } from \"elements\";\nimport { Order, OrderStatus } from \"./types\";\nimport { orders } from \"./data\";\n\ndefineProps<{\n  onView: (order: Order) => void;\n  onCancel: (order: Order) => void;\n}>();\n\nconst statusLabels: Record<OrderStatus, string> = {\n  pending: \"Pending\",\n  processing: \"Processing\",\n  shipped: \"Shipped\",\n  delivered: \"Delivered\",\n  cancelled: \"Cancelled\",\n};\n\nconst statusClasses: Record<OrderStatus, string> = {\n  pending: \"bg-yellow-100 text-yellow-800\",\n  processing: \"bg-blue-100 text-blue-800\",\n  shipped: \"bg-indigo-100 text-indigo-800\",\n  delivered: \"bg-green-100 text-green-800\",\n  cancelled: \"bg-red-100 text-red-800\",\n};\n\nconst columns: Column<Order>[] = [\n  {\n    id: \"id\",\n    label: \"Order\",\n    cell: ({ row }) => {\n      const orderId = row.getValue(\"id\") as string;\n      return h(\n        \"span\",\n        { class: \"font-mono text-sm text-gray-700\" },\n        `#ORD-${orderId}`\n      );\n    },\n  },\n  { id: \"customer\", label: \"Customer\", isSortable: true },\n  {\n    id: \"status\",\n    label: \"Status\",\n    cell: ({ row }) => {\n      const status = row.getValue(\"status\") as OrderStatus;\n      return h(\n        \"span\",\n        {\n          class: `inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${statusClasses[status]}`,\n        },\n        statusLabels[status]\n      );\n    },\n  },\n  {\n    id: \"items\",\n    label: \"Items\",\n    isSortable: true,\n    cell: ({ row }) => {\n      const count = row.getValue(\"items\") as number;\n      return h(\"div\", {}, count);\n    },\n  },\n  {\n    id: \"total\",\n    label: \"Total\",\n    isSortable: true,\n    cell: ({ row }) => {\n      const amount = Number.parseFloat(row.getValue(\"total\") as string);\n      const formatted = new Intl.NumberFormat(\"en-US\", {\n        style: \"currency\",\n        currency: \"USD\",\n      }).format(amount);\n      return h(\"div\", { class: \"text-right font-medium\" }, formatted);\n    },\n  },\n  {\n    id: \"date\",\n    label: \"Date\",\n    isSortable: true,\n    cell: ({ row }) => {\n      const rawDate = row.getValue(\"date\") as string;\n      const formatted = new Intl.DateTimeFormat(\"en-US\", {\n        dateStyle: \"medium\",\n      }).format(new Date(rawDate));\n      return h(\"span\", { class: \"text-sm text-gray-600\" }, formatted);\n    },\n  },\n  {\n    id: \"actions\",\n    cell: ({ row }) => [\n      h(\n        Button,\n        {\n          variant: \"ghost\",\n          size: \"sm\",\n          onClick: () => props.onView(row.original),\n        },\n        () => \"View\"\n      ),\n      h(\n        Button,\n        {\n          variant: \"destructive\",\n          size: \"sm\",\n          onClick: () => props.onCancel(row.original),\n        },\n        () => \"Cancel\"\n      ),\n    ],\n  },\n];\n\nconst config = {\n  filter: true,\n  filterModel: \"customer\",\n};\n</script>\n\n<template>\n  <DataTable\n    :columns=\"columns\"\n    :data=\"orders\"\n    :config=\"config\"\n  />\n</template>",
+    "errors": []
+  },
+  {
+    "model": "qwen3.5:35b",
+    "fixture": "nuxt-dt-oneshot",
+    "timestamp": "2026-03-15T00:47:50.773191",
+    "run_number": 10,
+    "compiles": false,
+    "compilation_errors": [
+      "src/app.vue(9,6): error TS2345: Argument of type '{}' is not assignable to parameter of type '{ readonly onView: (order: Order) => void; readonly onCancel: (order: Order) => void; } & VNodeProps & AllowedComponentProps & ComponentCustomProps & Record<...>'.",
+      "src/orders/OrdersDataTable.vue(7,10): error TS1484: 'Order' is a type and must be imported using a type-only import when 'verbatimModuleSyntax' is enabled.",
+      "src/orders/OrdersDataTable.vue(7,17): error TS1484: 'OrderStatus' is a type and must be imported using a type-only import when 'verbatimModuleSyntax' is enabled.",
+      "src/registration/components/RegistrationForm.vue(14,3): error TS1484: 'RegistrationFormValues' is a type and must be imported using a type-only import when 'verbatimModuleSyntax' is enabled."
+    ],
+    "compilation_warnings": [],
+    "pattern_score": 10.0,
+    "ast_missing": [],
+    "ast_checks": {
+      "script_lang": true,
+      "datatable_component": true,
+      "render_function": true,
+      "currency_formatter": true,
+      "date_formatter": true,
+      "status_badge": true,
+      "action_handlers": true,
+      "column_ids": true
+    },
+    "naming_score": 10.0,
+    "naming_violations": [],
+    "final_score": 5.0,
+    "scoring_weights": {
+      "compilation": 0.5,
+      "pattern_match": 0.4,
+      "naming": 0.1
+    },
+    "tokens_per_sec": 52.94674736153846,
+    "duration_sec": 171.077553417,
+    "output_code": "<script setup lang=\"ts\">\nimport { DataTable } from \"elements\";\nimport type { Column } from \"elements\";\nimport { Button } from \"elements\";\nimport { h } from \"vue\";\n\nimport { Order, OrderStatus } from \"./types\";\nimport { orders } from \"./data\";\n\ndefineProps<{\n  onView: (order: Order) => void;\n  onCancel: (order: Order) => void;\n}>();\n\n// Status lookup maps\nconst statusLabels: Record<string, string> = {\n  pending: \"Pending\",\n  shipped: \"Shipped\",\n  delivered: \"Delivered\",\n  cancelled: \"Cancelled\",\n};\n\nconst statusClasses: Record<string, string> = {\n  pending: \"bg-yellow-100 text-yellow-800\",\n  shipped: \"bg-blue-100 text-blue-800\",\n  delivered: \"bg-green-100 text-green-800\",\n  cancelled: \"bg-red-100 text-red-800\",\n};\n\nconst columns: Column<Order>[] = [\n  {\n    id: \"id\",\n    label: \"Order\",\n    isSortable: false,\n    cell: ({ row }) => {\n      const orderId = row.getValue(\"id\") as string;\n      return h(\"span\", { class: \"font-mono\" }, `#ORD-${orderId}`);\n    },\n  },\n  {\n    id: \"customer\",\n    label: \"Customer\",\n    isSortable: true,\n  },\n  {\n    id: \"status\",\n    label: \"Status\",\n    isSortable: false,\n    cell: ({ row }) => {\n      const status = row.getValue(\"status\") as OrderStatus;\n      const label = statusLabels[status] || \"Unknown\";\n      const classes = statusClasses[status] || \"bg-gray-100 text-gray-800\";\n      return h(\n        \"span\",\n        { class: `inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${classes}` },\n        label,\n      );\n    },\n  },\n  {\n    id: \"items\",\n    label: \"Items\",\n    isSortable: true,\n  },\n  {\n    id: \"total\",\n    label: \"Total\",\n    isSortable: true,\n    cell: ({ row }) => {\n      const amount = Number.parseFloat(row.getValue(\"total\") as string);\n      const formatted = new Intl.NumberFormat(\"en-US\", {\n        style: \"currency\",\n        currency: \"USD\",\n      }).format(amount);\n      return h(\"div\", { class: \"text-right font-medium\" }, formatted);\n    },\n  },\n  {\n    id: \"date\",\n    label: \"Date\",\n    isSortable: true,\n    cell: ({ row }) => {\n      const rawDate = row.getValue(\"date\") as string;\n      const formatted = new Intl.DateTimeFormat(\"en-US\", {\n        dateStyle: \"medium\",\n      }).format(new Date(rawDate));\n      return h(\"span\", { class: \"text-sm text-gray-600\" }, formatted);\n    },\n  },\n  {\n    id: \"actions\",\n    cell: ({ row }) => [\n      h(\n        Button,\n        {\n          variant: \"ghost\",\n          size: \"sm\",\n          onClick: () => props.onView(row.original),\n        },\n        () => \"View\",\n      ),\n      h(\n        Button,\n        {\n          variant: \"destructive\",\n          size: \"sm\",\n          onClick: () => props.onCancel(row.original),\n        },\n        () => \"Cancel\",\n      ),\n    ],\n  },\n];\n\nconst props = defineProps<{\n  onView: (order: Order) => void;\n  onCancel: (order: Order) => void;\n}>();\n</script>\n\n<template>\n  <DataTable\n    :columns=\"columns\"\n    :data=\"orders\"\n    :config=\"{ filter: true, filterModel: 'customer' }\"\n  />\n</template>",
+    "errors": []
+  }
+]
