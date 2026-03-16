@@ -29,11 +29,16 @@ Where `OrderColumnHandlers` is imported from `./types`.
 
 ### `OrdersDataTable.vue` props
 
+`onView` and `onCancel` are optional — the component is rendered as `<OrdersDataTable />` with no props in `app.vue`. Use `withDefaults`:
+
 ```ts
-defineProps<{
-  onView: (order: Order) => void;
-  onCancel: (order: Order) => void;
-}>()
+const props = withDefaults(defineProps<{
+  onView?: (order: Order) => void;
+  onCancel?: (order: Order) => void;
+}>(), {
+  onView: () => {},
+  onCancel: () => {},
+})
 ```
 
 ## How to use your tools

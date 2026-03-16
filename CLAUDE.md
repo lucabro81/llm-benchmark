@@ -297,6 +297,7 @@ New tasks must be registered in `_RUNNER_MAP` in [run_test.py](run_test.py).
 - **BM25 RAG**: use `BM25Plus` (not `BM25Okapi`) to avoid negative IDF on small corpora.
 - **`form_component` check**: uses `<Form(?=[\s\n>])` to avoid matching `<FormWrapper` etc. as false positives.
 - **DataTable target file**: `apps/web/src/orders/OrdersDataTable.vue`. Test J has 3 writable files: `types.ts`, `columns.ts`, `OrdersDataTable.vue` (all under `apps/web/src/orders/`).
+- **DataTable props are optional**: `app.vue` uses `<OrdersDataTable />` with no props. Models MUST use `withDefaults(defineProps<{ onView?, onCancel? }>(), { onView: () => {}, onCancel: () => {} })` — NOT required props. All prompts (F→J) specify this explicitly.
 - **Column renderers**: use Vue's `h()` render function (not JSX) — imported from `vue`. Required for currency/date formatters and the status badge cell.
 - **DataTable RAG docs**: `rag-docs-vue-elements-datatable/` shared by Tests I and J (analogous to `rag-docs-vue-elements-form/` for D and E).
 

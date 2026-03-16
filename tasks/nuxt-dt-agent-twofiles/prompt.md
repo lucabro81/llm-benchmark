@@ -32,11 +32,16 @@ import type { Order, OrderStatus, OrderColumnHandlers } from "./types";
 
 ### `OrdersDataTable.vue` props
 
+`onView` and `onCancel` are optional — the component is rendered as `<OrdersDataTable />` with no props in `app.vue`. Use `withDefaults`:
+
 ```ts
-defineProps<{
-  onView: (order: Order) => void;
-  onCancel: (order: Order) => void;
-}>()
+const props = withDefaults(defineProps<{
+  onView?: (order: Order) => void;
+  onCancel?: (order: Order) => void;
+}>(), {
+  onView: () => {},
+  onCancel: () => {},
+})
 ```
 
 ## How to use your tools
@@ -228,10 +233,10 @@ export const createColumns = (handlers: EmployeeColumnHandlers): Column<Employee
 
 ```vue
 <!--
-  EXAMPLE: Complete DataTable wrapper component with action handlers as props.
+  EXAMPLE: Complete DataTable wrapper component with optional action handler props.
 
   Pattern:
-  - defineProps with typed handler callbacks
+  - withDefaults(defineProps<{ onView?, onCancel? }>(), { ... }) for optional callbacks
   - Call createColumns(handlers) factory with props
   - Import data from a sibling file
   - Pass columns, data, config to <DataTable>
@@ -242,10 +247,13 @@ import { createColumns } from "./columns";
 import { orders } from "./data";
 import type { Order } from "./types";
 
-const props = defineProps<{
-  onView: (order: Order) => void;
-  onCancel: (order: Order) => void;
-}>();
+const props = withDefaults(defineProps<{
+  onView?: (order: Order) => void;
+  onCancel?: (order: Order) => void;
+}>(), {
+  onView: () => {},
+  onCancel: () => {},
+});
 
 const columns = createColumns({
   onView: props.onView,

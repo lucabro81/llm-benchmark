@@ -3,7 +3,7 @@
 // Import DataTable and Column from "elements", h from "vue".
 // Import Order, OrderStatus from "./types" and orders from "./data".
 // Define columns inline or via createColumns() from "./columns".
-// Props: onView: (order: Order) => void, onCancel: (order: Order) => void.
+// onView and onCancel are optional props with no-op defaults (component is used as <OrdersDataTable /> in app.vue).
 </script>
 
 <template>
